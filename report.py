@@ -95,12 +95,22 @@ def export_txt(report, filepath):
     lines.append("TIMELINE LOG")
     lines.append("------------")
     for entry in report["timeline"]:
-        lines.append(f"{entry['start']} -> {entry['end']}   {entry['app']}")
+        t_start = entry['start'].strftime("%H:%M:%S") if hasattr(entry['start'], 'strftime') else entry['start']
+        t_end = entry['end'].strftime("%H:%M:%S") if hasattr(entry['end'], 'strftime') else entry['end']
+        lines.append(f"{t_start} -> {t_end}   {entry['app']}")
     with open(filepath, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
 def export_json(report, filepath):
     """Export the report as a .json file."""
+    # Normalize timeline entries — may contain datetime objects from load_session_json
+    normalized_timeline = []
+    for t in report["timeline"]:
+        normalized_timeline.append({
+            "app": t["app"],
+            "start": t["start"].strftime("%H:%M:%S") if hasattr(t["start"], "strftime") else t["start"],
+            "end": t["end"].strftime("%H:%M:%S") if hasattr(t["end"], "strftime") else t["end"],
+        })
     export = {
         "session_name": report.get("session_name", ""),
         "app_exe_paths": report.get("app_exe_paths", {}),
@@ -110,7 +120,7 @@ def export_json(report, filepath):
         "total_seconds": report["total_seconds"],
         "counted_seconds": report["counted_seconds"],
         "apps": [{"name": a["name"], "seconds": a["seconds"], "excluded": a["excluded"]} for a in report["apps"]],
-        "timeline": report["timeline"],
+        "timeline": normalized_timeline,
         "hourly_rate": report.get("hourly_rate", 0.0),
         "currency_symbol": report.get("currency_symbol", "$"),
         "total_earned": report.get("total_earned", 0.0),
