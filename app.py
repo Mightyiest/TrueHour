@@ -530,6 +530,14 @@ class FocusLogApp:
                         self._show_report(rep, is_new=False)
                     except Exception as e:
                         messagebox.showerror("Error", f"Could not load: {e}", parent=win)
+                def _resume_from_file(p=filepath):
+                    if self.tracker.running:
+                        if not messagebox.askyesno("Active Session", "A session is currently running.\nStop it and resume this one?", parent=win):
+                            return
+                        self._on_stop()
+                    self._resume_session(p)
+                    win.destroy()
+                tk.Button(btn_frame, text="▶ Resume", bg=ACCENT, fg="white", font=(FONT_FAMILY, 8, "bold"), relief="flat", bd=0, padx=6, cursor="hand2", command=_resume_from_file).pack(side="left", padx=2)
                 tk.Button(btn_frame, text="View", bg=BG_WHITE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 8), relief="solid", bd=1, cursor="hand2", command=_open_report_local).pack(side="left", padx=2)
 
                 def _on_enter(e, r=row, bf=btn_frame, tf=title_frame, nl=name_lbl, dl=date_lbl):
@@ -547,6 +555,39 @@ class FocusLogApp:
         footer.pack(fill="x", padx=14, pady=(0, 14))
         tk.Button(footer, text="📊 Export All to CSV", bg=ACCENT, fg="white", font=(FONT_FAMILY, 9, "bold"), relief="flat", bd=0, padx=12, pady=6, cursor="hand2", command=self._export_csv_history).pack(side="left")
         tk.Button(footer, text="Close", bg=BG_WHITE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 9), relief="solid", bd=1, padx=12, pady=5, cursor="hand2", command=win.destroy).pack(side="right")
+
+    def _resume_session(self, filepath):
+        """Resume tracking from a saved session JSON file."""
+        try:
+            # Clear existing UI state
+            for widgets in self._row_widgets.values():
+                try: widgets['row'].destroy()
+                except: pass
+            for w in self.list_inner.winfo_children():
+                try: w.destroy()
+                except: pass
+            self._check_vars.clear()
+            self._photo_refs.clear()
+            self._row_widgets.clear()
+            self._showing_placeholder = True
+            self._last_app_state_hash = None
+
+            if not self.tracker.load_from_report(filepath):
+                messagebox.showerror("Error", "Failed to resume session. The file may be corrupted.")
+                return
+
+            # Update UI to reflect running state
+            self.start_btn.configure(state="disabled", bg=BG_HOVER, fg=TEXT_DISABLED, cursor="arrow")
+            self.pause_btn.configure(state="normal", bg=BG_SURFACE, fg=TEXT_PRIMARY, cursor="hand2", text="⏸ Pause")
+            self.stop_btn.configure(state="normal", bg=RED_STATUS, fg="white", cursor="hand2")
+            if self.hourly_rate > 0:
+                self.earnings_label.configure(text=f"💰 {self.currency_symbol}0.00 earned", fg=GREEN_STATUS)
+            self.active_label.configure(text=f"▶ Resumed: {self.tracker.session_name}", fg=GREEN_STATUS)
+            self._tick_clock()
+            self._refresh_app_list()
+            messagebox.showinfo("Session Resumed", f"Resumed session: {self.tracker.session_name}\nTracking is now active.")
+        except Exception as e:
+            messagebox.showerror("Resume Error", f"Could not resume session:\n{e}")
 
     def _load_app_settings(self):
         self.confirm_on_close = True
@@ -1015,7 +1056,10 @@ class FocusLogApp:
                 tr = tk.Frame(tl_frame, bg=rbg)
                 tr.pack(fill="x")
                 tr.columnconfigure(1, weight=1)
-                tk.Label(tr, text=f"{entry['start']} -> {entry['end']}", bg=rbg, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9), anchor="w").grid(row=0, column=0, padx=10, pady=3, sticky="w")
+                # Handle both string timestamps (from build_report_data) and datetime objects (from load_session_json)
+                t_start = entry['start'].strftime("%H:%M:%S") if hasattr(entry['start'], 'strftime') else entry['start']
+                t_end = entry['end'].strftime("%H:%M:%S") if hasattr(entry['end'], 'strftime') else entry['end']
+                tk.Label(tr, text=f"{t_start} -> {t_end}", bg=rbg, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9), anchor="w").grid(row=0, column=0, padx=10, pady=3, sticky="w")
                 tk.Label(tr, text=entry["app"], bg=rbg, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 10), anchor="w").grid(row=0, column=1, padx=10, pady=3, sticky="w")
         else:
             tk.Label(tl_frame, text="No timeline entries recorded.", bg=BG_WHITE, fg=TEXT_DISABLED, font=(FONT_FAMILY, 10)).pack(padx=10, pady=10)

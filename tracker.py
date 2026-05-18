@@ -501,8 +501,13 @@ class AppTracker:
                 
             self.timeline.clear()
             for t in rep['timeline']:
-                t_start = datetime.strptime(rep['date'] + " " + t['start'], "%Y-%m-%d %H:%M:%S")
-                t_end = datetime.strptime(rep['date'] + " " + t['end'], "%Y-%m-%d %H:%M:%S")
+                # load_session_json returns datetime objects; handle both formats
+                if isinstance(t['start'], datetime):
+                    t_start = t['start']
+                    t_end = t['end']
+                else:
+                    t_start = datetime.strptime(rep['date'] + " " + t['start'], "%Y-%m-%d %H:%M:%S")
+                    t_end = datetime.strptime(rep['date'] + " " + t['end'], "%Y-%m-%d %H:%M:%S")
                 
                 # Midnight crossover guard
                 if t_end <= t_start:
@@ -518,6 +523,12 @@ class AppTracker:
             self._current_start = None
             self._current_block_start = None
             self._current_block_active = 0
+            self.integrity_warnings = []
+            
+            # Initialize security detector for resumed session
+            reset_detector()
+            self.security_detector = get_detector()
+            self.security_detector.start_session()
             
             # Important: Adjust paused time so the timer respects the saved duration
             # (Now - Start) - Paused = Saved_Duration
@@ -527,6 +538,7 @@ class AppTracker:
             self.paused = False
             self._pause_start = None
             self.running = True
+            self.is_recovered = False
             self._last_save_time = time.time()
             self._thread = threading.Thread(target=self._poll_loop, daemon=True)
             self._thread.start()
