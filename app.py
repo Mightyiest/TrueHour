@@ -559,6 +559,11 @@ class FocusLogApp:
     def _resume_session(self, filepath):
         """Resume tracking from a saved session JSON file."""
         try:
+            # Cancel any existing clock ticker to prevent duplicate loops
+            if self._update_clock_id:
+                self.root.after_cancel(self._update_clock_id)
+                self._update_clock_id = None
+
             # Clear existing UI state
             for widgets in self._row_widgets.values():
                 try: widgets['row'].destroy()
@@ -963,6 +968,8 @@ class FocusLogApp:
         if os.path.exists(ICON_PATH):
             try: win.iconbitmap(ICON_PATH)
             except: pass
+        win.lift()
+        win.focus_force()
 
         hdr = tk.Frame(win, bg=BG_WHITE, height=44)
         hdr.pack(fill="x")
@@ -1066,8 +1073,11 @@ class FocusLogApp:
         btn_row = tk.Frame(body, bg=BG_SURFACE)
         btn_row.pack(pady=18, padx=px)
         def export_with_name(fmt):
-            new_name = report_name_entry.get().strip()
-            if new_name: report['session_name'] = new_name
+            try:
+                new_name = report_name_entry.get().strip()
+                if new_name: report['session_name'] = new_name
+            except Exception:
+                pass
             self._export(report, fmt)
         tk.Button(btn_row, text="Export .txt", bg=ACCENT, fg="white", activebackground=ACCENT_HOVER, activeforeground="white", font=(FONT_FAMILY, 10, "bold"), bd=0, padx=20, pady=6, cursor="hand2", relief="flat", command=lambda: export_with_name("txt")).pack(side="left", padx=5)
         tk.Button(btn_row, text="Export .json", bg=ACCENT, fg="white", activebackground=ACCENT_HOVER, activeforeground="white", font=(FONT_FAMILY, 10, "bold"), bd=0, padx=20, pady=6, cursor="hand2", relief="flat", command=lambda: export_with_name("json")).pack(side="left", padx=5)
