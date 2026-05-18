@@ -1001,6 +1001,24 @@ class FocusLogApp:
         if is_live:
             tk.Label(name_bar, text=f"🕒 Snapshot: {datetime.now().strftime('%H:%M:%S')} • Tracking continues...", bg=BG_WHITE, fg=ORANGE, font=(FONT_FAMILY, 8)).pack(side="right", padx=14, pady=10)
 
+        # ── Export Footer (FIXED outside scrollable area — always visible) ──
+        export_footer = tk.Frame(win, bg=BG_WHITE, height=50)
+        export_footer.pack(side="bottom", fill="x")
+        export_footer.pack_propagate(False)
+        tk.Frame(win, bg=BORDER, height=1).pack(side="bottom", fill="x")
+
+        def export_with_name(fmt):
+            try:
+                new_name = report_name_entry.get().strip()
+                if new_name: report['session_name'] = new_name
+            except Exception:
+                pass
+            self._export(report, fmt)
+        tk.Button(export_footer, text="Export .txt", bg=ACCENT, fg="white", activebackground=ACCENT_HOVER, activeforeground="white", font=(FONT_FAMILY, 10, "bold"), bd=0, padx=16, pady=6, cursor="hand2", relief="flat", command=lambda: export_with_name("txt")).pack(side="left", padx=(20, 5), pady=8)
+        tk.Button(export_footer, text="Export .json", bg=ACCENT, fg="white", activebackground=ACCENT_HOVER, activeforeground="white", font=(FONT_FAMILY, 10, "bold"), bd=0, padx=16, pady=6, cursor="hand2", relief="flat", command=lambda: export_with_name("json")).pack(side="left", padx=5, pady=8)
+        tk.Button(export_footer, text="Export .csv", bg=ACCENT, fg="white", activebackground=ACCENT_HOVER, activeforeground="white", font=(FONT_FAMILY, 10, "bold"), bd=0, padx=16, pady=6, cursor="hand2", relief="flat", command=lambda: export_with_name("csv")).pack(side="left", padx=5, pady=8)
+
+        # ── Scrollable Body ───────────────────────────────────────────────
         body_canvas = tk.Canvas(win, bg=BG_SURFACE, bd=0, highlightthickness=0)
         body_sb = ttk.Scrollbar(win, orient="vertical", command=body_canvas.yview)
         body = tk.Frame(body_canvas, bg=BG_SURFACE)
@@ -1029,6 +1047,10 @@ class FocusLogApp:
             tk.Label(earned_frame, text="💰 Total Earned: ", bg=ACCENT_LIGHT, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 10)).pack(side="left", padx=10, pady=6)
             tk.Label(earned_frame, text=report["total_earned_display"], bg=ACCENT_LIGHT, fg=GREEN_STATUS, font=(FONT_FAMILY, 16, "bold")).pack(side="left", padx=6)
             tk.Label(earned_frame, text=f"@ {report['currency_symbol']}{report['hourly_rate']:.2f}/hr", bg=ACCENT_LIGHT, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9)).pack(side="left", padx=6)
+
+        # ── App Breakdown (limited to 7 by default) ───────────────────────
+        MAX_APPS_VISIBLE = 7
+        all_apps = report["apps"]
         tk.Label(body, text="App Breakdown", bg=BG_SURFACE, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 10, "bold")).pack(anchor="w", padx=px + 4, pady=(12, 6))
         tbl = tk.Frame(body, bg=BG_WHITE, highlightthickness=1, highlightbackground=BORDER)
         tbl.pack(fill="x", padx=px)
@@ -1041,47 +1063,88 @@ class FocusLogApp:
             if w: lbl.configure(width=w)
             lbl.grid(row=0, column=col, padx=10, pady=6, sticky="ew" if col == 0 else "e")
         th.columnconfigure(0, weight=1)
-        for i, app in enumerate(report["apps"]):
-            rbg = BG_WHITE if i % 2 == 0 else BG_SURFACE
-            r = tk.Frame(tbl, bg=rbg)
-            r.pack(fill="x")
-            r.columnconfigure(0, weight=1)
-            excluded = app["excluded"]
-            fg = TEXT_PRIMARY if not excluded else TEXT_DISABLED
-            st_text = "✓ Counted" if not excluded else "✗ Excluded"
-            st_fg = GREEN_STATUS if not excluded else RED_STATUS
-            tk.Label(r, text=app["name"], bg=rbg, fg=fg, font=(FONT_FAMILY, 10), anchor="w").grid(row=0, column=0, padx=10, pady=4, sticky="ew")
-            tk.Label(r, text=app["formatted"], bg=rbg, fg=fg, font=(FONT_FAMILY, 10), anchor="e", width=12).grid(row=0, column=1, padx=10, pady=4, sticky="e")
-            tk.Label(r, text=f"{app['percent']:.0f}%", bg=rbg, fg=fg, font=(FONT_FAMILY, 10), anchor="e", width=6).grid(row=0, column=2, padx=10, pady=4, sticky="e")
-            tk.Label(r, text=st_text, bg=rbg, fg=st_fg, font=(FONT_FAMILY, 9), anchor="e", width=10).grid(row=0, column=3, padx=10, pady=4, sticky="e")
+
+        app_rows_container = tk.Frame(tbl, bg=BG_WHITE)
+        app_rows_container.pack(fill="x")
+
+        def _render_app_rows(show_all=False):
+            for w in app_rows_container.winfo_children():
+                w.destroy()
+            visible_apps = all_apps if show_all else all_apps[:MAX_APPS_VISIBLE]
+            for i, app in enumerate(visible_apps):
+                rbg = BG_WHITE if i % 2 == 0 else BG_SURFACE
+                r = tk.Frame(app_rows_container, bg=rbg)
+                r.pack(fill="x")
+                r.columnconfigure(0, weight=1)
+                excluded = app["excluded"]
+                fg = TEXT_PRIMARY if not excluded else TEXT_DISABLED
+                st_text = "✓ Counted" if not excluded else "✗ Excluded"
+                st_fg = GREEN_STATUS if not excluded else RED_STATUS
+                tk.Label(r, text=app["name"], bg=rbg, fg=fg, font=(FONT_FAMILY, 10), anchor="w").grid(row=0, column=0, padx=10, pady=4, sticky="ew")
+                tk.Label(r, text=app["formatted"], bg=rbg, fg=fg, font=(FONT_FAMILY, 10), anchor="e", width=12).grid(row=0, column=1, padx=10, pady=4, sticky="e")
+                tk.Label(r, text=f"{app['percent']:.0f}%", bg=rbg, fg=fg, font=(FONT_FAMILY, 10), anchor="e", width=6).grid(row=0, column=2, padx=10, pady=4, sticky="e")
+                tk.Label(r, text=st_text, bg=rbg, fg=st_fg, font=(FONT_FAMILY, 9), anchor="e", width=10).grid(row=0, column=3, padx=10, pady=4, sticky="e")
+
+        _render_app_rows(show_all=False)
+
+        # "Show all / Show less" toggle if more than MAX_APPS_VISIBLE
+        if len(all_apps) > MAX_APPS_VISIBLE:
+            toggle_frame = tk.Frame(tbl, bg=BG_WHITE)
+            toggle_frame.pack(fill="x")
+            remaining = len(all_apps) - MAX_APPS_VISIBLE
+            def _toggle_apps():
+                is_expanded = toggle_btn.cget("text").startswith("▲")
+                if is_expanded:
+                    _render_app_rows(show_all=False)
+                    toggle_btn.configure(text=f"▼ Show all ({remaining} more)")
+                else:
+                    _render_app_rows(show_all=True)
+                    toggle_btn.configure(text="▲ Show less")
+            toggle_btn = tk.Button(toggle_frame, text=f"▼ Show all ({remaining} more)", bg=BG_WHITE, fg=ACCENT, activebackground=BG_HOVER, activeforeground=ACCENT_HOVER, font=(FONT_FAMILY, 9, "underline"), bd=0, cursor="hand2", relief="flat", command=_toggle_apps)
+            toggle_btn.pack(pady=6)
+
+        # ── Timeline (limited to 20 by default) ──────────────────────────
+        MAX_TIMELINE_VISIBLE = 20
+        all_timeline = report["timeline"]
         tk.Label(body, text="Timeline", bg=BG_SURFACE, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 10, "bold")).pack(anchor="w", padx=px + 4, pady=(14, 6))
         tl_frame = tk.Frame(body, bg=BG_WHITE, highlightthickness=1, highlightbackground=BORDER)
         tl_frame.pack(fill="x", padx=px)
-        if report["timeline"]:
-            for i, entry in enumerate(report["timeline"]):
-                rbg = BG_WHITE if i % 2 == 0 else BG_SURFACE
-                tr = tk.Frame(tl_frame, bg=rbg)
-                tr.pack(fill="x")
-                tr.columnconfigure(1, weight=1)
-                # Handle both string timestamps (from build_report_data) and datetime objects (from load_session_json)
-                t_start = entry['start'].strftime("%H:%M:%S") if hasattr(entry['start'], 'strftime') else entry['start']
-                t_end = entry['end'].strftime("%H:%M:%S") if hasattr(entry['end'], 'strftime') else entry['end']
-                tk.Label(tr, text=f"{t_start} -> {t_end}", bg=rbg, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9), anchor="w").grid(row=0, column=0, padx=10, pady=3, sticky="w")
-                tk.Label(tr, text=entry["app"], bg=rbg, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 10), anchor="w").grid(row=0, column=1, padx=10, pady=3, sticky="w")
+        if all_timeline:
+            tl_rows_container = tk.Frame(tl_frame, bg=BG_WHITE)
+            tl_rows_container.pack(fill="x")
+
+            def _render_timeline_rows(show_all=False):
+                for w in tl_rows_container.winfo_children():
+                    w.destroy()
+                visible = all_timeline if show_all else all_timeline[:MAX_TIMELINE_VISIBLE]
+                for i, entry in enumerate(visible):
+                    rbg = BG_WHITE if i % 2 == 0 else BG_SURFACE
+                    tr = tk.Frame(tl_rows_container, bg=rbg)
+                    tr.pack(fill="x")
+                    tr.columnconfigure(1, weight=1)
+                    t_start = entry['start'].strftime("%H:%M:%S") if hasattr(entry['start'], 'strftime') else entry['start']
+                    t_end = entry['end'].strftime("%H:%M:%S") if hasattr(entry['end'], 'strftime') else entry['end']
+                    tk.Label(tr, text=f"{t_start} -> {t_end}", bg=rbg, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9), anchor="w").grid(row=0, column=0, padx=10, pady=3, sticky="w")
+                    tk.Label(tr, text=entry["app"], bg=rbg, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 10), anchor="w").grid(row=0, column=1, padx=10, pady=3, sticky="w")
+
+            _render_timeline_rows(show_all=False)
+
+            if len(all_timeline) > MAX_TIMELINE_VISIBLE:
+                tl_toggle_frame = tk.Frame(tl_frame, bg=BG_WHITE)
+                tl_toggle_frame.pack(fill="x")
+                tl_remaining = len(all_timeline) - MAX_TIMELINE_VISIBLE
+                def _toggle_timeline():
+                    is_expanded = tl_toggle_btn.cget("text").startswith("▲")
+                    if is_expanded:
+                        _render_timeline_rows(show_all=False)
+                        tl_toggle_btn.configure(text=f"▼ Show all ({tl_remaining} more)")
+                    else:
+                        _render_timeline_rows(show_all=True)
+                        tl_toggle_btn.configure(text="▲ Show less")
+                tl_toggle_btn = tk.Button(tl_toggle_frame, text=f"▼ Show all ({tl_remaining} more)", bg=BG_WHITE, fg=ACCENT, activebackground=BG_HOVER, activeforeground=ACCENT_HOVER, font=(FONT_FAMILY, 9, "underline"), bd=0, cursor="hand2", relief="flat", command=_toggle_timeline)
+                tl_toggle_btn.pack(pady=6)
         else:
             tk.Label(tl_frame, text="No timeline entries recorded.", bg=BG_WHITE, fg=TEXT_DISABLED, font=(FONT_FAMILY, 10)).pack(padx=10, pady=10)
-        btn_row = tk.Frame(body, bg=BG_SURFACE)
-        btn_row.pack(pady=18, padx=px)
-        def export_with_name(fmt):
-            try:
-                new_name = report_name_entry.get().strip()
-                if new_name: report['session_name'] = new_name
-            except Exception:
-                pass
-            self._export(report, fmt)
-        tk.Button(btn_row, text="Export .txt", bg=ACCENT, fg="white", activebackground=ACCENT_HOVER, activeforeground="white", font=(FONT_FAMILY, 10, "bold"), bd=0, padx=20, pady=6, cursor="hand2", relief="flat", command=lambda: export_with_name("txt")).pack(side="left", padx=5)
-        tk.Button(btn_row, text="Export .json", bg=ACCENT, fg="white", activebackground=ACCENT_HOVER, activeforeground="white", font=(FONT_FAMILY, 10, "bold"), bd=0, padx=20, pady=6, cursor="hand2", relief="flat", command=lambda: export_with_name("json")).pack(side="left", padx=5)
-        tk.Button(btn_row, text="Export .csv", bg=ACCENT, fg="white", activebackground=ACCENT_HOVER, activeforeground="white", font=(FONT_FAMILY, 10, "bold"), bd=0, padx=20, pady=6, cursor="hand2", relief="flat", command=lambda: export_with_name("csv")).pack(side="left", padx=5)
 
     def _export(self, report, fmt):
         if fmt == "txt": path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt")], initialfile=f"focuslog_{report['date']}.txt")
