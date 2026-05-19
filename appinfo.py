@@ -90,9 +90,7 @@ def resolve_name(exe_path, base_name):
 def _get_file_description(exe_path):
     """Extract FileDescription from an executable's version info."""
     try:
-        info = win32api.GetFileVersionInfo(exe_path, "\\")
-        translations = info['VarFileInfo']['Translation'][0]
-        lang, codepage = translations
+        lang, codepage = win32api.GetFileVersionInfo(exe_path, '\\VarFileInfo\\Translation')[0]
         path = f'\\StringFileInfo\\{lang:04X}{codepage:04X}\\FileDescription'
         desc = win32api.GetFileVersionInfo(exe_path, path)
         if desc and desc.strip():

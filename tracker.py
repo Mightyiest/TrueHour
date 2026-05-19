@@ -741,15 +741,15 @@ class AppTracker:
             app, exe_path = get_foreground_app_info()
             now = time.time()
 
-            # Completely skip auto-excluded apps — do not record, do not store.
-            # Instead, we "pretend" the last real app is still focused.
-            # This ensures time keeps accumulating on the real app and the UI stays alive.
-            if _is_auto_excluded(exe_path):
-                app = self._current_app
-
             should_callback = (now - last_callback_time) >= callback_interval
             
             with self._lock:
+                # Completely skip auto-excluded apps — do not record, do not store.
+                # Instead, we "pretend" the last real app is still focused.
+                # This ensures time keeps accumulating on the real app and the UI stays alive.
+                if _is_auto_excluded(exe_path):
+                    app = self._current_app
+
                 if app != self._current_app:
                     self._flush_current_unlocked(now)
                     self._current_app = app
@@ -848,5 +848,5 @@ class AppTracker:
             with open(temp_file, "w", encoding="utf-8") as f:
                 json.dump(state, f)
             os.replace(temp_file, ACTIVE_SESSION_FILE)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to save active state: {e}")
