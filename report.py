@@ -42,8 +42,12 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$"):
             "excluded": not included,
         })
 
+    # Snapshot timeline under the lock to prevent concurrent modification
+    with tracker._lock:
+        timeline_snapshot = list(tracker.timeline)
+
     timeline = []
-    for entry in tracker.timeline:
+    for entry in timeline_snapshot:
         if entry["app"] == "[Idle]":
             continue
         timeline.append({
@@ -155,6 +159,10 @@ def load_session_json(filepath):
         data = json.load(f)
     start_dt = datetime.strptime(data['date'] + " " + data['start'], "%Y-%m-%d %H:%M:%S")
     end_dt = datetime.strptime(data['date'] + " " + data['end'], "%Y-%m-%d %H:%M:%S")
+    
+    # Midnight crossover guard for session bounds
+    if end_dt <= start_dt:
+        end_dt += timedelta(days=1)
     
     apps = []
     for a in data['apps']:

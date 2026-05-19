@@ -20,6 +20,7 @@ from report import (
     export_txt, export_json, export_csv, export_csv_history,
     save_to_autosave, save_to_history, load_session_json,
 )
+from version import VERSION_SHORT, VERSION_FULL
 
 # ── Force Windows to use Light Mode for this Tkinter app ──────────────
 # Prevents native dialogs (filedialog, messagebox) from inheriting Dark Mode
@@ -257,6 +258,11 @@ class FocusLogApp:
         tk.Label(footer, text="Total work time", bg=BG_WHITE, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9)).grid(row=0, column=0, padx=12, pady=10, sticky="w")
         self.total_label = tk.Label(footer, text="0h 00m 00s", bg=BG_WHITE, fg=ACCENT, font=(FONT_FAMILY, 11, "bold"))
         self.total_label.grid(row=0, column=1, padx=12, pady=10, sticky="e")
+
+        # ── Version Bar ──────────────────────────────────────────────
+        version_bar = tk.Frame(main, bg=BG_SURFACE)
+        version_bar.grid(row=5, column=0, sticky="ew", padx=12, pady=(0, 4))
+        tk.Label(version_bar, text=VERSION_FULL, bg=BG_SURFACE, fg=TEXT_DISABLED, font=(FONT_FAMILY, 7)).pack(anchor="center")
 
         self._check_vars = {}
         self._photo_refs = []
@@ -612,7 +618,8 @@ class FocusLogApp:
                     self.hourly_rate = float(data.get("hourly_rate", 0.0))
                     self.tracker.min_track_seconds = self.min_track_seconds
                     self.tracker.save_interval = self.auto_save_seconds
-            except: pass
+            except (json.JSONDecodeError, ValueError, OSError) as e:
+                print(f"[FocusLog] Failed to load app settings: {e}")
 
     def _save_app_settings(self):
         try:
@@ -620,7 +627,8 @@ class FocusLogApp:
             if dirpath: os.makedirs(dirpath, exist_ok=True)
             with open(APP_SETTINGS_FILE, "w") as f:
                 json.dump({"confirm_on_close": self.confirm_on_close, "min_track_seconds": self.min_track_seconds, "auto_save_seconds": self.auto_save_seconds, "currency_symbol": self.currency_symbol, "hourly_rate": self.hourly_rate}, f)
-        except: pass
+        except (ValueError, OSError) as e:
+            print(f"[FocusLog] Failed to save app settings: {e}")
 
     def _show_settings(self):
         win = tk.Toplevel(self.root)
