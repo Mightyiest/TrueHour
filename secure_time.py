@@ -379,21 +379,20 @@ class TimeTamperDetector:
         }
 
 
-# Global instance for use across modules
-_detector_instance = None
+    _instance = None
+    
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+        
+    @classmethod
+    def reset_instance(cls):
+        if cls._instance:
+            cls._instance.end_session()
+        cls._instance = cls()
 
-
-def get_detector():
-    """Get or create the global TimeTamperDetector instance."""
-    global _detector_instance
-    if _detector_instance is None:
-        _detector_instance = TimeTamperDetector()
-    return _detector_instance
-
-
-def reset_detector():
-    """Reset the global detector (for testing or new sessions)."""
-    global _detector_instance
-    if _detector_instance:
-        _detector_instance.end_session()
-    _detector_instance = TimeTamperDetector()
+# Backwards compatible aliases for existing code
+get_detector = TimeTamperDetector.get_instance
+reset_detector = TimeTamperDetector.reset_instance

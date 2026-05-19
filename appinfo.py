@@ -11,6 +11,7 @@ import psutil
 from PIL import Image
 import os
 import logging
+from functools import lru_cache
 from config import get_app_data_dir
 
 # Configure logging for security events
@@ -24,7 +25,6 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 _name_cache = {}
-_icon_cache = {}
 OVERRIDES_FILE = os.path.join(get_app_data_dir(), "name_overrides.txt")
 _NAME_OVERRIDES = {}
 
@@ -99,12 +99,10 @@ def _get_file_description(exe_path):
         logger.debug(f"Failed to get file description for {exe_path}: {e}")
     return None
 
-def get_icon_image(exe_path, size=16):
+@lru_cache(maxsize=128)
+def get_icon_image(exe_path: str, size: int = 16):
     if not exe_path: return None
-    if exe_path in _icon_cache: return _icon_cache[exe_path]
-    img = _extract_icon(exe_path, size)
-    _icon_cache[exe_path] = img
-    return img
+    return _extract_icon(exe_path, size)
 
 def _extract_icon(exe_path, size=16):
     try:

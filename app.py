@@ -61,8 +61,44 @@ else:
 ICON_PATH = os.path.join(ICON_DIR, "icon.ico")
 APP_SETTINGS_FILE = os.path.join(get_app_data_dir(), "app_settings.json")
 
+class HeaderBar(tk.Frame):
+    """Modular Header Bar UI Component."""
+    def __init__(self, parent, cmd_report, cmd_sessions, cmd_settings):
+        super().__init__(parent, bg=BG_WHITE, height=44)
+        self.grid_propagate(False)
+        self.columnconfigure(1, weight=1)
+
+        logo_frame = tk.Frame(self, bg=BG_WHITE)
+        logo_frame.grid(row=0, column=0, padx=14, pady=10, sticky="w")
+        tk.Label(logo_frame, text="📊 FocusLog", bg=BG_WHITE, fg=ACCENT, font=(FONT_FAMILY, 14, "bold")).pack(side="left")
+
+        self.live_report_btn = tk.Button(self, text="📊 View Report", bg=BG_WHITE, fg=ACCENT,
+                                         font=(FONT_FAMILY, 9, "bold"), bd=0, relief="flat", 
+                                         cursor="hand2", command=cmd_report)
+        self.live_report_btn.grid(row=0, column=2, padx=4, pady=10, sticky="e")
+
+        self.sessions_btn = tk.Button(self, text="📂", bg=BG_WHITE, fg=TEXT_SECONDARY, 
+                                      font=(FONT_FAMILY, 12), bd=0, relief="flat", 
+                                      cursor="hand2", command=cmd_sessions)
+        self.sessions_btn.grid(row=0, column=3, padx=4, pady=10, sticky="e")
+
+        self.settings_btn = tk.Button(self, text="⚙", bg=BG_WHITE, fg=TEXT_SECONDARY, 
+                                      font=(FONT_FAMILY, 12), bd=0, relief="flat", 
+                                      cursor="hand2", command=cmd_settings)
+        self.settings_btn.grid(row=0, column=4, padx=(0, 14), pady=10, sticky="e")
+
 class FocusLogApp:
     """Main application window — Windows 11 light theme."""
+    
+    @property
+    def live_report_btn(self): return self.header.live_report_btn
+    
+    @property
+    def sessions_btn(self): return self.header.sessions_btn
+    
+    @property
+    def settings_btn(self): return self.header.settings_btn
+
     
     def _center_window(self, win, width, height):
         win.update_idletasks()
@@ -160,29 +196,13 @@ class FocusLogApp:
         main.rowconfigure(3, weight=1)
 
         # ── Header Bar ──────────────────────────────────────────────
-        hdr = tk.Frame(main, bg=BG_WHITE, height=44)
-        hdr.grid(row=0, column=0, sticky="ew")
-        hdr.grid_propagate(False)
-        hdr.columnconfigure(1, weight=1)
-
-        logo_frame = tk.Frame(hdr, bg=BG_WHITE)
-        logo_frame.grid(row=0, column=0, padx=14, pady=10, sticky="w")
-        tk.Label(logo_frame, text="📊 FocusLog", bg=BG_WHITE, fg=ACCENT, font=(FONT_FAMILY, 14, "bold")).pack(side="left")
-
-        self.live_report_btn = tk.Button(hdr, text="📊 View Report", bg=BG_WHITE, fg=ACCENT,
-                                         font=(FONT_FAMILY, 9, "bold"), bd=0, relief="flat", 
-                                         cursor="hand2", command=self._show_live_report)
-        self.live_report_btn.grid(row=0, column=2, padx=4, pady=10, sticky="e")
-
-        self.sessions_btn = tk.Button(hdr, text="📂", bg=BG_WHITE, fg=TEXT_SECONDARY, 
-                                      font=(FONT_FAMILY, 12), bd=0, relief="flat", 
-                                      cursor="hand2", command=self._show_session_manager)
-        self.sessions_btn.grid(row=0, column=3, padx=4, pady=10, sticky="e")
-
-        self.settings_btn = tk.Button(hdr, text="⚙", bg=BG_WHITE, fg=TEXT_SECONDARY, 
-                                      font=(FONT_FAMILY, 12), bd=0, relief="flat", 
-                                      cursor="hand2", command=self._show_settings)
-        self.settings_btn.grid(row=0, column=4, padx=(0, 14), pady=10, sticky="e")
+        self.header = HeaderBar(
+            main, 
+            cmd_report=self._show_live_report,
+            cmd_sessions=self._show_session_manager,
+            cmd_settings=self._show_settings
+        )
+        self.header.grid(row=0, column=0, sticky="ew")
 
         tk.Frame(main, bg=BORDER, height=1).grid(row=1, column=0, sticky="ew")
 

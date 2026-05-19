@@ -236,6 +236,39 @@ SETTINGS_FILE = os.path.join(get_app_data_dir(), "settings.json")
 
 
 
+class SessionStorage:
+    """Handles serialization and persistence of tracking sessions."""
+    @staticmethod
+    def save_state(tracker: 'AppTracker', filepath: str):
+        try:
+            with tracker._lock:
+                state = {
+                    "session_start": tracker.session_start.timestamp() if tracker.session_start else None,
+                    "session_name": tracker.session_name,
+                    "app_times": tracker.app_times.copy(),
+                    "app_included": tracker.app_included.copy(),
+                    "app_exe_paths": tracker.app_exe_paths.copy(),
+                    "timeline": [
+                        {"app": t["app"], "start": t["start"].timestamp(), "end": t["end"].timestamp()}
+                        for t in tracker.timeline
+                    ],
+                    "paused": tracker.paused,
+                    "_pause_start": tracker._pause_start,
+                    "_total_paused_time": tracker._total_paused_time,
+                    "_current_app": tracker._current_app,
+                    "_current_start": tracker._current_start,
+                    "_current_block_start": tracker._current_block_start,
+                    "_current_block_active": tracker._current_block_active
+                }
+            
+            # Atomic file swap
+            temp_file = filepath + ".tmp"
+            with open(temp_file, "w", encoding="utf-8") as f:
+                json.dump(state, f)
+            os.replace(temp_file, filepath)
+        except Exception as e:
+            logger.warning(f"Failed to save active state: {e}")
+
 class AppTracker:
     """Tracks which application is in the foreground and for how long."""
 
@@ -822,31 +855,4 @@ class AppTracker:
             time.sleep(self.poll_interval)
 
     def _save_active_state(self):
-        try:
-            with self._lock:
-                state = {
-                    "session_start": self.session_start.timestamp() if self.session_start else None,
-                    "session_name": self.session_name,
-                    "app_times": self.app_times.copy(),
-                    "app_included": self.app_included.copy(),
-                    "app_exe_paths": self.app_exe_paths.copy(),
-                    "timeline": [
-                        {"app": t["app"], "start": t["start"].timestamp(), "end": t["end"].timestamp()}
-                        for t in self.timeline
-                    ],
-                    "paused": self.paused,
-                    "_pause_start": self._pause_start,
-                    "_total_paused_time": self._total_paused_time,
-                    "_current_app": self._current_app,
-                    "_current_start": self._current_start,
-                    "_current_block_start": self._current_block_start,
-                    "_current_block_active": self._current_block_active
-                }
-            
-            # Atomic file swap
-            temp_file = ACTIVE_SESSION_FILE + ".tmp"
-            with open(temp_file, "w", encoding="utf-8") as f:
-                json.dump(state, f)
-            os.replace(temp_file, ACTIVE_SESSION_FILE)
-        except Exception as e:
-            logger.warning(f"Failed to save active state: {e}")
+        SessionStorage.save_state(self, ACTIVE_SESSION_FILE)

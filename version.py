@@ -3,10 +3,24 @@ FocusLog — Version Information.
 Single source of truth for version and build metadata.
 """
 
-VERSION = "1.0.0"
-BUILD_DATE = "2026.05.19"
-BUILD_NUMBER = 1
+from dataclasses import dataclass
 
-# Display strings
-VERSION_SHORT = f"v{VERSION}"
-VERSION_FULL = f"v{VERSION} · Build {BUILD_DATE}"
+__version__ = "1.0.1"
+
+@dataclass(frozen=True)
+class VersionInfo:
+    version: str
+    build_date: str
+    build_number: int
+
+    @property
+    def short(self) -> str:
+        return f"v{self.version}"
+
+    @property
+    def full(self) -> str:
+        return f"v{self.version} · Build {self.build_date}"
+
+INFO = VersionInfo(version=__version__, build_date="2026.05.19", build_number=2)
+VERSION_SHORT = INFO.short
+VERSION_FULL = INFO.full

@@ -5,6 +5,7 @@ import json
 import os
 import csv
 from datetime import datetime, timedelta
+from typing import TypedDict, List
 from config import get_app_data_dir
 
 def format_duration(total_seconds):
@@ -23,7 +24,40 @@ def format_duration_hms(total_seconds):
     s = total_seconds % 60
     return f"{h:02d}:{m:02d}:{s:02d}"
 
-def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$"):
+class AppUsage(TypedDict):
+    name: str
+    seconds: int
+    formatted: str
+    percent: float
+    excluded: bool
+
+class TimelineEntry(TypedDict):
+    app: str
+    start: str
+    end: str
+
+class ReportData(TypedDict):
+    date: str
+    date_display: str
+    start: str
+    start_display: str
+    end: str
+    end_display: str
+    total_seconds: int
+    total_formatted: str
+    counted_seconds: int
+    counted_formatted: str
+    apps: List[AppUsage]
+    timeline: List[TimelineEntry]
+    is_recovered: bool
+    session_name: str
+    app_exe_paths: dict
+    hourly_rate: float
+    currency_symbol: str
+    total_earned: float
+    total_earned_display: str
+
+def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportData:
     """Build a structured dict from the tracker's session data."""
     session_start = tracker.session_start
     session_end = tracker.session_end or datetime.now()
