@@ -233,6 +233,187 @@ _create_auto_excluded_if_missing()
 _load_auto_excluded()
 
 SETTINGS_FILE = os.path.join(get_app_data_dir(), "settings.json")
+TAGS_FILE = os.path.join(get_app_data_dir(), "tags.json")
+
+
+class TagManager:
+    """Manages application project/category tags locally and thread-safely."""
+    DEFAULT_PROJECTS = ["Development", "Design", "Research", "Documentation", "Communication", "Management", "Unassigned"]
+    
+    # Offline keyword lists
+    KEYWORDS = {
+        "Development": ["code", "studio", "compiler", "ide", "git", "docker", "sublime", "debugger", "terminal", "powershell", "python", "node", "npm", "cargo", "msbuild", "visual studio", "pycharm", "intellij", "vscode"],
+        "Design": ["photoshop", "illustrator", "design", "draw", "cad", "paint", "premiere", "blend", "creative", "maya", "blender", "canvas", "figma", "sketch", "invision", "rendering", "image editor"],
+        "Documentation": ["word", "excel", "pdf", "document", "notion", "obsidian", "writer", "spreadsheet", "powerpoint", "slides", "notes", "acrobat", "typora", "logseq"],
+        "Communication": ["slack", "teams", "discord", "zoom", "outlook", "whatsapp", "messenger", "skype", "telegram", "thunderbird", "mail", "chat", "meeting"],
+        "Research": ["chrome", "firefox", "edge", "safari", "browser", "google", "search", "wikipedia", "navigator", "opera", "brave"],
+        "Management": ["project", "jira", "trello", "asana", "trello", "clickup", "monday.com", "board", "gantt", "backlog"]
+    }
+    
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.projects = list(self.DEFAULT_PROJECTS)
+        self.mappings = {}
+        self._load_tags()
+        
+    def _load_tags(self):
+        if not os.path.exists(TAGS_FILE):
+            self._save_tags()
+            return
+        try:
+            with open(TAGS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                self.projects = data.get("projects", list(self.DEFAULT_PROJECTS))
+                # Ensure "Unassigned" is always present
+                if "Unassigned" not in self.projects:
+                    self.projects.append("Unassigned")
+                self.mappings = data.get("mappings", {})
+        except Exception as e:
+            logger.warning(f"Failed to load tags config: {e}")
+            self.projects = list(self.DEFAULT_PROJECTS)
+            self.mappings = {}
+            
+    def _save_tags(self):
+        try:
+            dirpath = os.path.dirname(TAGS_FILE)
+            if dirpath:
+                os.makedirs(dirpath, exist_ok=True)
+            temp_file = TAGS_FILE + ".tmp"
+            with open(temp_file, "w", encoding="utf-8") as f:
+                json.dump({
+                    "projects": self.projects,
+                    "mappings": self.mappings
+                }, f, indent=2, ensure_ascii=False)
+            os.replace(temp_file, TAGS_FILE)
+        except Exception as e:
+            logger.warning(f"Failed to save tags config: {e}")
+            
+    def get_tag(self, app_name: str, exe_path: str = "") -> str:
+        """Get tag for app. If not mapped, runs offline heuristics + asynchronous online fallback."""
+        key = app_name.lower().strip()
+        
+        with self.lock:
+            if key in self.mappings:
+                return self.mappings[key]
+                
+        # If not mapped, perform offline matching
+        matched_tag = self._match_offline(app_name, exe_path)
+        if matched_tag:
+            with self.lock:
+                self.mappings[key] = matched_tag
+                self._save_tags()
+            return matched_tag
+            
+        # If offline fails, start a background online fetch
+        # Set to "Unassigned" temporarily, then update asynchronously
+        with self.lock:
+            self.mappings[key] = "Unassigned"
+            self._save_tags()
+            
+        # Start background thread to query DDG API
+        threading.Thread(target=self._fetch_and_update_tag_online, args=(app_name, exe_path), daemon=True).start()
+        return "Unassigned"
+        
+    def set_tag(self, app_name: str, tag: str):
+        key = app_name.lower().strip()
+        with self.lock:
+            if tag in self.projects or tag == "Unassigned":
+                self.mappings[key] = tag
+                self._save_tags()
+                
+    def add_project(self, project: str) -> bool:
+        project = project.strip()
+        if not project:
+            return False
+        with self.lock:
+            if project not in self.projects:
+                self.projects.append(project)
+                self._save_tags()
+                return True
+        return False
+        
+    def remove_project(self, project: str) -> bool:
+        if project == "Unassigned":
+            return False  # Protect Unassigned
+        with self.lock:
+            if project in self.projects:
+                self.projects.remove(project)
+                # Remap apps that were in this project to "Unassigned"
+                for k, v in list(self.mappings.items()):
+                    if v == project:
+                        self.mappings[k] = "Unassigned"
+                self._save_tags()
+                return True
+        return False
+
+    def _match_offline(self, app_name: str, exe_path: str) -> str or None:
+        """Offline keyword heuristic matching."""
+        # Clean terms to search
+        search_terms = [app_name.lower()]
+        if exe_path:
+            exe_name = os.path.basename(exe_path).lower()
+            if exe_name.endswith(".exe"):
+                exe_name = exe_name[:-4]
+            search_terms.append(exe_name)
+            
+            # Fetch FileDescription locally
+            from appinfo import _get_file_description
+            desc = _get_file_description(exe_path)
+            if desc:
+                search_terms.append(desc.lower())
+                
+        # Match search terms against keywords
+        for category, words in self.KEYWORDS.items():
+            for term in search_terms:
+                for word in words:
+                    if word in term:
+                        return category
+        return None
+
+    def _fetch_and_update_tag_online(self, app_name: str, exe_path: str):
+        """Asynchronously query DuckDuckGo and update mapping on success."""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            # Use app name or file description for better search accuracy
+            search_query = app_name
+            if exe_path:
+                from appinfo import _get_file_description
+                desc = _get_file_description(exe_path)
+                if desc and len(desc) > 3:
+                    search_query = desc
+                    
+            url = f"https://api.duckduckgo.com/?q={urllib.parse.quote(search_query)}&format=json&no_html=1&skip_disambig=1"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) FocusLog/1.0'})
+            
+            # Query DuckDuckGo API with a clean 3.0s timeout
+            with urllib.request.urlopen(req, timeout=3.0) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode('utf-8'))
+                    abstract = data.get("AbstractText", "") or data.get("Abstract", "")
+                    
+                    if abstract:
+                        abstract_lower = abstract.lower()
+                        # Run our keyword matcher against the online description
+                        matched_tag = None
+                        for category, words in self.KEYWORDS.items():
+                            for word in words:
+                                if word in abstract_lower:
+                                    matched_tag = category
+                                    break
+                            if matched_tag:
+                                break
+                                
+                        if matched_tag:
+                            key = app_name.lower().strip()
+                            with self.lock:
+                                self.mappings[key] = matched_tag
+                                self._save_tags()
+                            logger.info(f"Online categorization succeeded for '{app_name}' -> '{matched_tag}'")
+        except Exception as e:
+            logger.debug(f"Online categorization background query failed for {app_name}: {e}")
+
 
 
 
@@ -311,6 +492,7 @@ class AppTracker:
         # Persistent Exclusions
         self.persistent_excluded = set()
         self._load_settings()
+        self.tag_manager = TagManager()
         
         # Security: Time tamper detection
         self.security_detector = None
@@ -708,6 +890,13 @@ class AppTracker:
         with self._lock:
             return self.app_exe_paths.get(app_name, "")
 
+    def get_app_tag(self, app_name: str) -> str:
+        exe_path = self.get_exe_path(app_name)
+        return self.tag_manager.get_tag(app_name, exe_path)
+
+    def set_app_tag(self, app_name: str, tag: str):
+        self.tag_manager.set_tag(app_name, tag)
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
@@ -855,4 +1044,4 @@ class AppTracker:
             time.sleep(self.poll_interval)
 
     def _save_active_state(self):
-        SessionStorage.save_state(self, ACTIVE_SESSION_FILE)
+        SessionStorage.save_state(self, ACTIVE_SESSION_FILE) 
