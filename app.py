@@ -53,6 +53,23 @@ BORDER_FOCUS  = "#0078D4"
 CHECK_BG      = "#FFFFFF"
 FONT_FAMILY   = "Segoe UI"
 
+PROJECT_COLORS = {
+    "Development": "#4F46E5",  # Indigo
+    "Design": "#EC4899",       # Pink
+    "Research": "#10B981",     # Emerald
+    "Documentation": "#F59E0B",# Amber
+    "Communication": "#06B6D4",# Cyan
+    "Management": "#8B5CF6",   # Purple
+    "Unassigned": "#64748B",   # Slate
+}
+
+def get_tag_color(tag_name: str) -> str:
+    if tag_name in PROJECT_COLORS:
+        return PROJECT_COLORS[tag_name]
+    palette = list(PROJECT_COLORS.values())[:-1]
+    idx = sum(ord(c) for c in tag_name) % len(palette)
+    return palette[idx]
+
 # ── Icon Path ──────────────────────────────────────────────────────────
 if getattr(sys, 'frozen', False):
     ICON_DIR = sys._MEIPASS
@@ -132,8 +149,8 @@ class FocusLogApp:
 
         self.root = tk.Tk()
         self.root.title("FocusLog")
-        self._center_window(self.root, 360, 480)
-        self.root.minsize(360, 480)
+        self._center_window(self.root, 440, 480)
+        self.root.minsize(440, 480)
         self.root.configure(bg=BG_SURFACE)
         self.root.resizable(True, True)
 
@@ -656,7 +673,7 @@ class FocusLogApp:
         win.option_add("*background", BG_SURFACE)
         win.option_add("*foreground", TEXT_PRIMARY)
         win.title("Settings")
-        self._center_window(win, 360, 560)  # Increased height for config files
+        self._center_window(win, 360, 600)  # Increased height for config files and categories
         win.configure(bg=BG_SURFACE)
         win.transient(self.root)
         win.grab_set()
@@ -803,6 +820,10 @@ class FocusLogApp:
                   command=_reload_exclusions).pack(side="left", padx=(4, 0))
         reload_lbl.pack(side="left", padx=8)
 
+        # Categories Button
+        tk.Button(win, text="Manage Project Categories", bg=BG_WHITE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 9, "bold"), bd=1, relief="solid", cursor="hand2", 
+                  command=self._show_categories_dialog).pack(fill="x", padx=14, pady=10)
+
         # Save/Cancel Buttons
         btn_frame = tk.Frame(win, bg=BG_SURFACE)
         btn_frame.pack(fill="x", side="bottom", pady=14, padx=14)
@@ -863,6 +884,104 @@ class FocusLogApp:
     def _schedule_refresh(self):
         """Called by the <<TrackerUpdate>> virtual event — triggers the actual UI refresh."""
         self._refresh_app_list()
+
+    def _show_tag_menu(self, event, app_name):
+        menu = tk.Menu(self.root, tearoff=0)
+        projects = self.tracker.tag_manager.projects
+        
+        for proj in projects:
+            current_tag = self.tracker.get_app_tag(app_name)
+            label = f"✓ {proj}" if proj == current_tag else proj
+            menu.add_command(
+                label=label,
+                command=lambda p=proj, a=app_name: self._set_app_tag_and_refresh(a, p)
+            )
+            
+        menu.add_separator()
+        menu.add_command(label="Manage Categories...", command=self._show_categories_dialog)
+        
+        menu.post(event.x_root, event.y_root)
+
+    def _set_app_tag_and_refresh(self, app_name, tag):
+        self.tracker.set_app_tag(app_name, tag)
+        self._last_app_state_hash = None
+        self._refresh_app_list()
+
+    def _show_categories_dialog(self):
+        win = tk.Toplevel(self.root)
+        win.configure(bg=BG_SURFACE)
+        win.option_add("*background", BG_SURFACE)
+        win.option_add("*foreground", TEXT_PRIMARY)
+        win.title("Manage Categories")
+        self._center_window(win, 360, 440)
+        win.transient(self.root)
+        win.grab_set()
+        if os.path.exists(ICON_PATH):
+            try: win.iconbitmap(ICON_PATH)
+            except: pass
+
+        tk.Label(win, text="Manage Categories", bg=BG_SURFACE, fg=TEXT_PRIMARY, 
+                 font=(FONT_FAMILY, 12, "bold")).pack(anchor="w", padx=14, pady=(12, 8))
+
+        list_frame = tk.Frame(win, bg=BG_WHITE, bd=1, relief="solid")
+        list_frame.pack(fill="both", expand=True, padx=14, pady=8)
+        
+        list_inner = tk.Frame(list_frame, bg=BG_WHITE)
+        list_inner.pack(fill="both", expand=True, padx=2, pady=2)
+        
+        def refresh_categories_list():
+            for w in list_inner.winfo_children():
+                w.destroy()
+            
+            projects = self.tracker.tag_manager.projects
+            for idx, proj in enumerate(projects):
+                row = tk.Frame(list_inner, bg=BG_WHITE)
+                row.pack(fill="x", ipady=4, padx=6)
+                
+                color = get_tag_color(proj)
+                dot = tk.Label(row, text="●", bg=BG_WHITE, fg=color, font=(FONT_FAMILY, 12))
+                dot.pack(side="left", padx=(4, 6))
+                
+                lbl = tk.Label(row, text=proj, bg=BG_WHITE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 10))
+                lbl.pack(side="left")
+                
+                if proj != "Unassigned":
+                    del_btn = tk.Button(row, text="❌", bg=BG_WHITE, fg=RED_STATUS, 
+                                        font=(FONT_FAMILY, 8), bd=0, cursor="hand2", relief="flat",
+                                        command=lambda p=proj: delete_project(p))
+                    del_btn.pack(side="right", padx=4)
+                    
+        def delete_project(project):
+            if self.tracker.tag_manager.remove_project(project):
+                self._last_app_state_hash = None
+                self._refresh_app_list()
+                refresh_categories_list()
+                
+        add_frame = tk.Frame(win, bg=BG_SURFACE)
+        add_frame.pack(fill="x", padx=14, pady=(8, 14))
+        
+        entry = tk.Entry(add_frame, bg=BG_WHITE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 10), 
+                         bd=0, highlightthickness=1, highlightbackground=BORDER)
+        entry.pack(side="left", fill="x", expand=True, padx=(0, 6), ipady=3)
+        
+        def add_project():
+            name = entry.get().strip()
+            if not name:
+                return
+            if name in self.tracker.tag_manager.projects:
+                messagebox.showerror("Error", f"Category '{name}' already exists.")
+                return
+            if self.tracker.tag_manager.add_project(name):
+                entry.delete(0, tk.END)
+                refresh_categories_list()
+                self._last_app_state_hash = None
+                self._refresh_app_list()
+                
+        tk.Button(add_frame, text="Add Category", bg=ACCENT, fg="white", 
+                  font=(FONT_FAMILY, 9, "bold"), bd=0, padx=12, pady=4, cursor="hand2",
+                  command=add_project).pack(side="right")
+                  
+        refresh_categories_list()
 
     def _refresh_app_list(self):
         """Refresh the app list UI only if data has changed significantly."""
@@ -942,14 +1061,22 @@ class FocusLogApp:
                         
                     name_lbl = tk.Label(row, text=app_name, bg=row_bg, fg=fg, 
                                        font=(FONT_FAMILY, 10), anchor="w")
-                    name_lbl.grid(row=0, column=2, sticky="w", padx=(2, 4))
+                    name_lbl.grid(row=0, column=2, sticky="ew", padx=(2, 4))
+                    
+                    tag = self.tracker.get_app_tag(app_name)
+                    tag_bg = get_tag_color(tag)
+                    tag_lbl = tk.Label(row, text=tag, bg=tag_bg, fg="#FFFFFF",
+                                       font=(FONT_FAMILY, 7, "bold"), padx=6, pady=1,
+                                       cursor="hand2", relief="flat")
+                    tag_lbl.grid(row=0, column=3, padx=(4, 4), pady=2)
+                    tag_lbl.bind("<Button-1>", lambda e, a=app_name: self._show_tag_menu(e, a))
                     
                     time_lbl = tk.Label(row, text=format_duration(secs), bg=row_bg, fg=time_fg, 
                                        font=(FONT_FAMILY, 10), anchor="e")
-                    time_lbl.grid(row=0, column=3, sticky="e", padx=(4, 12))
+                    time_lbl.grid(row=0, column=4, sticky="e", padx=(4, 12))
                     
                     self._row_widgets[app_name] = {
-                        'row': row, 'cb': cb, 'name': name_lbl, 'time': time_lbl, 'icon': icon_lbl
+                        'row': row, 'cb': cb, 'name': name_lbl, 'tag': tag_lbl, 'time': time_lbl, 'icon': icon_lbl
                     }
                 else:
                     # Update existing row - optimized path
@@ -957,6 +1084,12 @@ class FocusLogApp:
                     # Only update if visual properties changed
                     if widgets['time'].cget('text') != format_duration(secs):
                         widgets['time'].configure(text=format_duration(secs))
+                    
+                    # Update tag badge if changed
+                    tag = self.tracker.get_app_tag(app_name)
+                    tag_bg = get_tag_color(tag)
+                    if widgets['tag'].cget('text') != tag:
+                        widgets['tag'].configure(text=tag, bg=tag_bg)
                         
             # Clean up removed apps
             to_remove = [name for name in self._row_widgets if name not in active_apps]
@@ -1076,6 +1209,63 @@ class FocusLogApp:
             tk.Label(earned_frame, text=report["total_earned_display"], bg=ACCENT_LIGHT, fg=GREEN_STATUS, font=(FONT_FAMILY, 16, "bold")).pack(side="left", padx=6)
             tk.Label(earned_frame, text=f"@ {report['currency_symbol']}{report['hourly_rate']:.2f}/hr", bg=ACCENT_LIGHT, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9)).pack(side="left", padx=6)
 
+        # ── Project Allocation Visuals ─────────────────────────────────────
+        project_breakdown = report.get("project_breakdown", [])
+        if project_breakdown:
+            tk.Label(body, text="Project & Category Allocation", bg=BG_SURFACE, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 10, "bold")).pack(anchor="w", padx=px + 4, pady=(12, 4))
+            
+            alloc_card = tk.Frame(body, bg=BG_WHITE, highlightthickness=1, highlightbackground=BORDER)
+            alloc_card.pack(fill="x", padx=px, pady=(0, 6))
+            
+            # Segmented horizontal bar canvas
+            canvas = tk.Canvas(alloc_card, bg=BG_WHITE, height=20, bd=0, highlightthickness=0)
+            canvas.pack(fill="x", padx=14, pady=(14, 10))
+            
+            def draw_segmented_bar(event=None):
+                canvas.delete("all")
+                w = canvas.winfo_width()
+                h = canvas.winfo_height()
+                if w < 10:
+                    w = 640
+                    
+                total_secs = sum(pb["seconds"] for pb in project_breakdown)
+                if total_secs <= 0:
+                    canvas.create_rectangle(0, 0, w, h, fill="#E2E8F0", outline="")
+                    return
+                    
+                current_x = 0
+                for pb in project_breakdown:
+                    pct = pb["seconds"] / total_secs
+                    segment_w = pct * w
+                    next_x = current_x + segment_w
+                    canvas.create_rectangle(current_x, 0, next_x, h, fill=pb["color"], outline="")
+                    current_x = next_x
+            
+            canvas.bind("<Configure>", draw_segmented_bar)
+            
+            legend_frame = tk.Frame(alloc_card, bg=BG_WHITE)
+            legend_frame.pack(fill="x", padx=14, pady=(0, 14))
+            
+            for pb in project_breakdown:
+                row_f = tk.Frame(legend_frame, bg=BG_WHITE)
+                row_f.pack(fill="x", pady=2)
+                
+                swatch = tk.Label(row_f, text=" ■ ", bg=BG_WHITE, fg=pb["color"], font=(FONT_FAMILY, 10, "bold"))
+                swatch.pack(side="left")
+                
+                lbl = tk.Label(row_f, text=pb["project"], bg=BG_WHITE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 9, "bold"))
+                lbl.pack(side="left")
+                
+                pct_lbl = tk.Label(row_f, text=f"{pb['percent']:.1f}%", bg=BG_WHITE, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9))
+                pct_lbl.pack(side="left", padx=10)
+                
+                time_lbl = tk.Label(row_f, text=pb["formatted"], bg=BG_WHITE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 9))
+                time_lbl.pack(side="right")
+                
+                if pb.get("earned_display"):
+                    earned_lbl = tk.Label(row_f, text=f"({pb['earned_display']})", bg=BG_WHITE, fg=GREEN_STATUS, font=(FONT_FAMILY, 9, "bold"))
+                    earned_lbl.pack(side="right", padx=10)
+
         # ── App Breakdown (limited to 7 by default) ───────────────────────
         MAX_APPS_VISIBLE = 7
         all_apps = report["apps"]
@@ -1086,11 +1276,12 @@ class FocusLogApp:
         th = tk.Frame(tbl, bg=BG_SURFACE)
         th.pack(fill="x")
         th.columnconfigure(0, weight=1)
-        for col, (txt, w, anc) in enumerate([("App", 0, "w"), ("Time", 12, "e"), ("% ", 6, "e"), ("Status", 10, "e")]):
+        for col, (txt, w, anc) in enumerate([("App", 0, "w"), ("Category", 12, "w"), ("Time", 12, "e"), ("% ", 6, "e"), ("Status", 10, "e")]):
             lbl = tk.Label(th, text=txt, bg=BG_SURFACE, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9, "bold"), anchor=anc)
             if w: lbl.configure(width=w)
-            lbl.grid(row=0, column=col, padx=10, pady=6, sticky="ew" if col == 0 else "e")
+            lbl.grid(row=0, column=col, padx=10, pady=6, sticky="ew" if col == 0 or col == 1 else "e")
         th.columnconfigure(0, weight=1)
+        th.columnconfigure(1, weight=0)
 
         app_rows_container = tk.Frame(tbl, bg=BG_WHITE)
         app_rows_container.pack(fill="x")
@@ -1104,14 +1295,23 @@ class FocusLogApp:
                 r = tk.Frame(app_rows_container, bg=rbg)
                 r.pack(fill="x")
                 r.columnconfigure(0, weight=1)
+                r.columnconfigure(1, weight=0)
                 excluded = app["excluded"]
                 fg = TEXT_PRIMARY if not excluded else TEXT_DISABLED
                 st_text = "✓ Counted" if not excluded else "✗ Excluded"
                 st_fg = GREEN_STATUS if not excluded else RED_STATUS
+                
+                tag = app.get("tag", "Unassigned")
+                tag_bg = get_tag_color(tag)
+                
                 tk.Label(r, text=app["name"], bg=rbg, fg=fg, font=(FONT_FAMILY, 10), anchor="w").grid(row=0, column=0, padx=10, pady=4, sticky="ew")
-                tk.Label(r, text=app["formatted"], bg=rbg, fg=fg, font=(FONT_FAMILY, 10), anchor="e", width=12).grid(row=0, column=1, padx=10, pady=4, sticky="e")
-                tk.Label(r, text=f"{app['percent']:.0f}%", bg=rbg, fg=fg, font=(FONT_FAMILY, 10), anchor="e", width=6).grid(row=0, column=2, padx=10, pady=4, sticky="e")
-                tk.Label(r, text=st_text, bg=rbg, fg=st_fg, font=(FONT_FAMILY, 9), anchor="e", width=10).grid(row=0, column=3, padx=10, pady=4, sticky="e")
+                
+                tag_lbl = tk.Label(r, text=tag, bg=tag_bg, fg="#FFFFFF", font=(FONT_FAMILY, 7, "bold"), padx=5, pady=1, relief="flat")
+                tag_lbl.grid(row=0, column=1, padx=10, pady=4, sticky="w")
+                
+                tk.Label(r, text=app["formatted"], bg=rbg, fg=fg, font=(FONT_FAMILY, 10), anchor="e", width=12).grid(row=0, column=2, padx=10, pady=4, sticky="e")
+                tk.Label(r, text=f"{app['percent']:.0f}%", bg=rbg, fg=fg, font=(FONT_FAMILY, 10), anchor="e", width=6).grid(row=0, column=3, padx=10, pady=4, sticky="e")
+                tk.Label(r, text=st_text, bg=rbg, fg=st_fg, font=(FONT_FAMILY, 9), anchor="e", width=10).grid(row=0, column=4, padx=10, pady=4, sticky="e")
 
         _render_app_rows(show_all=False)
 

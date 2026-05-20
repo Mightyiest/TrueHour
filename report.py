@@ -30,6 +30,29 @@ class AppUsage(TypedDict):
     formatted: str
     percent: float
     excluded: bool
+    tag: str
+
+class ProjectBreakdownEntry(TypedDict):
+    project: str
+    seconds: int
+    formatted: str
+    percent: float
+    earned: float
+    earned_display: str
+    color: str
+
+PROJECT_COLORS = {
+    "Development": "#4F46E5",  # Indigo
+    "Design": "#EC4899",       # Pink
+    "Research": "#10B981",     # Emerald
+    "Documentation": "#F59E0B",# Amber
+    "Communication": "#06B6D4",# Cyan
+    "Management": "#8B5CF6",   # Purple
+    "Unassigned": "#64748B",   # Slate
+}
+
+def get_project_color(project_name: str) -> str:
+    return PROJECT_COLORS.get(project_name, "#64748B")
 
 class TimelineEntry(TypedDict):
     app: str
@@ -56,6 +79,7 @@ class ReportData(TypedDict):
     currency_symbol: str
     total_earned: float
     total_earned_display: str
+    project_breakdown: List[ProjectBreakdownEntry]
 
 def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportData:
     """Build a structured dict from the tracker's session data."""
@@ -66,7 +90,9 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
     apps = tracker.get_app_times_sorted()
     
     app_list = []
+    project_times = {}
     for name, secs, included in apps:
+        tag = tracker.get_app_tag(name)
         pct = (secs / total_session * 100) if total_session > 0 else 0
         app_list.append({
             "name": name,
@@ -74,7 +100,10 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
             "formatted": format_duration(secs),
             "percent": round(pct, 1),
             "excluded": not included,
+            "tag": tag,
         })
+        if included:
+            project_times[tag] = project_times.get(tag, 0) + secs
 
     # Snapshot timeline under the lock to prevent concurrent modification
     with tracker._lock:
@@ -93,6 +122,22 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
     earned = 0.0
     if hourly_rate > 0:
         earned = (counted / 3600) * hourly_rate
+
+    total_counted = sum(project_times.values())
+    breakdown = []
+    for proj, secs in project_times.items():
+        proj_pct = (secs / total_counted * 100) if total_counted > 0 else 0
+        proj_earned = (secs / 3600) * hourly_rate
+        breakdown.append({
+            "project": proj,
+            "seconds": int(secs),
+            "formatted": format_duration(secs),
+            "percent": round(proj_pct, 1),
+            "earned": round(proj_earned, 2),
+            "earned_display": f"{currency_symbol}{proj_earned:,.2f}" if hourly_rate > 0 else "",
+            "color": get_project_color(proj)
+        })
+    breakdown.sort(key=lambda x: x["seconds"], reverse=True)
 
     return {
         "date": session_start.strftime("%Y-%m-%d"),
@@ -114,6 +159,7 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
         "currency_symbol": currency_symbol,
         "total_earned": round(earned, 2),
         "total_earned_display": f"{currency_symbol}{earned:,.2f}" if hourly_rate > 0 else "",
+        "project_breakdown": breakdown,
     }
 
 def export_txt(report, filepath):
@@ -136,6 +182,14 @@ def export_txt(report, filepath):
         t_start = entry['start'].strftime("%H:%M:%S") if hasattr(entry['start'], 'strftime') else entry['start']
         t_end = entry['end'].strftime("%H:%M:%S") if hasattr(entry['end'], 'strftime') else entry['end']
         lines.append(f"{t_start} -> {t_end}   {entry['app']}")
+    lines.append("")
+    lines.append("PROJECT BREAKDOWN SUMMARY")
+    lines.append("-------------------------")
+    for pb in report.get("project_breakdown", []):
+        earned_str = f"   Earned: {pb['earned_display']}" if pb.get('earned_display') else ""
+        lines.append(f"{pb['project']:<20s} {pb['formatted']:>12s}   {pb['percent']:>5.1f}%{earned_str}")
+    lines.append("")
+
     with open(filepath, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
@@ -157,7 +211,8 @@ def export_json(report, filepath):
         "end": report["end"],
         "total_seconds": report["total_seconds"],
         "counted_seconds": report["counted_seconds"],
-        "apps": [{"name": a["name"], "seconds": a["seconds"], "excluded": a["excluded"]} for a in report["apps"]],
+        "apps": [{"name": a["name"], "seconds": a["seconds"], "excluded": a["excluded"], "tag": a.get("tag", "Unassigned")} for a in report["apps"]],
+        "project_breakdown": report.get("project_breakdown", []),
         "timeline": normalized_timeline,
         "hourly_rate": report.get("hourly_rate", 0.0),
         "currency_symbol": report.get("currency_symbol", "$"),
@@ -199,15 +254,36 @@ def load_session_json(filepath):
         end_dt += timedelta(days=1)
     
     apps = []
+    project_times = {}
     for a in data['apps']:
+        tag = a.get('tag', 'Unassigned')
         pct = (a['seconds'] / data['total_seconds'] * 100) if data['total_seconds'] > 0 else 0
         apps.append({
             "name": a['name'],
             "seconds": a['seconds'],
             "formatted": format_duration(a['seconds']),
             "percent": round(pct, 1),
-            "excluded": a['excluded']
+            "excluded": a['excluded'],
+            "tag": tag
         })
+        if not a['excluded']:
+            project_times[tag] = project_times.get(tag, 0) + a['seconds']
+
+    total_counted = sum(project_times.values())
+    breakdown = []
+    for proj, secs in project_times.items():
+        proj_pct = (secs / total_counted * 100) if total_counted > 0 else 0
+        proj_earned = (secs / 3600) * data.get('hourly_rate', 0.0)
+        breakdown.append({
+            "project": proj,
+            "seconds": int(secs),
+            "formatted": format_duration(secs),
+            "percent": round(proj_pct, 1),
+            "earned": round(proj_earned, 2),
+            "earned_display": f"{data.get('currency_symbol', '$')}{proj_earned:,.2f}" if data.get('hourly_rate', 0.0) > 0 else "",
+            "color": get_project_color(proj)
+        })
+    breakdown.sort(key=lambda x: x["seconds"], reverse=True)
 
     timeline = []
     for t in data['timeline']:
@@ -243,6 +319,7 @@ def load_session_json(filepath):
         "currency_symbol": data.get("currency_symbol", "$"),
         "total_earned": data.get("total_earned", 0.0),
         "total_earned_display": f"{data.get('currency_symbol','$')}{data.get('total_earned',0.0):,.2f}" if data.get("hourly_rate", 0) > 0 else "",
+        "project_breakdown": breakdown,
     }
 
 def export_csv(report, filepath):
@@ -250,13 +327,19 @@ def export_csv(report, filepath):
     try:
         with open(filepath, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['Date', 'Session Name', 'App Name', 'Duration (seconds)', 
+            writer.writerow(['Date', 'Session Name', 'App Name', 'Project', 'Duration (seconds)', 
                             'Duration (formatted)', 'Percent of Session', 'Included in Count'])
             date_str = report['date']
             session_name = report.get('session_name', 'Unnamed')
             for app in report['apps']:
-                writer.writerow([date_str, session_name, app['name'], app['seconds'],
+                writer.writerow([date_str, session_name, app['name'], app.get('tag', 'Unassigned'), app['seconds'],
                                 app['formatted'], f"{app['percent']:.1f}%", "Yes" if not app['excluded'] else "No"])
+
+            writer.writerow([])
+            writer.writerow(['PROJECT BREAKDOWN', '', '', '', '', '', ''])
+            writer.writerow(['Project', 'Duration (seconds)', 'Duration (formatted)', 'Percent of Total Counted', 'Estimated Earnings'])
+            for pb in report.get('project_breakdown', []):
+                writer.writerow([pb['project'], pb['seconds'], pb['formatted'], f"{pb['percent']:.1f}%", pb['earned_display'] or "N/A"])
             writer.writerow([])
             writer.writerow(['TOTAL COUNTED HOURS', '', '', report['counted_seconds'], report['counted_formatted'], '', ''])
             hourly_rate = report.get('hourly_rate', 0.0)
@@ -272,29 +355,44 @@ def export_csv_history(reports_list, filepath, hourly_rate=0.0, currency_symbol=
     try:
         with open(filepath, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['Date', 'Start Time', 'End Time', 'Session Name', 'App Name',
+            writer.writerow(['Date', 'Start Time', 'End Time', 'Session Name', 'App Name', 'Project',
                             'Duration (seconds)', 'Duration (formatted)', 'Percent of Session', 'Included in Count'])
             total_counted_seconds = 0
+            historical_projects = {}
             for report in sorted(reports_list, key=lambda r: r['date']):
                 date_str = report['date']
                 start_time = report['start']
                 end_time = report['end']
                 session_name = report.get('session_name', 'Unnamed')
                 for app in report['apps']:
-                    writer.writerow([date_str, start_time, end_time, session_name, app['name'],
+                    writer.writerow([date_str, start_time, end_time, session_name, app['name'], app.get('tag', 'Unassigned'),
                                     app['seconds'], app['formatted'], f"{app['percent']:.1f}%", "Yes" if not app['excluded'] else "No"])
                 total_counted_seconds += report.get('counted_seconds', 0)
+                
+                # Accumulate historical project times
+                for pb in report.get('project_breakdown', []):
+                    historical_projects[pb['project']] = historical_projects.get(pb['project'], 0) + pb['seconds']
 
             writer.writerow([])
             h = total_counted_seconds // 3600
             m = (total_counted_seconds % 3600) // 60
             s = total_counted_seconds % 60
             total_formatted = f"{h}h {m:02d}m {s:02d}s"
-            writer.writerow(['TOTAL COUNTED HOURS', '', '', '', '', total_counted_seconds, total_formatted, '', ''])
+            writer.writerow(['TOTAL COUNTED HOURS', '', '', '', '', '', total_counted_seconds, total_formatted, '', ''])
             if hourly_rate > 0:
                 total_earned = (total_counted_seconds / 3600) * hourly_rate
                 total_earned_display = f"{currency_symbol}{total_earned:,.2f}"
-                writer.writerow(['TOTAL EARNED', '', '', '', '', '', total_earned_display, f"@ {currency_symbol}{hourly_rate:.2f}/hr", ''])
+                writer.writerow(['TOTAL EARNED', '', '', '', '', '', '', total_earned_display, f"@ {currency_symbol}{hourly_rate:.2f}/hr", ''])
+
+            writer.writerow([])
+            writer.writerow(['PROJECT BREAKDOWN SUMMARY', '', '', '', '', '', '', '', ''])
+            writer.writerow(['Project', 'Duration (seconds)', 'Duration (formatted)', 'Percent of Total Counted', 'Estimated Earnings'])
+            total_hist_counted = sum(historical_projects.values())
+            for proj, secs in sorted(historical_projects.items(), key=lambda x: x[1], reverse=True):
+                pct = (secs / total_hist_counted * 100) if total_hist_counted > 0 else 0
+                earned = (secs / 3600) * hourly_rate
+                earned_display = f"{currency_symbol}{earned:,.2f}" if hourly_rate > 0 else "N/A"
+                writer.writerow([proj, secs, format_duration(secs), f"{pct:.1f}%", earned_display])
         return True
     except Exception as e:
         print(f"CSV export error: {e}")
