@@ -643,6 +643,7 @@ class FocusLogApp:
         self.auto_save_seconds = 10
         self.currency_symbol = "$"
         self.hourly_rate = 0.0
+        self.idle_threshold_seconds_total = 120  # default: 2 min (0 = disabled)
         if os.path.exists(APP_SETTINGS_FILE):
             try:
                 with open(APP_SETTINGS_FILE, "r") as f:
@@ -655,6 +656,10 @@ class FocusLogApp:
                     self.hourly_rate = float(data.get("hourly_rate", 0.0))
                     self.tracker.min_track_seconds = self.min_track_seconds
                     self.tracker.save_interval = self.auto_save_seconds
+                    # Support old "idle_threshold_minutes" key for backwards compat
+                    _old_min = data.get("idle_threshold_minutes", 2) * 60
+                    self.idle_threshold_seconds_total = data.get("idle_threshold_seconds_total", _old_min)
+                    self.tracker.idle_threshold_seconds = self.idle_threshold_seconds_total
             except (json.JSONDecodeError, ValueError, OSError) as e:
                 print(f"[FocusLog] Failed to load app settings: {e}")
 
@@ -663,7 +668,7 @@ class FocusLogApp:
             dirpath = os.path.dirname(APP_SETTINGS_FILE)
             if dirpath: os.makedirs(dirpath, exist_ok=True)
             with open(APP_SETTINGS_FILE, "w") as f:
-                json.dump({"confirm_on_close": self.confirm_on_close, "min_track_seconds": self.min_track_seconds, "auto_save_seconds": self.auto_save_seconds, "currency_symbol": self.currency_symbol, "hourly_rate": self.hourly_rate}, f)
+                json.dump({"confirm_on_close": self.confirm_on_close, "min_track_seconds": self.min_track_seconds, "auto_save_seconds": self.auto_save_seconds, "currency_symbol": self.currency_symbol, "hourly_rate": self.hourly_rate, "idle_threshold_seconds_total": self.idle_threshold_seconds_total}, f)
         except (ValueError, OSError) as e:
             print(f"[FocusLog] Failed to save app settings: {e}")
 
@@ -673,13 +678,40 @@ class FocusLogApp:
         win.option_add("*background", BG_SURFACE)
         win.option_add("*foreground", TEXT_PRIMARY)
         win.title("Settings")
-        self._center_window(win, 360, 600)  # Increased height for config files and categories
+        self._center_window(win, 360, 660)  # Height for all settings content
         win.configure(bg=BG_SURFACE)
         win.transient(self.root)
         win.grab_set()
         if os.path.exists(ICON_PATH):
             try: win.iconbitmap(ICON_PATH)
             except: pass
+
+        # ── Save/Cancel Buttons — packed FIRST to always pin to bottom ────
+        btn_frame = tk.Frame(win, bg=BG_SURFACE)
+        btn_frame.pack(fill="x", side="bottom", pady=14, padx=14)
+
+        def save_and_close():
+            try:
+                self.min_track_seconds = int(min_sec_entry.get())
+                self.auto_save_seconds = int(auto_save_entry.get())
+                raw_symbol = self.currency_var.get().strip()
+                self.currency_symbol = raw_symbol.split()[0].split('(')[0].strip() if raw_symbol else "$"
+                self.hourly_rate = float(rate_entry.get().strip() or 0)
+                _im = max(0, int(idle_min_entry.get().strip() or 0))
+                _is = max(0, min(59, int(idle_sec_entry.get().strip() or 0)))
+                self.idle_threshold_seconds_total = _im * 60 + _is
+                self.tracker.min_track_seconds = self.min_track_seconds
+                self.tracker.save_interval = self.auto_save_seconds
+                self.tracker.idle_threshold_seconds = self.idle_threshold_seconds_total
+                self._save_app_settings()
+                win.destroy()
+            except ValueError:
+                messagebox.showerror("Error", "Please enter valid numeric values.")
+
+        tk.Button(btn_frame, text="Save Settings", bg=ACCENT, fg="white", font=(FONT_FAMILY, 9, "bold"), bd=0, padx=16, pady=8, cursor="hand2",
+                  command=save_and_close).pack(side="right")
+        tk.Button(btn_frame, text="Cancel", bg=BG_WHITE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 9), relief="solid", bd=1, padx=16, pady=7, cursor="hand2",
+                  command=win.destroy).pack(side="right", padx=8)
 
         tk.Label(win, text="Settings", bg=BG_SURFACE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 12, "bold")).pack(anchor="w", padx=14, pady=(12, 8))
         
@@ -699,6 +731,22 @@ class FocusLogApp:
         auto_save_entry = tk.Entry(win, bg=BG_WHITE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 10), bd=0, highlightthickness=1, highlightbackground=BORDER)
         auto_save_entry.pack(fill="x", padx=14, pady=2)
         auto_save_entry.insert(0, str(self.auto_save_seconds))
+
+        # Idle auto-pause
+        tk.Label(win, text="Idle auto-pause (0 min 0 sec = disabled):", bg=BG_SURFACE, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9)).pack(anchor="w", padx=14, pady=(10, 2))
+        idle_row = tk.Frame(win, bg=BG_SURFACE)
+        idle_row.pack(fill="x", padx=14, pady=(0, 2))
+        _idle_total = getattr(self, "idle_threshold_seconds_total", 120)
+        _idle_m_def = _idle_total // 60
+        _idle_s_def = _idle_total % 60
+        idle_min_entry = tk.Entry(idle_row, bg=BG_WHITE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 10), bd=0, highlightthickness=1, highlightbackground=BORDER, width=4)
+        idle_min_entry.pack(side="left")
+        idle_min_entry.insert(0, str(_idle_m_def))
+        tk.Label(idle_row, text="min", bg=BG_SURFACE, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9)).pack(side="left", padx=(4, 10))
+        idle_sec_entry = tk.Entry(idle_row, bg=BG_WHITE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 10), bd=0, highlightthickness=1, highlightbackground=BORDER, width=4)
+        idle_sec_entry.pack(side="left")
+        idle_sec_entry.insert(0, str(_idle_s_def))
+        tk.Label(idle_row, text="sec", bg=BG_SURFACE, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9)).pack(side="left", padx=(4, 0))
 
         # Billing Section
         tk.Label(win, text="Billing", bg=BG_SURFACE, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9, "bold")).pack(anchor="w", padx=14, pady=(16, 2))
@@ -824,28 +872,7 @@ class FocusLogApp:
         tk.Button(win, text="Manage Project Categories", bg=BG_WHITE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 9, "bold"), bd=1, relief="solid", cursor="hand2", 
                   command=self._show_categories_dialog).pack(fill="x", padx=14, pady=10)
 
-        # Save/Cancel Buttons
-        btn_frame = tk.Frame(win, bg=BG_SURFACE)
-        btn_frame.pack(fill="x", side="bottom", pady=14, padx=14)
-        
-        def save_and_close():
-            try:
-                self.min_track_seconds = int(min_sec_entry.get())
-                self.auto_save_seconds = int(auto_save_entry.get())
-                raw_symbol = self.currency_var.get().strip()
-                self.currency_symbol = raw_symbol.split()[0].split('(')[0].strip() if raw_symbol else "$"
-                self.hourly_rate = float(rate_entry.get().strip() or 0)
-                self.tracker.min_track_seconds = self.min_track_seconds
-                self.tracker.save_interval = self.auto_save_seconds
-                self._save_app_settings()
-                win.destroy()
-            except ValueError:
-                messagebox.showerror("Error", "Please enter valid numeric values.")
 
-        tk.Button(btn_frame, text="Save Settings", bg=ACCENT, fg="white", font=(FONT_FAMILY, 9, "bold"), bd=0, padx=16, pady=8, cursor="hand2", 
-                  command=save_and_close).pack(side="right")
-        tk.Button(btn_frame, text="Cancel", bg=BG_WHITE, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 9), relief="solid", bd=1, padx=16, pady=7, cursor="hand2", 
-                  command=win.destroy).pack(side="right", padx=8)
 
     def _tick_clock(self):
         if not self.tracker.running: return
@@ -863,7 +890,9 @@ class FocusLogApp:
             self.earnings_label.configure(text="")
         if not self.tracker.paused:
             current = self.tracker.get_current_app()
-            self.active_label.configure(text=f"Active: {current}" if current else " ")
+            self.active_label.configure(text=f"Active: {current}" if current else " ", fg=TEXT_SECONDARY)
+        elif getattr(self.tracker, '_idle_paused', False):
+            self.active_label.configure(text="💤 Idle — auto paused", fg=ORANGE)
         self._update_ui_naming()
         self._update_clock_id = self.root.after(250, self._tick_clock)
 

@@ -11,7 +11,8 @@ import os
 import threading
 import ssl
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from config import get_app_data_dir
 
 # Configure logging for security events
@@ -26,6 +27,9 @@ if not logger.handlers:
 
 # Network time API endpoints (fallback chain)
 NTP_SOURCES = [
+    "https://www.google.com",
+    "https://www.microsoft.com",
+    "https://www.cloudflare.com",
     "https://timeapi.io/api/time/current/zone?timeZone=UTC",
 ]
 
@@ -52,6 +56,7 @@ class TimeTamperDetector:
         self._lock = threading.Lock()
         self.chain_data = []
         self._load_chain()
+        self.last_trust_recovery = time.time()
         
     def _load_chain(self):
         """Load existing hash chain from disk."""
@@ -120,38 +125,70 @@ class TimeTamperDetector:
         
         for url in NTP_SOURCES:
             try:
+                # Decide method: HEAD for general sites (google, microsoft, cloudflare) to minimize data, GET for JSON APIs
+                is_json_api = "api" in url or "timezone" in url
+                method = "GET" if is_json_api else "HEAD"
+                
                 req = urllib.request.Request(
                     url,
-                    headers={"User-Agent": "FocusLog/1.0"}
+                    headers={"User-Agent": "FocusLog/1.0"},
+                    method=method
                 )
                 with urllib.request.urlopen(req, timeout=timeout, context=ssl_context) as response:
-                    data = json.loads(response.read().decode())
+                    # 1. Try parsing Date header first (highly robust, standard for Google, Microsoft, Cloudflare)
+                    date_header = response.headers.get("Date")
+                    if date_header:
+                        try:
+                            network_dt = parsedate_to_datetime(date_header)
+                            if network_dt.tzinfo is None:
+                                network_dt = network_dt.replace(tzinfo=timezone.utc)
+                            else:
+                                network_dt = network_dt.astimezone(timezone.utc)
+                            
+                            system_dt = datetime.now(timezone.utc)
+                            offset = (system_dt - network_dt).total_seconds()
+                            return offset
+                        except Exception as parse_err:
+                            logger.warning(f"Failed to parse Date header from {url}: {parse_err}")
                     
-                    # Parse different API formats
-                    if "datetime" in data:
-                        # worldtimeapi.org format
-                        dt_str = data["datetime"]
-                        # Handle timezone info
-                        if "+" in dt_str:
-                            dt_str = dt_str.split("+")[0]
-                        elif dt_str.count("-") > 2:
-                            dt_str = dt_str.rsplit("-", 1)[0]
+                    # 2. If Date header is missing or parsing failed, and we did a GET request, try parsing the body as JSON
+                    if is_json_api:
+                        data = json.loads(response.read().decode())
                         
-                        network_dt = datetime.fromisoformat(dt_str)
-                        system_dt = datetime.utcnow()
-                        offset = (system_dt - network_dt).total_seconds()
-                        return offset
-                    
-                    elif "dateTime" in data:
-                        # timeapi.io format
-                        dt_str = data["dateTime"]
-                        if "+" in dt_str:
-                            dt_str = dt_str.split("+")[0]
-                        network_dt = datetime.fromisoformat(dt_str)
-                        system_dt = datetime.utcnow()
-                        offset = (system_dt - network_dt).total_seconds()
-                        return offset
+                        # Parse different API formats
+                        if "datetime" in data:
+                            # worldtimeapi.org format
+                            dt_str = data["datetime"]
+                            if "+" in dt_str:
+                                dt_str = dt_str.split("+")[0]
+                            elif dt_str.count("-") > 2:
+                                dt_str = dt_str.rsplit("-", 1)[0]
+                            
+                            network_dt = datetime.fromisoformat(dt_str)
+                            if network_dt.tzinfo is None:
+                                network_dt = network_dt.replace(tzinfo=timezone.utc)
+                            else:
+                                network_dt = network_dt.astimezone(timezone.utc)
+                                
+                            system_dt = datetime.now(timezone.utc)
+                            offset = (system_dt - network_dt).total_seconds()
+                            return offset
                         
+                        elif "dateTime" in data:
+                            # timeapi.io format
+                            dt_str = data["dateTime"]
+                            if "+" in dt_str:
+                                dt_str = dt_str.split("+")[0]
+                            network_dt = datetime.fromisoformat(dt_str)
+                            if network_dt.tzinfo is None:
+                                network_dt = network_dt.replace(tzinfo=timezone.utc)
+                            else:
+                                network_dt = network_dt.astimezone(timezone.utc)
+                                
+                            system_dt = datetime.now(timezone.utc)
+                            offset = (system_dt - network_dt).total_seconds()
+                            return offset
+                            
             except ssl.SSLCertVerificationError as e:
                 logger.warning(f"SSL certificate verification failed for {url}: {e}")
                 continue
@@ -166,7 +203,7 @@ class TimeTamperDetector:
                 continue
         
         return None
-    
+
     def start_session(self):
         """Initialize session with time integrity checks."""
         with self._lock:
@@ -298,6 +335,13 @@ class TimeTamperDetector:
                 "system_time": current_system,
                 "integrity_status": integrity_status
             })
+            
+            # Gradual trust recovery (1 point per 300s of valid status, capped at 100)
+            if integrity_status == "VALID" and self.trust_score < 100:
+                now = time.time()
+                if (now - self.last_trust_recovery) > 300:
+                    self.trust_score = min(100, self.trust_score + 1)
+                    self.last_trust_recovery = now
             
             return {
                 "duration_seconds": duration_seconds,

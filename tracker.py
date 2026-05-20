@@ -6,6 +6,22 @@ Includes tamper-resistant time tracking with monotonic clocks and hash chaining.
 
 import time
 import threading
+import ctypes as _ctypes
+
+def _get_idle_seconds():
+    """Return seconds since last mouse/keyboard input (Windows only)."""
+    try:
+        class _LASTINPUTINFO(_ctypes.Structure):
+            _fields_ = [("cbSize", _ctypes.c_uint), ("dwTime", _ctypes.c_uint)]
+        lii = _LASTINPUTINFO()
+        lii.cbSize = _ctypes.sizeof(_LASTINPUTINFO)
+        _ctypes.windll.user32.GetLastInputInfo(_ctypes.byref(lii))
+        millis = _ctypes.windll.kernel32.GetTickCount() - lii.dwTime
+        return millis / 1000.0
+    except Exception:
+        return 0.0
+
+
 import os
 import json
 import logging
@@ -494,6 +510,10 @@ class AppTracker:
         self._load_settings()
         self.tag_manager = TagManager()
         
+        # Idle auto-pause
+        self.idle_threshold_seconds = 0  # 0 = disabled
+        self._idle_paused = False
+
         # Security: Time tamper detection
         self.security_detector = None
         self.integrity_warnings = []
@@ -956,6 +976,24 @@ class AppTracker:
         callback_interval = 0.5  # Only trigger UI update every 500ms max
         
         while self.running:
+            # ── Idle auto-pause check ────────────────────────────────
+            if self.idle_threshold_seconds > 0:
+                idle_secs = _get_idle_seconds()
+                if not self.paused and idle_secs >= self.idle_threshold_seconds:
+                    # User went idle — auto-pause
+                    self._idle_paused = True
+                    self.toggle_pause()
+                    if self.on_update:
+                        try: self.on_update()
+                        except: pass
+                elif self._idle_paused and idle_secs < self.idle_threshold_seconds:
+                    # Activity resumed — auto-resume
+                    self._idle_paused = False
+                    if self.paused:
+                        self.toggle_pause()
+                    if self.on_update:
+                        try: self.on_update()
+                        except: pass
             if self.paused:
                 time.sleep(self.poll_interval)
                 continue
