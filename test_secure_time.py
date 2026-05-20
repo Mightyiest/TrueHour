@@ -134,6 +134,85 @@ class TestTimeTamperDetector(unittest.TestCase):
         self.assertLess(self.detector.trust_score, 100)
         self.assertGreater(len(self.detector.tamper_events), 0)
 
+    @patch('urllib.request.urlopen')
+    def test_get_network_time_date_header(self, mock_urlopen):
+        """Test getting network time successfully via HTTP Date header"""
+        from datetime import datetime, timezone
+        
+        # Configure mock response
+        mock_response = MagicMock()
+        mock_response.__enter__.return_value = mock_response
+        mock_response.headers.get.return_value = "Wed, 20 May 2026 02:50:00 GMT"
+        mock_urlopen.return_value = mock_response
+        
+        # Freeze system time to compare accurately
+        # System time is 5 seconds ahead
+        system_now = datetime(2026, 5, 20, 2, 50, 5, tzinfo=timezone.utc)
+        
+        with patch('secure_time.datetime') as mock_datetime:
+            mock_datetime.now.return_value = system_now
+            mock_datetime.fromisoformat = datetime.fromisoformat
+            
+            offset = self.detector.get_network_time()
+            
+            # Expected offset = 5.0 seconds
+            self.assertEqual(offset, 5.0)
+            mock_response.headers.get.assert_called_with("Date")
+
+    @patch('urllib.request.urlopen')
+    def test_get_network_time_json_fallback(self, mock_urlopen):
+        """Test getting network time via JSON API body if Date header is missing"""
+        from datetime import datetime, timezone
+        
+        def mock_urlopen_side_effect(req, *args, **kwargs):
+            url = req.full_url if hasattr(req, 'full_url') else req
+            mock_resp = MagicMock()
+            mock_resp.__enter__.return_value = mock_resp
+            if "timeapi.io" in url:
+                mock_resp.headers.get.return_value = None
+                mock_resp.read.return_value = b'{"dateTime": "2026-05-20T02:50:00+00:00"}'
+                return mock_resp
+            else:
+                mock_resp.headers.get.return_value = None
+                mock_resp.read.return_value = b''
+                return mock_resp
+
+        mock_urlopen.side_effect = mock_urlopen_side_effect
+        
+        system_now = datetime(2026, 5, 20, 2, 50, 5, tzinfo=timezone.utc)
+        
+        with patch('secure_time.datetime') as mock_datetime:
+            mock_datetime.now.return_value = system_now
+            mock_datetime.fromisoformat = datetime.fromisoformat
+            
+            offset = self.detector.get_network_time()
+            
+            # Expected offset = 5.0 seconds
+            self.assertEqual(offset, 5.0)
+
+    @patch('urllib.request.urlopen')
+    def test_get_network_time_all_sources_fail(self, mock_urlopen):
+        """Test that get_network_time returns None when all requests fail"""
+        import urllib.error
+        mock_urlopen.side_effect = urllib.error.URLError("Connection failed")
+        
+        offset = self.detector.get_network_time()
+        self.assertIsNone(offset)
+
+    def test_trust_score_recovery(self):
+        """Test that trust score recovers over time during valid tracking"""
+        self.detector.start_session()
+        self.detector.trust_score = 90
+        # Set last recovery to 350 seconds ago to trigger recovery
+        self.detector.last_trust_recovery = time.time() - 350
+        
+        # Validate entry
+        result = self.detector.validate_and_record("TestApp", 60.0)
+        
+        # Expected: trust score increments by 1 to 91
+        self.assertEqual(self.detector.trust_score, 91)
+        self.assertEqual(result['trust_score'], 91)
+
     def test_session_report_generation(self):
         """Test session report generation"""
         self.detector.start_session()
