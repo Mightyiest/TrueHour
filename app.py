@@ -8,6 +8,7 @@ import os
 import sys
 import time
 import ctypes
+import threading
 from datetime import datetime
 import json
 from PIL import ImageTk
@@ -21,6 +22,15 @@ from report import (
     save_to_autosave, save_to_history, load_session_json,
 )
 from version import VERSION_SHORT, VERSION_FULL
+
+# Configure logging for the app module
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(handler)
 
 # ── Force Windows to use Light Mode for this Tkinter app ──────────────
 # Prevents native dialogs (filedialog, messagebox) from inheriting Dark Mode
@@ -146,6 +156,9 @@ class FocusLogApp:
         # Performance: Track last UI update state to avoid redundant refreshes
         self._last_app_state_hash = None
         self._ui_refresh_scheduled = False
+        self._refresh_after_id = None  # For debouncing UI refreshes
+        self._icon_cache = {}  # Async icon cache: {exe_path: PhotoImage or None}
+        self._icon_load_queue = set()  # Apps pending icon load
 
         self.root = tk.Tk()
         self.root.title("FocusLog")
@@ -454,6 +467,9 @@ class FocusLogApp:
                 save_to_autosave(report)
             except Exception as e:
                 print(f"[FocusLog] Closing autosave failed: {e}")
+        # Clean up async icon loading resources
+        self._icon_cache.clear()
+        self._icon_load_queue.clear()
         self.root.destroy()
 
     def _get_relative_time(self, timestamp):
@@ -911,8 +927,14 @@ class FocusLogApp:
             self._ui_refresh_scheduled = False
 
     def _schedule_refresh(self):
-        """Called by the <<TrackerUpdate>> virtual event — triggers the actual UI refresh."""
-        self._refresh_app_list()
+        """Called by the <<TrackerUpdate>> virtual event — triggers the actual UI refresh with debouncing."""
+        # Debounce rapid updates by scheduling with a small delay
+        if hasattr(self, '_refresh_after_id') and self._refresh_after_id:
+            try:
+                self.root.after_cancel(self._refresh_after_id)
+            except Exception:
+                pass
+        self._refresh_after_id = self.root.after(100, self._refresh_app_list)
 
     def _show_tag_menu(self, event, app_name):
         menu = tk.Menu(self.root, tearoff=0)
@@ -1076,15 +1098,28 @@ class FocusLogApp:
                     cb.grid(row=0, column=0, padx=(8, 2), pady=2)
                     
                     exe_path = self.tracker.get_exe_path(app_name)
-                    icon_img = get_icon_image(exe_path, size=16) if exe_path else None
                     icon_lbl = None
                     
-                    if icon_img:
-                        photo = ImageTk.PhotoImage(icon_img)
-                        new_photo_refs.append(photo)
-                        icon_lbl = tk.Label(row, image=photo, bg=row_bg, bd=0)
-                        icon_lbl.grid(row=0, column=1, padx=(2, 4), pady=2)
-                        icon_lbl._photo = photo
+                    # Check async icon cache first
+                    if exe_path and exe_path in self._icon_cache:
+                        cached_photo = self._icon_cache[exe_path]
+                        if cached_photo:
+                            photo = cached_photo
+                            new_photo_refs.append(photo)
+                            icon_lbl = tk.Label(row, image=photo, bg=row_bg, bd=0)
+                            icon_lbl.grid(row=0, column=1, padx=(2, 4), pady=2)
+                            icon_lbl._photo = photo
+                        else:
+                            tk.Frame(row, bg=row_bg, width=20).grid(row=0, column=1)
+                    elif exe_path and exe_path not in self._icon_load_queue:
+                        # Queue for async loading - show placeholder first
+                        tk.Frame(row, bg=row_bg, width=20).grid(row=0, column=1)
+                        self._icon_load_queue.add(exe_path)
+                        # Load icon asynchronously
+                        threading.Thread(target=self._load_icon_async, args=(exe_path, app_name), daemon=True).start()
+                    elif exe_path:
+                        # Icon is being loaded, show placeholder
+                        tk.Frame(row, bg=row_bg, width=20).grid(row=0, column=1)
                     else:
                         tk.Frame(row, bg=row_bg, width=20).grid(row=0, column=1)
                         
@@ -1105,7 +1140,7 @@ class FocusLogApp:
                     time_lbl.grid(row=0, column=4, sticky="e", padx=(4, 12))
                     
                     self._row_widgets[app_name] = {
-                        'row': row, 'cb': cb, 'name': name_lbl, 'tag': tag_lbl, 'time': time_lbl, 'icon': icon_lbl
+                        'row': row, 'cb': cb, 'name': name_lbl, 'tag': tag_lbl, 'time': time_lbl, 'icon': icon_lbl, 'exe_path': exe_path
                     }
                 else:
                     # Update existing row - optimized path
@@ -1137,6 +1172,54 @@ class FocusLogApp:
     def _toggle_include(self, app_name, var):
         self.tracker.set_included(app_name, bool(var.get()))
         self._refresh_app_list()
+
+    def _load_icon_async(self, exe_path: str, app_name: str):
+        """Load icon asynchronously in a background thread and update UI when ready."""
+        try:
+            # Load icon from disk (blocking operation)
+            icon_img = get_icon_image(exe_path, size=16)
+            
+            # Convert to PhotoImage in main thread context
+            if icon_img:
+                photo = ImageTk.PhotoImage(icon_img)
+                # Store in cache for future use
+                self._icon_cache[exe_path] = photo
+            else:
+                self._icon_cache[exe_path] = None
+            
+            # Remove from load queue
+            self._icon_load_queue.discard(exe_path)
+            
+            # Update UI on main thread
+            self.root.after(0, lambda: self._update_icon_for_app(exe_path, app_name))
+        except Exception as e:
+            logger.debug(f"Failed to load icon for {exe_path}: {e}")
+            self._icon_cache[exe_path] = None
+            self._icon_load_queue.discard(exe_path)
+
+    def _update_icon_for_app(self, exe_path: str, app_name: str):
+        """Update the icon label for an app after async loading completes."""
+        if app_name not in self._row_widgets:
+            return
+        
+        widgets = self._row_widgets[app_name]
+        photo = self._icon_cache.get(exe_path)
+        
+        if photo:
+            # Replace placeholder with actual icon
+            row = widgets['row']
+            # Destroy old placeholder/icon
+            if widgets['icon']:
+                widgets['icon'].destroy()
+            
+            # Create new icon label
+            icon_lbl = tk.Label(row, image=photo, bg=row.cget('bg'), bd=0)
+            icon_lbl.grid(row=0, column=1, padx=(2, 4), pady=2)
+            icon_lbl._photo = photo
+            
+            # Update widget reference
+            widgets['icon'] = icon_lbl
+            self._photo_refs.append(photo)
 
     def _show_report(self, report, is_new=True, is_live=False):
         if hasattr(self, '_report_window') and self._report_window and self._report_window.winfo_exists(): self._report_window.destroy()

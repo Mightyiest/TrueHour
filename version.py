@@ -5,7 +5,7 @@ Single source of truth for version and build metadata.
 
 from dataclasses import dataclass
 
-__version__ = "1.1.0"
+__version__ = "1.1.0-test"
 
 @dataclass(frozen=True)
 class VersionInfo:
