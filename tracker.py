@@ -66,6 +66,7 @@ _DEFAULT_AUTO_EXCLUDED = """\
 explorer.exe
 dwm.exe
 shellexperiencehost.exe
+applicationframehost.exe
 startmenuexperiencehost.exe
 searchhost.exe
 searchindexer.exe
@@ -154,8 +155,29 @@ _AUTO_EXCLUDED_LOCK = threading.Lock()  # thread-safe access to _AUTO_EXCLUDED_E
 
 def _create_auto_excluded_if_missing():
     """Generate default auto_excluded_apps.txt on first launch only.
-    If file already exists, do nothing — never overwrite user edits."""
+    If file already exists, make sure core Windows apps are present, but don't overwrite user edits."""
     if os.path.exists(AUTO_EXCLUDE_FILE):
+        try:
+            with open(AUTO_EXCLUDE_FILE, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            missing_additions = []
+            if "applicationframehost" not in content.lower():
+                missing_additions.append("applicationframehost.exe")
+            if "dwm.exe" not in content.lower():
+                if "dwm" not in content.lower():
+                    missing_additions.append("dwm.exe")
+            if "shellexperiencehost.exe" not in content.lower():
+                if "shellexperiencehost" not in content.lower():
+                    missing_additions.append("shellexperiencehost.exe")
+                
+            if missing_additions:
+                with open(AUTO_EXCLUDE_FILE, "a", encoding="utf-8") as f:
+                    f.write("\n# ── Automatically Excluded Apps (Added via update) ──\n")
+                    for app in missing_additions:
+                        f.write(f"{app}\n")
+        except Exception as e:
+            logger.warning(f"Failed to check/update existing auto-exclude file: {e}")
         return
     try:
         dirpath = os.path.dirname(AUTO_EXCLUDE_FILE)
@@ -518,6 +540,10 @@ class AppTracker:
         self.security_detector = None
         self.integrity_warnings = []
 
+        # Resume tracking: snapshot of app_times at the moment a past session was resumed.
+        # None = fresh start or crash recovery. dict = resumed from Session Manager.
+        self.resume_snapshot = None
+
     def _load_settings(self):
         if os.path.exists(SETTINGS_FILE):
             try:
@@ -581,6 +607,7 @@ class AppTracker:
         self._current_block_start = None
         self._current_block_active = 0
         self.integrity_warnings.clear()
+        self.resume_snapshot = None  # Fresh start — no previous session
         self._thread = threading.Thread(target=self._poll_loop, daemon=True)
         self._thread.start()
 
@@ -607,7 +634,7 @@ class AppTracker:
                 self.integrity_warnings.append({
                     "type": "LOW_TRUST_SCORE",
                     "score": security_report["trust_score"],
-                    "events_count": security_report["tamper_events_count"]
+                    "events_count": security_report.get("tamper_events_count", len(security_report.get("tamper_events", [])))
                 })
         
         if os.path.exists(ACTIVE_SESSION_FILE):
@@ -700,6 +727,7 @@ class AppTracker:
             if self.paused:
                 self._pause_start = time.time()  # reset so UI shows correct paused state
             
+            self.resume_snapshot = None  # Crash recovery — not a user-initiated resume
             self._last_save_time = time.time()
             self._thread = threading.Thread(target=self._poll_loop, daemon=True)
             self._thread.start()
@@ -774,6 +802,9 @@ class AppTracker:
             self._pause_start = None
             self.running = True
             self.is_recovered = False
+            # Snapshot current app_times BEFORE the poll thread starts adding new time.
+            # Anything beyond these values at stop time = new activity from this resume.
+            self.resume_snapshot = dict(self.app_times)
             self._last_save_time = time.time()
             self._thread = threading.Thread(target=self._poll_loop, daemon=True)
             self._thread.start()
