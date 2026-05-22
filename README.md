@@ -1,4 +1,4 @@
-# FocusLog
+# FocusLog v2.0
 
 > **A lightweight, privacy-first Windows desktop time tracker with a modern Windows 11-style UI.**
 
@@ -27,7 +27,7 @@ FocusLog automatically monitors your active window to track productivity, calcul
     *   View live session stats.
     *   Export sessions to **TXT**, **JSON**, or **CSV**.
     *   Bulk export all history to a single CSV file.
-*   **🎨 Modern UI:** Clean, light-themed interface inspired by Windows 11 Fluent Design, built with Tkinter.
+*   **🎨 Modern UI:** Clean, light-themed interface inspired by Windows 11 Fluent Design, built with PyQt6.
 *   **🖼️ App Icons:** Extracts and displays actual executable icons for easy visual identification.
 
 ---
@@ -74,9 +74,9 @@ FocusLog automatically monitors your active window to track productivity, calcul
     ```
 
 2.  **Install Dependencies:**
-    FocusLog requires `pywin32`, `psutil`, and `Pillow`.
+    FocusLog requires `PyQt6`, `pywin32`, `psutil`, and `Pillow`.
     ```bash
-    pip install pywin32 psutil Pillow
+    pip install PyQt6 pywin32 psutil Pillow
     ```
 
 3.  **Run the Application:**
@@ -114,8 +114,8 @@ If you want to create a single `.exe` file that doesn't require Python to be ins
 
 ```text
 FocusLog/
-├── icon.ico            # Main UI Entry Point (Tkinter)
-├── app.py              # Main UI Entry Point (Tkinter)
+├── icon.ico            # Application Icon
+├── app.py              # Main UI Entry Point (PyQt6)
 ├── tracker.py          # Core Logic: Polling loop, state management, crash recovery
 ├── report.py           # Data formatting, export utilities (CSV/JSON/TXT)
 ├── appinfo.py          # Windows API wrappers: Get foreground window, extract icons/names
@@ -192,7 +192,7 @@ The heart of the application.
 Handles Windows-specific interactions.
 *   **`get_foreground_app_info()`:** Uses `win32gui` and `psutil` to find the active window's PID and executable path.
 *   **`resolve_name()`:** Tries to get the "File Description" from the EXE version info for a friendly name. Falls back to overrides or filename.
-*   **`get_icon_image()`:** Extracts the small icon from the EXE using `win32gui.ExtractIconEx` and converts it to a PIL Image for Tkinter.
+*   **`get_icon_image()`:** Extracts the small icon from the EXE using `win32gui.ExtractIconEx` and converts it to a PIL Image for PyQt6.
 
 #### `report.py`
 Handles data serialization.
@@ -250,6 +250,6 @@ See the [LICENSE](LICENSE.md) file for the full legal text.
 
 ## 🙏 Acknowledgments
 
-*   Built with **Python** and **Tkinter**.
+*   Built with **Python** and **PyQt6**.
 *   Icon extraction powered by **pywin32** and **Pillow**.
 *   Process monitoring via **psutil**.
