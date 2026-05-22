@@ -26,6 +26,7 @@ import os
 import json
 import logging
 from datetime import datetime, timedelta
+from typing import Optional
 from appinfo import get_foreground_app_info
 from config import get_app_data_dir
 from secure_time import get_detector, reset_detector
@@ -153,23 +154,31 @@ _AUTO_EXCLUDED_EXES = set()  # must be declared before any function references i
 _AUTO_EXCLUDED_LOCK = threading.Lock()  # thread-safe access to _AUTO_EXCLUDED_EXES
 
 
-def _create_auto_excluded_if_missing():
+def create_auto_excluded_if_missing():
     """Generate default auto_excluded_apps.txt on first launch only.
-    If file already exists, make sure core Windows apps are present, but don't overwrite user edits."""
+    If file already exists, make sure all default Windows system apps are present, but don't overwrite user edits."""
     if os.path.exists(AUTO_EXCLUDE_FILE):
         try:
             with open(AUTO_EXCLUDE_FILE, "r", encoding="utf-8") as f:
                 content = f.read()
+            content_lower = content.lower()
+            
+            # Extract all default active executables from _DEFAULT_AUTO_EXCLUDED
+            default_apps = []
+            for line in _DEFAULT_AUTO_EXCLUDED.splitlines():
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    exe = line.lower()
+                    if not exe.endswith(".exe"):
+                        exe += ".exe"
+                    default_apps.append((line, exe))
             
             missing_additions = []
-            if "applicationframehost" not in content.lower():
-                missing_additions.append("applicationframehost.exe")
-            if "dwm.exe" not in content.lower():
-                if "dwm" not in content.lower():
-                    missing_additions.append("dwm.exe")
-            if "shellexperiencehost.exe" not in content.lower():
-                if "shellexperiencehost" not in content.lower():
-                    missing_additions.append("shellexperiencehost.exe")
+            for raw_name, exe_name in default_apps:
+                base_name = exe_name[:-4] if exe_name.endswith(".exe") else exe_name
+                # Check if this executable (with or without .exe) is present in the file
+                if base_name not in content_lower:
+                    missing_additions.append(raw_name)
                 
             if missing_additions:
                 with open(AUTO_EXCLUDE_FILE, "a", encoding="utf-8") as f:
@@ -267,7 +276,7 @@ def _is_auto_excluded(exe_path):
 
 
 # Run on module load — order matters: generate first, then load
-_create_auto_excluded_if_missing()
+create_auto_excluded_if_missing()
 _load_auto_excluded()
 
 SETTINGS_FILE = os.path.join(get_app_data_dir(), "settings.json")
@@ -384,7 +393,7 @@ class TagManager:
                 return True
         return False
 
-    def _match_offline(self, app_name: str, exe_path: str) -> str or None:
+    def _match_offline(self, app_name: str, exe_path: str) -> Optional[str]:
         """Offline keyword heuristic matching."""
         # Clean terms to search
         search_terms = [app_name.lower()]
