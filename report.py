@@ -139,6 +139,35 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
         })
     breakdown.sort(key=lambda x: x["seconds"], reverse=True)
 
+    # ── New Activity: diff against resume snapshot ─────────────────────────
+    # Only populated when the session was loaded from a saved file via Session Manager.
+    resume_snapshot = getattr(tracker, 'resume_snapshot', None)
+    is_resumed = resume_snapshot is not None
+    new_activity = []
+    if is_resumed:
+        # Collect all app names across both snapshot and current app_times
+        all_app_names = set(resume_snapshot.keys()) | set(tracker.app_times.keys())
+        # Sort by new seconds descending, then name
+        for name, secs, included in apps:
+            prev_secs = resume_snapshot.get(name, 0)
+            new_secs = max(0.0, secs - prev_secs)
+            if new_secs > 0 or prev_secs > 0:
+                tag = tracker.get_app_tag(name)
+                new_activity.append({
+                    "name": name,
+                    "previous_seconds": int(prev_secs),
+                    "previous_formatted": format_duration(prev_secs),
+                    "new_seconds": int(new_secs),
+                    "new_formatted": format_duration(new_secs) if new_secs > 0 else "—",
+                    "total_seconds": int(secs),
+                    "total_formatted": format_duration(secs),
+                    "excluded": not included,
+                    "tag": tag,
+                })
+        # Only keep the list if at least one app has new time
+        if not any(a["new_seconds"] > 0 for a in new_activity):
+            new_activity = []
+
     return {
         "date": session_start.strftime("%Y-%m-%d"),
         "date_display": session_start.strftime("%B %d, %Y"),
@@ -153,6 +182,8 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
         "apps": app_list,
         "timeline": timeline,
         "is_recovered": getattr(tracker, 'is_recovered', False),
+        "is_resumed": is_resumed,
+        "new_activity": new_activity,
         "session_name": getattr(tracker, 'session_name', ""),
         "app_exe_paths": getattr(tracker, 'app_exe_paths', {}),
         "hourly_rate": hourly_rate,
@@ -166,15 +197,28 @@ def export_txt(report, filepath):
     """Export the report as a .txt file."""
     lines = []
     lines.append("FOCUSLOG SESSION REPORT")
+    if report.get("is_resumed"):
+        lines.append("[RESUMED SESSION]")
     lines.append(f"Date: {report['date']}")
     lines.append(f"Start: {report['start']} | End: {report['end']} | Duration: {report['total_formatted']}")
     lines.append(f"Counted Work Time: {report['counted_formatted']}")
     lines.append("")
+    # New activity section (only for resumed sessions with new time)
+    new_activity = [a for a in report.get("new_activity", []) if not a["excluded"]]
+    if new_activity:
+        lines.append("NEW ACTIVITY (THIS RESUME)")
+        lines.append("--------------------------")
+        lines.append(f"{'App':<30s} {'Previous':>12s} {'New Added':>12s} {'Total':>12s}")
+        for a in new_activity:
+            new_str = a["new_formatted"] if a["new_seconds"] > 0 else "—"
+            lines.append(f"{a['name']:<30s} {a['previous_formatted']:>12s} {new_str:>12s} {a['total_formatted']:>12s}")
+        lines.append("")
     lines.append("APP USAGE BREAKDOWN")
     lines.append("-------------------")
     for app in report["apps"]:
-        status = "[EXCLUDED]" if app["excluded"] else "[COUNTED]"
-        lines.append(f"{app['name']:<30s} {app['formatted']:>12s}   {app['percent']:>5.1f}%   {status}")
+        if app["excluded"]:
+            continue
+        lines.append(f"{app['name']:<30s} {app['formatted']:>12s}   {app['percent']:>5.1f}%")
     lines.append("")
     lines.append("TIMELINE LOG")
     lines.append("------------")
@@ -193,7 +237,7 @@ def export_txt(report, filepath):
     with open(filepath, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
-def export_json(report, filepath):
+def export_json(report, filepath, is_internal=False):
     """Export the report as a .json file."""
     # Normalize timeline entries — may contain datetime objects from load_session_json
     normalized_timeline = []
@@ -203,6 +247,14 @@ def export_json(report, filepath):
             "start": t["start"].strftime("%H:%M:%S") if hasattr(t["start"], "strftime") else t["start"],
             "end": t["end"].strftime("%H:%M:%S") if hasattr(t["end"], "strftime") else t["end"],
         })
+
+    if is_internal:
+        apps_list = [{"name": a["name"], "seconds": a["seconds"], "excluded": a["excluded"], "tag": a.get("tag", "Unassigned")} for a in report["apps"]]
+        new_activity_list = report.get("new_activity", [])
+    else:
+        apps_list = [{"name": a["name"], "seconds": a["seconds"], "tag": a.get("tag", "Unassigned")} for a in report["apps"] if not a["excluded"]]
+        new_activity_list = [a for a in report.get("new_activity", []) if not a["excluded"]]
+
     export = {
         "session_name": report.get("session_name", ""),
         "app_exe_paths": report.get("app_exe_paths", {}),
@@ -211,7 +263,9 @@ def export_json(report, filepath):
         "end": report["end"],
         "total_seconds": report["total_seconds"],
         "counted_seconds": report["counted_seconds"],
-        "apps": [{"name": a["name"], "seconds": a["seconds"], "excluded": a["excluded"], "tag": a.get("tag", "Unassigned")} for a in report["apps"]],
+        "is_resumed": report.get("is_resumed", False),
+        "new_activity": new_activity_list,
+        "apps": apps_list,
         "project_breakdown": report.get("project_breakdown", []),
         "timeline": normalized_timeline,
         "hourly_rate": report.get("hourly_rate", 0.0),
@@ -229,7 +283,7 @@ def save_to_autosave(report):
     prefix = "recovery" if report.get("is_recovered") else "auto"
     filename = f"{prefix}_{start_dt.strftime('%Y-%m-%d_%H-%M-%S')}.json"
     filepath = os.path.join(folder, filename)
-    export_json(report, filepath)
+    export_json(report, filepath, is_internal=True)
     return filepath
 
 def save_to_history(report):
@@ -239,7 +293,7 @@ def save_to_history(report):
     start_dt = datetime.strptime(report['date'] + " " + report['start'], "%Y-%m-%d %H:%M:%S")
     filename = f"session_{start_dt.strftime('%Y-%m-%d_%H-%M-%S')}.json"
     filepath = os.path.join(folder, filename)
-    export_json(report, filepath)
+    export_json(report, filepath, is_internal=True)
     return filepath
 
 def load_session_json(filepath):
@@ -327,13 +381,31 @@ def export_csv(report, filepath):
     try:
         with open(filepath, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['Date', 'Session Name', 'App Name', 'Project', 'Duration (seconds)', 
-                            'Duration (formatted)', 'Percent of Session', 'Included in Count'])
             date_str = report['date']
             session_name = report.get('session_name', 'Unnamed')
+
+            # New activity section (resumed sessions only)
+            new_activity = [a for a in report.get('new_activity', []) if not a['excluded']]
+            if new_activity:
+                writer.writerow(['[RESUMED SESSION] NEW ACTIVITY', '', '', '', '', '', '', ''])
+                writer.writerow(['App Name', 'Category', 'Previous Time (seconds)', 'Previous Time',
+                                 'New Added (seconds)', 'New Added', 'Total (seconds)', 'Total'])
+                for a in new_activity:
+                    writer.writerow([
+                        a['name'], a.get('tag', 'Unassigned'),
+                        a['previous_seconds'], a['previous_formatted'],
+                        a['new_seconds'], a['new_formatted'] if a['new_seconds'] > 0 else '—',
+                        a['total_seconds'], a['total_formatted']
+                    ])
+                writer.writerow([])
+
+            writer.writerow(['Date', 'Session Name', 'App Name', 'Project', 'Duration (seconds)',
+                            'Duration (formatted)', 'Percent of Session'])
             for app in report['apps']:
+                if app['excluded']:
+                    continue
                 writer.writerow([date_str, session_name, app['name'], app.get('tag', 'Unassigned'), app['seconds'],
-                                app['formatted'], f"{app['percent']:.1f}%", "Yes" if not app['excluded'] else "No"])
+                                app['formatted'], f"{app['percent']:.1f}%"])
 
             writer.writerow([])
             writer.writerow(['PROJECT BREAKDOWN', '', '', '', '', '', ''])
@@ -356,7 +428,7 @@ def export_csv_history(reports_list, filepath, hourly_rate=0.0, currency_symbol=
         with open(filepath, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(['Date', 'Start Time', 'End Time', 'Session Name', 'App Name', 'Project',
-                            'Duration (seconds)', 'Duration (formatted)', 'Percent of Session', 'Included in Count'])
+                            'Duration (seconds)', 'Duration (formatted)', 'Percent of Session'])
             total_counted_seconds = 0
             historical_projects = {}
             for report in sorted(reports_list, key=lambda r: r['date']):
@@ -365,8 +437,10 @@ def export_csv_history(reports_list, filepath, hourly_rate=0.0, currency_symbol=
                 end_time = report['end']
                 session_name = report.get('session_name', 'Unnamed')
                 for app in report['apps']:
+                    if app['excluded']:
+                        continue
                     writer.writerow([date_str, start_time, end_time, session_name, app['name'], app.get('tag', 'Unassigned'),
-                                    app['seconds'], app['formatted'], f"{app['percent']:.1f}%", "Yes" if not app['excluded'] else "No"])
+                                    app['seconds'], app['formatted'], f"{app['percent']:.1f}%"])
                 total_counted_seconds += report.get('counted_seconds', 0)
                 
                 # Accumulate historical project times
@@ -378,11 +452,11 @@ def export_csv_history(reports_list, filepath, hourly_rate=0.0, currency_symbol=
             m = (total_counted_seconds % 3600) // 60
             s = total_counted_seconds % 60
             total_formatted = f"{h}h {m:02d}m {s:02d}s"
-            writer.writerow(['TOTAL COUNTED HOURS', '', '', '', '', '', total_counted_seconds, total_formatted, '', ''])
+            writer.writerow(['TOTAL COUNTED HOURS', '', '', '', '', '', total_counted_seconds, total_formatted, ''])
             if hourly_rate > 0:
                 total_earned = (total_counted_seconds / 3600) * hourly_rate
                 total_earned_display = f"{currency_symbol}{total_earned:,.2f}"
-                writer.writerow(['TOTAL EARNED', '', '', '', '', '', '', total_earned_display, f"@ {currency_symbol}{hourly_rate:.2f}/hr", ''])
+                writer.writerow(['TOTAL EARNED', '', '', '', '', '', '', total_earned_display, f"@ {currency_symbol}{hourly_rate:.2f}/hr"])
 
             writer.writerow([])
             writer.writerow(['PROJECT BREAKDOWN SUMMARY', '', '', '', '', '', '', '', ''])

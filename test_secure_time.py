@@ -60,6 +60,7 @@ class TestTimeTamperDetector(unittest.TestCase):
         result = self.detector.end_session()
         
         self.assertIn('trust_score', result)
+        self.assertIn('tamper_events_count', result)
         self.assertIn('chain_length', result)
         self.assertGreater(result['chain_length'], 1)
 

@@ -365,6 +365,7 @@ class TimeTamperDetector:
             return {
                 "trust_score": self.trust_score,
                 "tamper_events": self.tamper_events,
+                "tamper_events_count": len(self.tamper_events),
                 "chain_length": len(self.chain_data)
             }
     

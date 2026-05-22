@@ -1039,12 +1039,20 @@ class FocusLogApp:
         try:
             apps = self.tracker.get_app_times_sorted()
             
-            # Create a hashable state key for change detection (excluding time values for efficiency)
-            app_state_key = tuple((name, included) for name, _, included in apps)
-            
-            # Skip refresh if app list structure hasn't changed (same apps, same inclusion status)
+            # Create a hashable state key for change detection.
+            # Include secs rounded to 5s so we detect app switches (time redistribution)
+            # without rebuilding the whole list on every single poll tick.
+            app_state_key = tuple((name, included, int(secs) // 5) for name, secs, included in apps)
+
+            # Skip full rebuild if nothing meaningful has changed
             if app_state_key == self._last_app_state_hash and not self._showing_placeholder:
-                # Only update the total time without rebuilding the entire list
+                # Fast path: just update individual time labels and the footer total
+                for app_name, secs, included in apps:
+                    if app_name in self._row_widgets:
+                        w = self._row_widgets[app_name]
+                        new_text = format_duration(secs)
+                        if w['time'].cget('text') != new_text:
+                            w['time'].configure(text=new_text)
                 counted = self.tracker.get_counted_seconds()
                 self.total_label.configure(text=format_duration(counted))
                 self._ui_refresh_scheduled = False
@@ -1378,6 +1386,74 @@ class FocusLogApp:
                     earned_lbl = tk.Label(row_f, text=f"({pb['earned_display']})", bg=BG_WHITE, fg=GREEN_STATUS, font=(FONT_FAMILY, 9, "bold"))
                     earned_lbl.pack(side="right", padx=10)
 
+        # ── New Activity (only shown for resumed sessions with new data) ──────
+        new_activity = report.get("new_activity", [])
+        if report.get("is_resumed") and new_activity:
+            MAX_NA_VISIBLE = 7
+            tk.Label(body, text="New Activity (This Resume)", bg=BG_SURFACE, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 10, "bold")).pack(anchor="w", padx=px + 4, pady=(12, 6))
+            na_tbl = tk.Frame(body, bg=BG_WHITE, highlightthickness=1, highlightbackground=BORDER)
+            na_tbl.pack(fill="x", padx=px)
+            na_tbl.columnconfigure(0, weight=1)
+
+            # Header row
+            na_th = tk.Frame(na_tbl, bg=BG_SURFACE)
+            na_th.pack(fill="x")
+            na_th.columnconfigure(0, weight=1)
+            for col, (txt, w, anc) in enumerate([("App", 0, "w"), ("Category", 12, "w"), ("Previous", 10, "e"), ("New Added", 10, "e"), ("Total", 10, "e"), ("Status", 10, "e")]):
+                lbl = tk.Label(na_th, text=txt, bg=BG_SURFACE, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9, "bold"), anchor=anc)
+                if w: lbl.configure(width=w)
+                lbl.grid(row=0, column=col, padx=10, pady=6, sticky="ew" if col <= 1 else "e")
+            na_th.columnconfigure(0, weight=1)
+            na_th.columnconfigure(1, weight=0)
+
+            na_rows_container = tk.Frame(na_tbl, bg=BG_WHITE)
+            na_rows_container.pack(fill="x")
+
+            def _render_na_rows(show_all=False):
+                for w in na_rows_container.winfo_children():
+                    w.destroy()
+                visible_na = new_activity if show_all else new_activity[:MAX_NA_VISIBLE]
+                for i, a in enumerate(visible_na):
+                    rbg = BG_WHITE if i % 2 == 0 else BG_SURFACE
+                    r = tk.Frame(na_rows_container, bg=rbg)
+                    r.pack(fill="x")
+                    r.columnconfigure(0, weight=1)
+                    r.columnconfigure(1, weight=0)
+                    excluded = a["excluded"]
+                    fg = TEXT_PRIMARY if not excluded else TEXT_DISABLED
+                    has_new = a["new_seconds"] > 0
+                    st_text = "✓ Counted" if not excluded else "✗ Excluded"
+                    st_fg = GREEN_STATUS if not excluded else RED_STATUS
+                    tag = a.get("tag", "Unassigned")
+                    tag_bg = get_tag_color(tag)
+                    new_fg = "#10B981" if has_new else TEXT_DISABLED   # green if new time, grey if unchanged
+                    new_str = a["new_formatted"] if has_new else "—"
+
+                    tk.Label(r, text=a["name"], bg=rbg, fg=fg, font=(FONT_FAMILY, 10), anchor="w").grid(row=0, column=0, padx=10, pady=4, sticky="ew")
+                    tag_lbl = tk.Label(r, text=tag, bg=tag_bg, fg="#FFFFFF", font=(FONT_FAMILY, 7, "bold"), padx=5, pady=1, relief="flat")
+                    tag_lbl.grid(row=0, column=1, padx=10, pady=4, sticky="w")
+                    tk.Label(r, text=a["previous_formatted"], bg=rbg, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 10), anchor="e", width=10).grid(row=0, column=2, padx=10, pady=4, sticky="e")
+                    tk.Label(r, text=new_str, bg=rbg, fg=new_fg, font=(FONT_FAMILY, 10, "bold" if has_new else "normal"), anchor="e", width=10).grid(row=0, column=3, padx=10, pady=4, sticky="e")
+                    tk.Label(r, text=a["total_formatted"], bg=rbg, fg=fg, font=(FONT_FAMILY, 10), anchor="e", width=10).grid(row=0, column=4, padx=10, pady=4, sticky="e")
+                    tk.Label(r, text=st_text, bg=rbg, fg=st_fg, font=(FONT_FAMILY, 9), anchor="e", width=10).grid(row=0, column=5, padx=10, pady=4, sticky="e")
+
+            _render_na_rows(show_all=False)
+
+            if len(new_activity) > MAX_NA_VISIBLE:
+                na_toggle_frame = tk.Frame(na_tbl, bg=BG_WHITE)
+                na_toggle_frame.pack(fill="x")
+                na_remaining = len(new_activity) - MAX_NA_VISIBLE
+                def _toggle_na():
+                    is_expanded = na_toggle_btn.cget("text").startswith("▲")
+                    if is_expanded:
+                        _render_na_rows(show_all=False)
+                        na_toggle_btn.configure(text=f"▼ Show all ({na_remaining} more)")
+                    else:
+                        _render_na_rows(show_all=True)
+                        na_toggle_btn.configure(text="▲ Show less")
+                na_toggle_btn = tk.Button(na_toggle_frame, text=f"▼ Show all ({na_remaining} more)", bg=BG_WHITE, fg=ACCENT, activebackground=BG_HOVER, activeforeground=ACCENT_HOVER, font=(FONT_FAMILY, 9, "underline"), bd=0, cursor="hand2", relief="flat", command=_toggle_na)
+                na_toggle_btn.pack(pady=6)
+
         # ── App Breakdown (limited to 7 by default) ───────────────────────
         MAX_APPS_VISIBLE = 7
         all_apps = report["apps"]
@@ -1443,8 +1519,8 @@ class FocusLogApp:
             toggle_btn = tk.Button(toggle_frame, text=f"▼ Show all ({remaining} more)", bg=BG_WHITE, fg=ACCENT, activebackground=BG_HOVER, activeforeground=ACCENT_HOVER, font=(FONT_FAMILY, 9, "underline"), bd=0, cursor="hand2", relief="flat", command=_toggle_apps)
             toggle_btn.pack(pady=6)
 
-        # ── Timeline (limited to 20 by default) ──────────────────────────
-        MAX_TIMELINE_VISIBLE = 20
+        # ── Timeline (paginated: 15 at a time) ───────────────────────────
+        TL_PAGE_SIZE = 15
         all_timeline = report["timeline"]
         tk.Label(body, text="Timeline", bg=BG_SURFACE, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 10, "bold")).pack(anchor="w", padx=px + 4, pady=(14, 6))
         tl_frame = tk.Frame(body, bg=BG_WHITE, highlightthickness=1, highlightbackground=BORDER)
@@ -1453,10 +1529,14 @@ class FocusLogApp:
             tl_rows_container = tk.Frame(tl_frame, bg=BG_WHITE)
             tl_rows_container.pack(fill="x")
 
-            def _render_timeline_rows(show_all=False):
+            # Mutable visible count (wrapped in list so closures can mutate it)
+            tl_visible = [TL_PAGE_SIZE]
+            tl_load_btn = None  # Created below only when len > TL_PAGE_SIZE
+
+            def _render_timeline_rows():
                 for w in tl_rows_container.winfo_children():
                     w.destroy()
-                visible = all_timeline if show_all else all_timeline[:MAX_TIMELINE_VISIBLE]
+                visible = all_timeline[:tl_visible[0]]
                 for i, entry in enumerate(visible):
                     rbg = BG_WHITE if i % 2 == 0 else BG_SURFACE
                     tr = tk.Frame(tl_rows_container, bg=rbg)
@@ -1466,23 +1546,33 @@ class FocusLogApp:
                     t_end = entry['end'].strftime("%H:%M:%S") if hasattr(entry['end'], 'strftime') else entry['end']
                     tk.Label(tr, text=f"{t_start} -> {t_end}", bg=rbg, fg=TEXT_SECONDARY, font=(FONT_FAMILY, 9), anchor="w").grid(row=0, column=0, padx=10, pady=3, sticky="w")
                     tk.Label(tr, text=entry["app"], bg=rbg, fg=TEXT_PRIMARY, font=(FONT_FAMILY, 10), anchor="w").grid(row=0, column=1, padx=10, pady=3, sticky="w")
-
-            _render_timeline_rows(show_all=False)
-
-            if len(all_timeline) > MAX_TIMELINE_VISIBLE:
-                tl_toggle_frame = tk.Frame(tl_frame, bg=BG_WHITE)
-                tl_toggle_frame.pack(fill="x")
-                tl_remaining = len(all_timeline) - MAX_TIMELINE_VISIBLE
-                def _toggle_timeline():
-                    is_expanded = tl_toggle_btn.cget("text").startswith("▲")
-                    if is_expanded:
-                        _render_timeline_rows(show_all=False)
-                        tl_toggle_btn.configure(text=f"▼ Show all ({tl_remaining} more)")
+                # Update the load-more button state — only if it exists
+                if tl_load_btn is not None:
+                    remaining = len(all_timeline) - tl_visible[0]
+                    if remaining > 0:
+                        next_chunk = min(TL_PAGE_SIZE, remaining)
+                        tl_load_btn.configure(text=f"▼ Show {next_chunk} more  ({remaining} remaining)", state="normal")
                     else:
-                        _render_timeline_rows(show_all=True)
-                        tl_toggle_btn.configure(text="▲ Show less")
-                tl_toggle_btn = tk.Button(tl_toggle_frame, text=f"▼ Show all ({tl_remaining} more)", bg=BG_WHITE, fg=ACCENT, activebackground=BG_HOVER, activeforeground=ACCENT_HOVER, font=(FONT_FAMILY, 9, "underline"), bd=0, cursor="hand2", relief="flat", command=_toggle_timeline)
-                tl_toggle_btn.pack(pady=6)
+                        tl_load_btn.configure(text="✓ All entries shown", state="disabled", fg=TEXT_DISABLED, cursor="arrow")
+
+            _render_timeline_rows()
+
+            if len(all_timeline) > TL_PAGE_SIZE:
+                tl_btn_frame = tk.Frame(tl_frame, bg=BG_WHITE)
+                tl_btn_frame.pack(fill="x")
+
+                def _load_more_timeline():
+                    tl_visible[0] = min(tl_visible[0] + TL_PAGE_SIZE, len(all_timeline))
+                    _render_timeline_rows()
+
+                tl_load_btn = tk.Button(
+                    tl_btn_frame,
+                    text=f"▼ Show {min(TL_PAGE_SIZE, len(all_timeline) - TL_PAGE_SIZE)} more  ({len(all_timeline) - TL_PAGE_SIZE} remaining)",
+                    bg=BG_WHITE, fg=ACCENT, activebackground=BG_HOVER, activeforeground=ACCENT_HOVER,
+                    font=(FONT_FAMILY, 9, "underline"), bd=0, cursor="hand2", relief="flat",
+                    command=_load_more_timeline
+                )
+                tl_load_btn.pack(pady=6)
         else:
             tk.Label(tl_frame, text="No timeline entries recorded.", bg=BG_WHITE, fg=TEXT_DISABLED, font=(FONT_FAMILY, 10)).pack(padx=10, pady=10)
 
