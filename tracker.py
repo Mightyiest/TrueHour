@@ -26,6 +26,7 @@ import os
 import json
 import logging
 from datetime import datetime, timedelta
+from typing import Optional
 from appinfo import get_foreground_app_info
 from config import get_app_data_dir
 from secure_time import get_detector, reset_detector
@@ -384,7 +385,7 @@ class TagManager:
                 return True
         return False
 
-    def _match_offline(self, app_name: str, exe_path: str) -> str or None:
+    def _match_offline(self, app_name: str, exe_path: str) -> Optional[str]:
         """Offline keyword heuristic matching."""
         # Clean terms to search
         search_terms = [app_name.lower()]
