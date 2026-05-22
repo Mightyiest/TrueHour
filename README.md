@@ -50,13 +50,13 @@ FocusLog automatically monitors your active window to track productivity, calcul
 </tr>
 <tr>
 <td align="center">
-<img width="365" height="514" alt="Main Tracker Interface" src="https://github.com/user-attachments/assets/09add4d1-dfdd-4e11-b946-44676a5ac3b9" />
+<img width="365" height="514" alt="Main Tracker Interface" src="https://github.com/user-attachments/assets/b4f6b81e-fe39-4a69-850d-b2c77cec79ee" />
 </td>
 <td align="center">
-<img width="665" height="549" alt="Session Report View" src="https://github.com/user-attachments/assets/640cb47a-294e-4c6f-a90d-640436ed604a" />
+<img width="665" height="549" alt="Session Report View" src="https://github.com/user-attachments/assets/2cf83099-e21e-4d91-8e7b-edc2a8d866c1" />
 </td>
 <td align="center">
-<img width="360" height="593" alt="Settings Window" src="https://github.com/user-attachments/assets/c6edc093-f6e6-4274-90dc-b9053788deac" />
+<img width="360" height="593" alt="Settings Window" src="https://github.com/user-attachments/assets/c23000d7-89a1-4d7f-959e-35b5058bc8c6" />
 </td>
 </tr>
 </table>
