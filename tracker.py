@@ -16,7 +16,7 @@ def _get_idle_seconds():
         lii = _LASTINPUTINFO()
         lii.cbSize = _ctypes.sizeof(_LASTINPUTINFO)
         _ctypes.windll.user32.GetLastInputInfo(_ctypes.byref(lii))
-        millis = _ctypes.windll.kernel32.GetTickCount() - lii.dwTime
+        millis = (_ctypes.windll.kernel32.GetTickCount() - lii.dwTime) & 0xFFFFFFFF
         return millis / 1000.0
     except Exception:
         return 0.0

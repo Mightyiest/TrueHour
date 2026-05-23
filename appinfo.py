@@ -105,6 +105,11 @@ def get_icon_image(exe_path: str, size: int = 16):
     return _extract_icon(exe_path, size)
 
 def _extract_icon(exe_path, size=16):
+    large_icons, small_icons = [], []
+    screen_dc = None
+    mem_dc = None
+    bmp = None
+    old_bmp = None
     try:
         large_icons, small_icons = win32gui.ExtractIconEx(exe_path, 0, 1)
         if not small_icons and not large_icons:
@@ -122,19 +127,8 @@ def _extract_icon(exe_path, size=16):
         win32gui.DrawIconEx(mem_dc.GetHandleOutput(), 0, 0, hicon, size, size, 0, None, win32con.DI_NORMAL)
         
         bmp_info = bmp.GetInfo()
-        bmp_bits = bmp.GetBitmapBits(True)
+        bmp_bits = bmp.GetBitmapBits()
         img = Image.frombuffer('RGBA', (bmp_info['bmWidth'], bmp_info['bmHeight']), bmp_bits, 'raw', 'BGRA', 0, 1)
-        
-        # Proper GDI cleanup
-        mem_dc.SelectObject(old_bmp)
-        win32gui.DeleteObject(bmp.GetHandle())
-        mem_dc.DeleteDC()
-        win32gui.ReleaseDC(0, screen_dc)
-        
-        for icon in large_icons:
-            win32gui.DestroyIcon(icon)
-        for icon in small_icons:
-            win32gui.DestroyIcon(icon)
         
         # Handle Pillow deprecation
         resampler = getattr(Image, 'Resampling', Image).LANCZOS
@@ -142,6 +136,25 @@ def _extract_icon(exe_path, size=16):
     except Exception as e:
         logger.debug(f"Failed to extract icon from {exe_path}: {e}")
         return None
+    finally:
+        if mem_dc:
+            if old_bmp:
+                try: mem_dc.SelectObject(old_bmp)
+                except Exception: pass
+            try: mem_dc.DeleteDC()
+            except Exception: pass
+        if bmp:
+            try: win32gui.DeleteObject(bmp.GetHandle())
+            except Exception: pass
+        if screen_dc:
+            try: win32gui.ReleaseDC(0, screen_dc)
+            except Exception: pass
+        for icon in large_icons:
+            try: win32gui.DestroyIcon(icon)
+            except Exception: pass
+        for icon in small_icons:
+            try: win32gui.DestroyIcon(icon)
+            except Exception: pass
 
 def get_running_applications():
     apps = set()
