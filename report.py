@@ -134,7 +134,7 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
             "formatted": format_duration(secs),
             "percent": round(proj_pct, 1),
             "earned": round(proj_earned, 2),
-            "earned_display": f"{currency_symbol}{proj_earned:,.2f}" if hourly_rate > 0 else "",
+            "earned_display": f"{currency_symbol}{proj_earned:,.2f}",
             "color": get_project_color(proj)
         })
     breakdown.sort(key=lambda x: x["seconds"], reverse=True)
@@ -189,7 +189,7 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
         "hourly_rate": hourly_rate,
         "currency_symbol": currency_symbol,
         "total_earned": round(earned, 2),
-        "total_earned_display": f"{currency_symbol}{earned:,.2f}" if hourly_rate > 0 else "",
+        "total_earned_display": f"{currency_symbol}{earned:,.2f}",
         "project_breakdown": breakdown,
     }
 
@@ -202,6 +202,10 @@ def export_txt(report, filepath):
     lines.append(f"Date: {report['date']}")
     lines.append(f"Start: {report['start']} | End: {report['end']} | Duration: {report['total_formatted']}")
     lines.append(f"Counted Work Time: {report['counted_formatted']}")
+    hourly_rate = report.get("hourly_rate", 0.0)
+    currency_symbol = report.get("currency_symbol", "$")
+    lines.append(f"Hourly Rate: {currency_symbol}{hourly_rate:.2f}/hr")
+    lines.append(f"Total Earned: {report.get('total_earned_display') or (currency_symbol + '0.00')}")
     lines.append("")
     # New activity section (only for resumed sessions with new time)
     new_activity = [a for a in report.get("new_activity", []) if not a["excluded"]]
@@ -334,7 +338,7 @@ def load_session_json(filepath):
             "formatted": format_duration(secs),
             "percent": round(proj_pct, 1),
             "earned": round(proj_earned, 2),
-            "earned_display": f"{data.get('currency_symbol', '$')}{proj_earned:,.2f}" if data.get('hourly_rate', 0.0) > 0 else "",
+            "earned_display": f"{data.get('currency_symbol', '$')}{proj_earned:,.2f}",
             "color": get_project_color(proj)
         })
     breakdown.sort(key=lambda x: x["seconds"], reverse=True)
@@ -372,7 +376,7 @@ def load_session_json(filepath):
         "hourly_rate": data.get("hourly_rate", 0.0),
         "currency_symbol": data.get("currency_symbol", "$"),
         "total_earned": data.get("total_earned", 0.0),
-        "total_earned_display": f"{data.get('currency_symbol','$')}{data.get('total_earned',0.0):,.2f}" if data.get("hourly_rate", 0) > 0 else "",
+        "total_earned_display": f"{data.get('currency_symbol','$')}{data.get('total_earned',0.0):,.2f}",
         "project_breakdown": breakdown,
     }
 
@@ -415,8 +419,9 @@ def export_csv(report, filepath):
             writer.writerow([])
             writer.writerow(['TOTAL COUNTED HOURS', '', '', report['counted_seconds'], report['counted_formatted'], '', ''])
             hourly_rate = report.get('hourly_rate', 0.0)
-            if hourly_rate > 0:
-                writer.writerow(['TOTAL EARNED', '', '', '', report['total_earned_display'], f"@ {report['currency_symbol']}{hourly_rate:.2f}/hr", ''])
+            currency_symbol = report.get('currency_symbol', '$')
+            total_earned_display = report.get('total_earned_display') or f"{currency_symbol}0.00"
+            writer.writerow(['TOTAL EARNED', '', '', '', total_earned_display, f"@ {currency_symbol}{hourly_rate:.2f}/hr", ''])
         return True
     except Exception as e:
         print(f"CSV export error: {e}")
@@ -453,10 +458,9 @@ def export_csv_history(reports_list, filepath, hourly_rate=0.0, currency_symbol=
             s = total_counted_seconds % 60
             total_formatted = f"{h}h {m:02d}m {s:02d}s"
             writer.writerow(['TOTAL COUNTED HOURS', '', '', '', '', '', total_counted_seconds, total_formatted, ''])
-            if hourly_rate > 0:
-                total_earned = (total_counted_seconds / 3600) * hourly_rate
-                total_earned_display = f"{currency_symbol}{total_earned:,.2f}"
-                writer.writerow(['TOTAL EARNED', '', '', '', '', '', '', total_earned_display, f"@ {currency_symbol}{hourly_rate:.2f}/hr"])
+            total_earned = (total_counted_seconds / 3600) * hourly_rate
+            total_earned_display = f"{currency_symbol}{total_earned:,.2f}"
+            writer.writerow(['TOTAL EARNED', '', '', '', '', '', '', total_earned_display, f"@ {currency_symbol}{hourly_rate:.2f}/hr"])
 
             writer.writerow([])
             writer.writerow(['PROJECT BREAKDOWN SUMMARY', '', '', '', '', '', '', '', ''])
@@ -465,7 +469,7 @@ def export_csv_history(reports_list, filepath, hourly_rate=0.0, currency_symbol=
             for proj, secs in sorted(historical_projects.items(), key=lambda x: x[1], reverse=True):
                 pct = (secs / total_hist_counted * 100) if total_hist_counted > 0 else 0
                 earned = (secs / 3600) * hourly_rate
-                earned_display = f"{currency_symbol}{earned:,.2f}" if hourly_rate > 0 else "N/A"
+                earned_display = f"{currency_symbol}{earned:,.2f}"
                 writer.writerow([proj, secs, format_duration(secs), f"{pct:.1f}%", earned_display])
         return True
     except Exception as e:

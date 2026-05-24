@@ -740,7 +740,7 @@
         <nav id="navigation">
             <a href="#features">Features</a>
             <a href="#security">Security</a>
-            <a href="#setup">Setup</a>
+            <a href="#setup" onclick="switchTab('setup')">Setup</a>
             <a href="#license">License</a>
             <a href="https://github.com/Mightyiest/FocusLog" class="btn btn-secondary" target="_blank" rel="noopener">GitHub</a>
         </nav>
@@ -752,7 +752,7 @@
             <p class="hero-tagline">A highly precise, offline-first Windows time tracker backed by monotonic verification, cryptographic block mapping, and custom billing automation.</p>
             <div class="hero-cta">
                 <a href="https://github.com/Mightyiest/FocusLog" class="btn btn-primary" target="_blank" rel="noopener">Run from Source</a>
-                <a href="#setup" class="btn btn-secondary">Get Standalone Binary</a>
+                <a href="#setup" class="btn btn-secondary" onclick="switchTab('setup')">Get Standalone Binary</a>
             </div>
         </section>
 
@@ -920,7 +920,7 @@
 
         <div class="section-connector"></div>
 
-        <section class="interactive-section" id="interactiveTabs">
+        <section class="interactive-section" id="setup">
             <div class="tab-nav">
                 <button class="tab-btn active" id="btnTabApi" onclick="switchTab('api')">Security API</button>
                 <button class="tab-btn" id="btnTabSetup" onclick="switchTab('setup')">Developer Setup</button>
@@ -1064,7 +1064,7 @@ build.bat
                         <ul>
                             <li><a href="#features">Features</a></li>
                             <li><a href="#security">Security</a></li>
-                            <li><a href="#setup">Setup Guides</a></li>
+                            <li><a href="#setup" onclick="switchTab('setup')">Setup Guides</a></li>
                         </ul>
                     </div>
                     <div class="footer-col">
@@ -1106,6 +1106,20 @@ build.bat
                 document.getElementById('btnTabApi').classList.add('active');
                 document.getElementById('paneApi').classList.add('active');
             }
+        }
+
+        function handleHashChange() {
+            const hash = window.location.hash;
+            if (hash === '#setup') {
+                switchTab('setup');
+            } else if (hash === '#api') {
+                switchTab('api');
+            }
+        }
+
+        window.addEventListener('hashchange', handleHashChange);
+        if (window.location.hash) {
+            handleHashChange();
         }
 
         async function copyCode(elementId) {
