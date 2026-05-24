@@ -321,7 +321,7 @@ def load_session_json(filepath):
             "seconds": a['seconds'],
             "formatted": format_duration(a['seconds']),
             "percent": round(pct, 1),
-            "excluded": a['excluded'],
+            "excluded": a.get('excluded', False),
             "tag": tag
         })
         if not a['excluded']:

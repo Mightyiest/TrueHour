@@ -53,7 +53,7 @@ class TimeTamperDetector:
         self.network_time_offset = 0.0
         self.trust_score = 100  # 0-100, higher = more trustworthy
         self.tamper_events = []
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.chain_data = []
         self._load_chain()
         self.last_trust_recovery = time.time()
@@ -80,37 +80,38 @@ class TimeTamperDetector:
     
     def _log_security_event(self, event_type, details):
         """Log security events for later review."""
-        event = {
-            "timestamp": datetime.now().isoformat(),
-            "event_type": event_type,
-            "details": details,
-            "trust_score": self.trust_score
-        }
-        self.tamper_events.append(event)
-        
-        # Keep only last 1000 events
-        if len(self.tamper_events) > 1000:
-            self.tamper_events = self.tamper_events[-1000:]
-        
-        # Save to security log
-        try:
-            events_file = SECURITY_LOG_FILE
-            if os.path.exists(events_file):
-                with open(events_file, "r", encoding="utf-8") as f:
-                    all_events = json.load(f)
-            else:
-                all_events = []
+        with self._lock:
+            event = {
+                "timestamp": datetime.now().isoformat(),
+                "event_type": event_type,
+                "details": details,
+                "trust_score": self.trust_score
+            }
+            self.tamper_events.append(event)
             
-            all_events.append(event)
-            if len(all_events) > 5000:
-                all_events = all_events[-5000:]
+            # Keep only last 1000 events
+            if len(self.tamper_events) > 1000:
+                self.tamper_events = self.tamper_events[-1000:]
             
-            temp_file = events_file + ".tmp"
-            with open(temp_file, "w", encoding="utf-8") as f:
-                json.dump(all_events, f, indent=2)
-            os.replace(temp_file, events_file)
-        except Exception:
-            pass
+            # Save to security log
+            try:
+                events_file = SECURITY_LOG_FILE
+                if os.path.exists(events_file):
+                    with open(events_file, "r", encoding="utf-8") as f:
+                        all_events = json.load(f)
+                else:
+                    all_events = []
+                
+                all_events.append(event)
+                if len(all_events) > 5000:
+                    all_events = all_events[-5000:]
+                
+                temp_file = events_file + ".tmp"
+                with open(temp_file, "w", encoding="utf-8") as f:
+                    json.dump(all_events, f, indent=2)
+                os.replace(temp_file, events_file)
+            except Exception:
+                pass
     
     def get_network_time(self, timeout=5):
         """
@@ -303,6 +304,7 @@ class TimeTamperDetector:
             
             # Check network time periodically
             if self.last_network_sync is None or (time.time() - self.last_network_sync) > 900:
+                self.last_network_sync = time.time()
                 # Async network check
                 def delayed_sync():
                     offset = self.get_network_time(timeout=2)

@@ -1,7 +1,7 @@
 @echo off
 echo Building FocusLog...
 
-"%APPDATA%\Python\Python314\Scripts\pyinstaller.exe" --onefile --windowed --name FocusLog --icon=icon.ico --add-data "icon.ico;." app.py
+pyinstaller --onefile --windowed --name FocusLog --icon=icon.ico --add-data "icon.ico;." app.py
 
 if %ERRORLEVEL% equ 0 (
     echo Moving executable to root...
