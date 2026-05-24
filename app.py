@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
     QDialog, QFormLayout, QGroupBox, QMenu, QMessageBox, QFileDialog,
     QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy
 )
-from PyQt6.QtCore import Qt, QTimer, QSize, QObject, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, QSize, QObject, pyqtSignal, QRectF, QPointF
 from PyQt6.QtGui import QColor, QPainter, QBrush, QPen, QImage, QPixmap, QIcon, QPainterPath, QPalette
 
 from tracker import AppTracker, AUTO_EXCLUDE_FILE, create_auto_excluded_if_missing
@@ -50,73 +50,71 @@ def _force_light_mode():
         pass
 
 _force_light_mode()
-
-# ── Robust Application-Wide Light Palette ─────────────────────────────
 def get_light_palette():
     palette = QPalette()
     
-    # Active Colors (Clean Windows 11 Light Style)
-    palette.setColor(QPalette.ColorRole.Window, QColor("#F3F3F3"))
-    palette.setColor(QPalette.ColorRole.WindowText, QColor("#1A1A1A"))
+    # Active Colors (Modern Minimalist Light Style based on index.html)
+    palette.setColor(QPalette.ColorRole.Window, QColor("#F8FAFC"))
+    palette.setColor(QPalette.ColorRole.WindowText, QColor("#0F172A"))
     palette.setColor(QPalette.ColorRole.Base, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#FBFBFB"))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#F8FAFC"))
     palette.setColor(QPalette.ColorRole.ToolTipBase, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorRole.ToolTipText, QColor("#1A1A1A"))
-    palette.setColor(QPalette.ColorRole.Text, QColor("#1A1A1A"))
+    palette.setColor(QPalette.ColorRole.ToolTipText, QColor("#0F172A"))
+    palette.setColor(QPalette.ColorRole.Text, QColor("#0F172A"))
     palette.setColor(QPalette.ColorRole.Button, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorRole.ButtonText, QColor("#1A1A1A"))
+    palette.setColor(QPalette.ColorRole.ButtonText, QColor("#0F172A"))
     palette.setColor(QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
     palette.setColor(QPalette.ColorRole.Link, QColor("#0078D4"))
-    palette.setColor(QPalette.ColorRole.Highlight, QColor("#E8F1FB"))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor("#F1F5F9"))
     palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#0078D4"))
     
     # Inactive Colors (match Active to prevent visual blinking/flickering)
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, QColor("#F3F3F3"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.WindowText, QColor("#1A1A1A"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, QColor("#F8FAFC"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.WindowText, QColor("#0F172A"))
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Base, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.AlternateBase, QColor("#FBFBFB"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.AlternateBase, QColor("#F8FAFC"))
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipBase, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipText, QColor("#1A1A1A"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Text, QColor("#1A1A1A"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipText, QColor("#0F172A"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Text, QColor("#0F172A"))
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Button, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ButtonText, QColor("#1A1A1A"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ButtonText, QColor("#0F172A"))
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Link, QColor("#0078D4"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Highlight, QColor("#E8F1FB"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Highlight, QColor("#F1F5F9"))
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.HighlightedText, QColor("#0078D4"))
     
     # Disabled Colors (elegant grayish states)
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, QColor("#F3F3F3"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#ABABAB"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Base, QColor("#F3F3F3"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.AlternateBase, QColor("#FBFBFB"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, QColor("#F8FAFC"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#94A3B8"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Base, QColor("#F8FAFC"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.AlternateBase, QColor("#F8FAFC"))
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipBase, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipText, QColor("#ABABAB"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor("#ABABAB"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Button, QColor("#F3F3F3"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#ABABAB"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipText, QColor("#94A3B8"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor("#94A3B8"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Button, QColor("#F8FAFC"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#94A3B8"))
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Link, QColor("#0078D4"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Highlight, QColor("#E9E9E9"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.HighlightedText, QColor("#ABABAB"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Highlight, QColor("#F1F5F9"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.HighlightedText, QColor("#94A3B8"))
     
     return palette
 
-# ── Windows 11 Fluent Light Palette ──────────────────────────────────
+# ── Modern Minimalist Light Palette ──────────────────────────────────
 BG_WHITE      = "#FFFFFF"
-BG_SURFACE    = "#F3F3F3"
-BG_HOVER      = "#E9E9E9"
-BG_CARD       = "#FBFBFB"
+BG_SURFACE    = "#F8FAFC"
+BG_HOVER      = "#F1F5F9"
+BG_CARD       = "#FFFFFF"
 ACCENT        = "#0078D4"
 ACCENT_HOVER  = "#106EBE"
-ACCENT_LIGHT  = "#E8F1FB"
-GREEN_STATUS  = "#0F7B0F"
-RED_STATUS    = "#C42B1C"
-ORANGE        = "#CA5010"
-TEXT_PRIMARY  = "#1A1A1A"
-TEXT_SECONDARY= "#616161"
-TEXT_DISABLED = "#ABABAB"
-BORDER        = "#E0E0E0"
+ACCENT_LIGHT  = "#F0FDF4"
+GREEN_STATUS  = "#16A34A"
+RED_STATUS    = "#EF4444"
+ORANGE        = "#F59E0B"
+TEXT_PRIMARY  = "#0F172A"
+TEXT_SECONDARY= "#475569"
+TEXT_DISABLED = "#94A3B8"
+BORDER        = "#E2E8F0"
 FONT_FAMILY   = "Segoe UI"
 
 PROJECT_COLORS = {
@@ -183,31 +181,62 @@ class TrackerSignals(QObject):
     update_signal = pyqtSignal()
     icon_loaded_signal = pyqtSignal(str, str, object)  # exe_path, app_name, PIL Image (or None)
 
-# ── Modular Header Bar ───────────────────────────────────────────────
+def create_minimalist_icon(icon_type, color_hex, size=16):
+    import math
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pen = QPen(QColor(color_hex))
+    pen.setWidthF(1.5)
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    painter.setPen(pen)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    if icon_type == "chart":
+        painter.drawRoundedRect(QRectF(2.0, 9.0, 3.0, 5.0), 1.0, 1.0)
+        painter.drawRoundedRect(QRectF(6.5, 5.0, 3.0, 9.0), 1.0, 1.0)
+        painter.drawRoundedRect(QRectF(11.0, 2.0, 3.0, 12.0), 1.0, 1.0)
+    elif icon_type == "folder":
+        painter.drawRoundedRect(QRectF(1.5, 5.0, 13.0, 9.0), 1.5, 1.5)
+        path = QPainterPath()
+        path.moveTo(3.0, 5.0)
+        path.lineTo(3.0, 2.5)
+        path.lineTo(6.5, 2.5)
+        path.lineTo(8.0, 5.0)
+        painter.drawPath(path)
+    elif icon_type == "settings":
+        painter.drawEllipse(QPointF(8.0, 8.0), 2.2, 2.2)
+        painter.drawEllipse(QPointF(8.0, 8.0), 5.0, 5.0)
+        for i in range(8):
+            angle = i * math.pi / 4
+            c = math.cos(angle)
+            s = math.sin(angle)
+            painter.drawLine(
+                QPointF(8.0 + 4.5 * c, 8.0 + 4.5 * s),
+                QPointF(8.0 + 7.0 * c, 8.0 + 7.0 * s)
+            )
+    painter.end()
+    return QIcon(pixmap)
+
 class HeaderBar(QFrame):
     def __init__(self, parent, cmd_report, cmd_sessions, cmd_settings):
         super().__init__(parent)
         self.setObjectName("HeaderBar")
         self.setFixedHeight(44)
-        
         self.setStyleSheet("""
             #HeaderBar {
                 background-color: #FFFFFF;
-                border-bottom: 1px solid #E0E0E0;
+                border-bottom: 1px solid #E2E8F0;
             }
         """)
-        
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 0, 14, 0)
         layout.setSpacing(8)
-        
-        logo = QLabel("📊 FocusLog", self)
-        logo.setStyleSheet("color: #0078D4; font-size: 15px; font-weight: bold; font-family: 'Segoe UI';")
-        layout.addWidget(logo)
-        
         layout.addStretch()
-        
-        self.live_report_btn = QPushButton("📊 View Report", self)
+        self.live_report_btn = QPushButton("View Report", self)
+        self.live_report_btn.setIcon(create_minimalist_icon("chart", "#0078D4"))
+        self.live_report_btn.setIconSize(QSize(16, 16))
         self.live_report_btn.setStyleSheet("""
             QPushButton {
                 color: #0078D4;
@@ -224,41 +253,37 @@ class HeaderBar(QFrame):
         self.live_report_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.live_report_btn.clicked.connect(cmd_report)
         layout.addWidget(self.live_report_btn)
-        
-        self.sessions_btn = QPushButton("📂", self)
+        self.sessions_btn = QPushButton("", self)
+        self.sessions_btn.setIcon(create_minimalist_icon("folder", "#475569"))
+        self.sessions_btn.setIconSize(QSize(16, 16))
         self.sessions_btn.setToolTip("Session Manager")
         self.sessions_btn.setFixedSize(28, 28)
         self.sessions_btn.setStyleSheet("""
             QPushButton {
-                color: #616161;
-                font-size: 16px;
                 background: none;
                 border: none;
-                border-radius: 4px;
+                border-radius: 6px;
             }
             QPushButton:hover {
-                background-color: #E9E9E9;
-                color: #0078D4;
+                background-color: #F1F5F9;
             }
         """)
         self.sessions_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.sessions_btn.clicked.connect(cmd_sessions)
         layout.addWidget(self.sessions_btn)
-        
-        self.settings_btn = QPushButton("⚙", self)
+        self.settings_btn = QPushButton("", self)
+        self.settings_btn.setIcon(create_minimalist_icon("settings", "#475569"))
+        self.settings_btn.setIconSize(QSize(16, 16))
         self.settings_btn.setToolTip("Settings")
         self.settings_btn.setFixedSize(28, 28)
         self.settings_btn.setStyleSheet("""
             QPushButton {
-                color: #616161;
-                font-size: 16px;
                 background: none;
                 border: none;
-                border-radius: 4px;
+                border-radius: 6px;
             }
             QPushButton:hover {
-                background-color: #E9E9E9;
-                color: #0078D4;
+                background-color: #F1F5F9;
             }
         """)
         self.settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -405,14 +430,14 @@ class AppUsageRow(QFrame):
 # ── Unified Styled Window Palette (QSS) ──────────────────────────────
 QSS_STYLE = """
 QWidget {
-    color: #1A1A1A;
+    color: #0F172A;
     background-color: transparent;
 }
 QMainWindow {
-    background-color: #F3F3F3;
+    background-color: #F8FAFC;
 }
 QDialog {
-    background-color: #F3F3F3;
+    background-color: #F8FAFC;
 }
 QWidget#scroll_widget, 
 QWidget#sessions_widget, 
@@ -422,17 +447,17 @@ QWidget#report_scroll_widget {
     background-color: #FFFFFF;
 }
 QLabel {
-    color: #1A1A1A;
+    color: #0F172A;
 }
 QFrame#MainCard {
     background-color: #FFFFFF;
-    border-radius: 8px;
-    border: 1px solid #E0E0E0;
+    border-radius: 12px;
+    border: 1px solid #E2E8F0;
 }
 QFrame#AppListCard {
     background-color: #FFFFFF;
-    border-radius: 8px;
-    border: 1px solid #E0E0E0;
+    border-radius: 12px;
+    border: 1px solid #E2E8F0;
 }
 QScrollArea {
     border: none;
@@ -440,32 +465,32 @@ QScrollArea {
 }
 QScrollBar:vertical {
     background: #FFFFFF;
-    width: 8px;
+    width: 6px;
     margin: 0px;
 }
 QScrollBar::handle:vertical {
-    background: #D0D0D0;
+    background: #E2E8F0;
     min-height: 20px;
-    border-radius: 4px;
+    border-radius: 3px;
 }
 QScrollBar::handle:vertical:hover {
-    background: #C0C0C0;
+    background: #CBD5E1;
 }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0px;
 }
 QScrollBar:horizontal {
     background: #FFFFFF;
-    height: 8px;
+    height: 6px;
     margin: 0px;
 }
 QScrollBar::handle:horizontal {
-    background: #D0D0D0;
+    background: #E2E8F0;
     min-width: 20px;
-    border-radius: 4px;
+    border-radius: 3px;
 }
 QScrollBar::handle:horizontal:hover {
-    background: #C0C0C0;
+    background: #CBD5E1;
 }
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     width: 0px;
@@ -475,56 +500,58 @@ QPushButton {
     font-size: 13px;
 }
 QPushButton#AccentButton {
-    background-color: #0078D4;
+    background-color: #0F172A;
     color: #FFFFFF;
     border: none;
-    border-radius: 4px;
+    border-radius: 14px;
     padding: 6px 16px;
     font-weight: bold;
 }
 QPushButton#AccentButton:hover {
-    background-color: #106EBE;
+    background-color: #1E293B;
 }
 QPushButton#AccentButton:disabled {
-    background-color: #E9E9E9;
-    color: #ABABAB;
+    background-color: #F1F5F9;
+    color: #94A3B8;
 }
 QPushButton#NormalButton {
     background-color: #FFFFFF;
-    color: #1A1A1A;
-    border: 1px solid #E0E0E0;
-    border-radius: 4px;
+    color: #0F172A;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
     padding: 6px 16px;
+    font-weight: 500;
 }
 QPushButton#NormalButton:hover {
-    background-color: #E9E9E9;
+    background-color: #F1F5F9;
+    border-color: #CBD5E1;
 }
 QPushButton#NormalButton:disabled {
-    background-color: #F3F3F3;
-    color: #ABABAB;
-    border: 1px solid #E9E9E9;
+    background-color: #F8FAFC;
+    color: #94A3B8;
+    border: 1px solid #E2E8F0;
 }
 QPushButton#RedButton {
-    background-color: #C42B1C;
+    background-color: #EF4444;
     color: #FFFFFF;
     border: none;
-    border-radius: 4px;
+    border-radius: 14px;
     padding: 6px 16px;
     font-weight: bold;
 }
 QPushButton#RedButton:hover {
-    background-color: #A82015;
+    background-color: #DC2626;
 }
 QPushButton#RedButton:disabled {
-    background-color: #F3F3F3;
-    color: #ABABAB;
+    background-color: #F8FAFC;
+    color: #94A3B8;
 }
 QLineEdit {
     background-color: #FFFFFF;
-    border: 1px solid #E0E0E0;
-    border-radius: 4px;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
     padding: 4px 8px;
-    color: #1A1A1A;
+    color: #0F172A;
     font-family: 'Segoe UI';
     font-size: 13px;
 }
@@ -533,10 +560,10 @@ QLineEdit:focus {
 }
 QComboBox {
     background-color: #FFFFFF;
-    border: 1px solid #E0E0E0;
-    border-radius: 4px;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
     padding: 4px 8px;
-    color: #1A1A1A;
+    color: #0F172A;
     font-family: 'Segoe UI';
     font-size: 13px;
 }
@@ -545,76 +572,79 @@ QComboBox:focus {
 }
 QComboBox QAbstractItemView {
     background-color: #FFFFFF;
-    color: #1A1A1A;
-    border: 1px solid #E0E0E0;
-    selection-background-color: #E8F1FB;
+    color: #0F172A;
+    border: 1px solid #E2E8F0;
+    selection-background-color: #F1F5F9;
     selection-color: #0078D4;
 }
 QTabWidget::pane {
-    border: 1px solid #E0E0E0;
+    border: 1px solid #E2E8F0;
     background-color: #FFFFFF;
-    border-radius: 6px;
+    border-radius: 8px;
 }
 QTabBar::tab {
-    background-color: #F3F3F3;
-    color: #616161;
+    background-color: #F8FAFC;
+    color: #475569;
     padding: 6px 16px;
     font-family: 'Segoe UI';
     font-size: 13px;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border: 1px solid #E2E8F0;
+    border-bottom: none;
+    margin-right: 2px;
 }
 QTabBar::tab:selected {
     background-color: #FFFFFF;
     color: #0078D4;
     font-weight: bold;
-    border: 1px solid #E0E0E0;
+    border: 1px solid #CBD5E1;
     border-bottom: none;
 }
 QTableWidget {
     background-color: #FFFFFF;
-    color: #1A1A1A;
-    border: 1px solid #E0E0E0;
-    gridline-color: #F3F3F3;
+    color: #0F172A;
+    border: 1px solid #E2E8F0;
+    gridline-color: #F8FAFC;
     font-family: 'Segoe UI';
     font-size: 13px;
 }
 QTableWidget::item {
-    color: #1A1A1A;
+    color: #0F172A;
     background-color: #FFFFFF;
 }
 QTableWidget::item:selected {
-    background-color: #E8F1FB;
+    background-color: #F1F5F9;
     color: #0078D4;
 }
 QHeaderView::section {
-    background-color: #F3F3F3;
-    color: #616161;
+    background-color: #F8FAFC;
+    color: #475569;
     padding: 6px;
-    border: 1px solid #E0E0E0;
+    border: 1px solid #E2E8F0;
     font-family: 'Segoe UI';
     font-size: 12px;
     font-weight: bold;
 }
 QTableCornerButton::section {
-    background-color: #F3F3F3;
-    border: 1px solid #E0E0E0;
+    background-color: #F8FAFC;
+    border: 1px solid #E2E8F0;
 }
 QCheckBox {
-    color: #1A1A1A;
+    color: #0F172A;
     font-family: 'Segoe UI';
     font-size: 13px;
 }
 QCheckBox::indicator {
     width: 14px;
     height: 14px;
-    border: 1.5px solid #8A8A8A;
+    border: 1.5px solid #94A3B8;
     border-radius: 3px;
     background-color: #FFFFFF;
 }
 QCheckBox::indicator:hover {
     border-color: #0078D4;
-    background-color: #F3F9FE;
+    background-color: #F1F5F9;
 }
 QCheckBox::indicator:checked {
     border-color: #0078D4;
@@ -626,16 +656,16 @@ QCheckBox::indicator:checked:hover {
     background-color: #106EBE;
 }
 QCheckBox::indicator:disabled {
-    border-color: #CCCCCC;
-    background-color: #F3F3F3;
+    border-color: #E2E8F0;
+    background-color: #F8FAFC;
 }
 QGroupBox {
     font-family: 'Segoe UI';
     font-weight: bold;
     font-size: 12px;
-    color: #616161;
-    border: 1px solid #E0E0E0;
-    border-radius: 6px;
+    color: #475569;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
     margin-top: 12px;
     padding-top: 12px;
 }
@@ -648,33 +678,33 @@ QGroupBox::title {
 }
 QMenu {
     background-color: #FFFFFF;
-    color: #1A1A1A;
-    border: 1px solid #E0E0E0;
+    color: #0F172A;
+    border: 1px solid #E2E8F0;
 }
 QMenu::item {
     padding: 6px 20px;
     background-color: transparent;
 }
 QMenu::item:selected {
-    background-color: #E8F1FB;
+    background-color: #F1F5F9;
     color: #0078D4;
 }
 QMenu::separator {
     height: 1px;
-    background-color: #E0E0E0;
+    background-color: #E2E8F0;
     margin: 4px 0px;
 }
 QMessageBox {
-    background-color: #F3F3F3;
+    background-color: #F8FAFC;
 }
 QMessageBox QLabel {
-    color: #1A1A1A;
+    color: #0F172A;
 }
 QMessageBox QPushButton {
     background-color: #FFFFFF;
-    color: #1A1A1A;
-    border: 1px solid #E0E0E0;
-    border-radius: 4px;
+    color: #0F172A;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
     padding: 4px 12px;
 }
 """
@@ -760,17 +790,17 @@ class FocusLogApp(QMainWindow):
         
         self.clock_label = QLabel("00:00:00", self)
         self.clock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.clock_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 36px; font-weight: bold; color: #1A1A1A;")
+        self.clock_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 36px; font-weight: bold; color: #0F172A;")
         ctrl_layout.addWidget(self.clock_label)
 
         self.earnings_label = QLabel("", self)
         self.earnings_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.earnings_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: #0F7B0F;")
+        self.earnings_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: #16A34A;")
         ctrl_layout.addWidget(self.earnings_label)
 
         self.active_label = QLabel("Ready to track", self)
         self.active_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.active_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 10px; color: #616161;")
+        self.active_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 10px; color: #475569;")
         ctrl_layout.addWidget(self.active_label)
 
         btn_row = QHBoxLayout()
