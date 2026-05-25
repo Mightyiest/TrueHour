@@ -35,33 +35,17 @@ FocusLog automatically monitors your active window to track productivity, calcul
 ---
 
 ## 📸 Screenshots
-<table>
-<tr>
-<td align="center">
-<strong>Main Tracker</strong><br>
-<em>Clean tracking interface</em>
-</td>
-<td align="center">
-<strong>Session Report</strong><br>
-<em>Detailed breakdown & timeline</em>
-</td>
-<td align="center">
-<strong>Settings</strong><br>
-<em>Billing & Config management</em>
-</td>
-</tr>
-<tr>
-<td align="center">
-<img width="365" height="514" alt="Main Tracker Interface" src="https://github.com/user-attachments/assets/b4f6b81e-fe39-4a69-850d-b2c77cec79ee" />
-</td>
-<td align="center">
-<img width="665" height="549" alt="Session Report View" src="https://github.com/user-attachments/assets/2cf83099-e21e-4d91-8e7b-edc2a8d866c1" />
-</td>
-<td align="center">
-<img width="360" height="593" alt="Settings Window" src="https://github.com/user-attachments/assets/c23000d7-89a1-4d7f-959e-35b5058bc8c6" />
-</td>
-</tr>
-</table>
+<div align="center">
+  <strong>FocusLog Interface</strong><br>
+  <em>Main Tracker, Session Report, and Dashhboard</em><br><br>
+<img width="2559" height="1397" alt="FocusLog Full Window Interface" src="https://github.com/user-attachments/assets/dd4390b7-031a-46a8-84fa-39dd6ea11053"/>
+  
+  <br><br><br>
+
+  <strong>Generated Invoice</strong><br>
+  <em>Professional HTML invoice output</em><br><br>
+<img width="2559" height="1347" alt="FocusLog HTML Invoice" src="https://github.com/user-attachments/assets/48288caf-6ab9-43eb-bd36-e303ab229450" />
+</div>
 
 ---
 
@@ -229,7 +213,7 @@ A: **No.** FocusLog is 100% offline. All data is stored locally in your `%LOCALA
 
 **Q: Was AI Used in this Project?**
 
-A: **Yes** Gemini, Claude, Deepseek, QWEN Thank you so much!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
 ---
