@@ -1,4 +1,4 @@
-# FocusLog v2.0
+# FocusLog v2.0.5
 
 > **A lightweight, privacy-first Windows desktop time tracker with a modern Windows 11-style UI.**
 
@@ -13,6 +13,8 @@ FocusLog automatically monitors your active window to track productivity, calcul
 ## ✨ Features
 
 *   **🕒 Automatic Time Tracking:** Detects the foreground application and logs usage duration with second-level precision.
+*   **📊 Interactive Visual Analytics Dashboard:** Custom drawn interactive PyQt6 charts (`DonutChartWidget`, `BarChartWidget`) displaying real-time live and range-filtered historical category allocation.
+*   **📄 HTML Client Invoice Builder & Browser Printer:** Native dynamic invoicing profiles, dynamic "Unassigned" app category resolving session merger, premium HTML templates, and seamless browser-based A4 PDF printing.
 *   **💰 Earnings Calculator:** Set an hourly rate to see real-time earnings accumulation during work sessions.
 *   **🛡️ Smart Exclusion System:**
     *   **Auto-Exclude:** Automatically ignores system processes (Explorer, Taskbar, Search, etc.) so they don't clutter your data.
@@ -25,7 +27,7 @@ FocusLog automatically monitors your active window to track productivity, calcul
 *   **💾 Crash Recovery:** If the app closes unexpectedly, your session is saved to an `autosave` folder and can be recovered or viewed later.
 *   **📊 Detailed Reporting:**
     *   View live session stats.
-    *   Export sessions to **TXT**, **JSON**, or **CSV**.
+    *   Export sessions to **TXT**, **JSON**, **CSV**, or premium print-ready **HTML Invoice**.
     *   Bulk export all history to a single CSV file.
 *   **🎨 Modern UI:** Clean, light-themed interface inspired by Windows 11 Fluent Design, built with PyQt6.
 *   **🖼️ App Icons:** Extracts and displays actual executable icons for easy visual identification.
