@@ -29,8 +29,10 @@ from report import (
     format_duration, format_duration_hms, build_report_data,
     export_txt, export_json, export_csv, export_csv_history,
     save_to_autosave, save_to_history, load_session_json,
+    aggregate_history_data,
 )
 from version import VERSION_SHORT, VERSION_FULL
+from dashboard_widgets import DonutChartWidget, BarChartWidget
 
 # Configure logging for the app module
 logger = logging.getLogger(__name__)
@@ -234,7 +236,7 @@ class HeaderBar(QFrame):
         layout.setContentsMargins(14, 0, 14, 0)
         layout.setSpacing(8)
         layout.addStretch()
-        self.live_report_btn = QPushButton("View Report", self)
+        self.live_report_btn = QPushButton("Dashboard", self)
         self.live_report_btn.setIcon(create_minimalist_icon("chart", "#0078D4"))
         self.live_report_btn.setIconSize(QSize(16, 16))
         self.live_report_btn.setStyleSheet("""
@@ -769,7 +771,7 @@ class FocusLogApp(QMainWindow):
         # ── Header Bar ──────────────────────────────────────────────
         self.header = HeaderBar(
             self, 
-            cmd_report=self._show_live_report,
+            cmd_report=self._show_dashboard,
             cmd_sessions=self._show_session_manager,
             cmd_settings=self._show_settings
         )
@@ -1249,39 +1251,16 @@ class FocusLogApp(QMainWindow):
         browse_btn.clicked.connect(_browse_file)
         layout.addWidget(browse_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        dialog.exec()
-
-    def _handle_interrupted_session(self):
-        from tracker import ACTIVE_SESSION_FILE, AppTracker
-        temp_tracker = AppTracker()
-        if temp_tracker.load_crash_data():
-            report = build_report_data(temp_tracker, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol)
-            try:
-                save_to_autosave(report)
-                if os.path.exists(ACTIVE_SESSION_FILE):
-                    os.remove(ACTIVE_SESSION_FILE)
-                QMessageBox.information(
-                    self, "Session Recovered", 
-                    "An interrupted session was found and saved as a recovery backup.\n\nYou can view or resume it from the Recoveries tab."
-                )
-                self._show_session_manager()
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to save interrupted session: {e}")
-        else:
-            if os.path.exists(ACTIVE_SESSION_FILE):
-                try: 
-                    os.remove(ACTIVE_SESSION_FILE)
-                except Exception: 
-                    pass
-
     def _show_session_manager(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Session Manager")
-        self._center_window(dialog, 480, 540)
+        self._center_window(dialog, 520, 540)
         
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(14, 12, 14, 12)
         layout.setSpacing(10)
+        
+        selected_sessions = set()
         
         tab_widget = QTabWidget(dialog)
         tab_widget.setObjectName("SessionTabs")
@@ -1316,7 +1295,7 @@ class FocusLogApp(QMainWindow):
             if diff < 86400: 
                 return f"{int(diff/3600)}h ago"
             return datetime.fromtimestamp(timestamp).strftime("%b %d, %Y")
-
+ 
         import glob
         def _render_list(layout_container, folder, is_recoveries):
             # Clear old layout
@@ -1335,7 +1314,7 @@ class FocusLogApp(QMainWindow):
                 layout_container.insertWidget(0, lbl)
                 layout_container.addStretch()
                 return
-
+ 
             for i, filepath in enumerate(files):
                 filename = os.path.basename(filepath)
                 mtime = os.path.getmtime(filepath)
@@ -1345,6 +1324,17 @@ class FocusLogApp(QMainWindow):
                 row_frame.setStyleSheet("QFrame { background-color: #FFFFFF; border-bottom: 1px solid #F3F3F3; } QFrame:hover { background-color: #E9E9E9; }")
                 row_layout = QHBoxLayout(row_frame)
                 row_layout.setContentsMargins(8, 8, 8, 8)
+                
+                if not is_recoveries:
+                    cb_select = QCheckBox(row_frame)
+                    cb_select.setFixedWidth(20)
+                    
+                    def make_cb_connector(path):
+                        return lambda state: (
+                            selected_sessions.add(path) if state == 2 else selected_sessions.discard(path)
+                        )
+                    cb_select.stateChanged.connect(make_cb_connector(filepath))
+                    row_layout.addWidget(cb_select)
                 
                 try:
                     with open(filepath, "r", encoding="utf-8") as f:
@@ -1395,7 +1385,7 @@ class FocusLogApp(QMainWindow):
                         self._on_stop()
                     self._resume_session(path)
                     dialog.accept()
-
+ 
                 res_btn = QPushButton("▶ Resume", row_frame)
                 res_btn.setObjectName("AccentButton")
                 res_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -1412,7 +1402,7 @@ class FocusLogApp(QMainWindow):
                 layout_container.addWidget(row_frame)
                 
             layout_container.addStretch()
-
+ 
         _render_list(sessions_layout, history_folder, False)
         _render_list(recoveries_layout, autosave_folder, True)
         
@@ -1425,15 +1415,67 @@ class FocusLogApp(QMainWindow):
         layout.addWidget(tab_widget)
         
         footer = QHBoxLayout()
-        export_btn = QPushButton("📊 Export All to CSV", dialog)
-        export_btn.setObjectName("AccentButton")
+        export_btn = QPushButton("📊 CSV", dialog)
+        export_btn.setToolTip("Export All manually saved sessions to CSV")
+        export_btn.setObjectName("NormalButton")
         export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         export_btn.clicked.connect(self._export_csv_history)
         footer.addWidget(export_btn)
         
+        # New Generate Selected HTML Invoice button
+        def _generate_selected_html_invoice():
+            if not selected_sessions:
+                QMessageBox.warning(dialog, "No Sessions Selected", "Please select at least one session using the checkbox on the left of the item.")
+                return
+            
+            # Show save path dialog
+            default_html_name = f"FocusLog_Invoice_{datetime.now().strftime('%Y-%m-%d')}.html"
+            html_filepath, _ = QFileDialog.getSaveFileName(dialog, "Save Invoice HTML", default_html_name, "HTML Files (*.html)")
+            if not html_filepath:
+                return
+                
+            try:
+                from report import merge_sessions_for_invoice, generate_invoice_html
+                
+                billing_data = merge_sessions_for_invoice(list(selected_sessions), self.tracker, self.hourly_rate, self.currency_symbol)
+                settings_data = {
+                    "business_name": self.business_name,
+                    "business_email": self.business_email,
+                    "business_phone": self.business_phone,
+                    "business_address": self.business_address,
+                    "business_payment": self.business_payment,
+                    "client_name": self.client_name,
+                    "client_address": self.client_address,
+                    "business_logo_path": self.business_logo_path,
+                    "hourly_rate": self.hourly_rate,
+                    "currency_symbol": self.currency_symbol,
+                }
+                
+                html_content = generate_invoice_html(billing_data, settings_data)
+                with open(html_filepath, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                
+                reply = QMessageBox.question(
+                    dialog, 
+                    "Invoice Created", 
+                    f"Invoice HTML generated successfully at:\n{html_filepath}\n\nWould you like to open it in your browser now to print/save as PDF?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                if reply == QMessageBox.StandardButton.Yes:
+                    os.startfile(html_filepath)
+            except Exception as e:
+                QMessageBox.critical(dialog, "Error", f"Failed to generate invoice HTML:\n{str(e)}")
+                
+        html_invoice_btn = QPushButton("📄 Generate HTML Invoice", dialog)
+        html_invoice_btn.setObjectName("AccentButton")
+        html_invoice_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        html_invoice_btn.clicked.connect(_generate_selected_html_invoice)
+        footer.addWidget(html_invoice_btn)
+        
         footer.addStretch()
         
-        open_folder_btn = QPushButton("Open Folder", dialog)
+        open_folder_btn = QPushButton("Folder", dialog)
+        open_folder_btn.setToolTip("Open manual saved sessions folder")
         open_folder_btn.setObjectName("NormalButton")
         open_folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         open_folder_btn.clicked.connect(lambda: os.startfile(autosave_folder if tab_widget.currentIndex() == 1 else history_folder))
@@ -1446,6 +1488,28 @@ class FocusLogApp(QMainWindow):
         footer.addWidget(close_btn)
         
         layout.addLayout(footer)
+
+        
+
+
+
+
+        
+
+        
+
+
+
+
+
+        
+
+
+
+
+
+        
+
         dialog.exec()
 
     def _resume_session(self, filepath):
@@ -1493,6 +1557,15 @@ class FocusLogApp(QMainWindow):
         self.currency_symbol = "$"
         self.hourly_rate = 0.0
         self.idle_threshold_seconds_total = 120  # default: 2 min (0 = disabled)
+        self.business_name = ""
+        self.business_email = ""
+        self.business_phone = ""
+        self.business_address = ""
+        self.business_payment = ""
+        self.client_name = ""
+        self.client_address = ""
+        self.business_logo_path = ""
+        
         if os.path.exists(APP_SETTINGS_FILE):
             try:
                 with open(APP_SETTINGS_FILE, "r") as f:
@@ -1508,30 +1581,48 @@ class FocusLogApp(QMainWindow):
                     _old_min = data.get("idle_threshold_minutes", 2) * 60
                     self.idle_threshold_seconds_total = data.get("idle_threshold_seconds_total", _old_min)
                     self.tracker.idle_threshold_seconds = self.idle_threshold_seconds_total
+                    
+                    self.business_name = data.get("business_name", "")
+                    self.business_email = data.get("business_email", "")
+                    self.business_phone = data.get("business_phone", "")
+                    self.business_address = data.get("business_address", "")
+                    self.business_payment = data.get("business_payment", "")
+                    self.client_name = data.get("client_name", "")
+                    self.client_address = data.get("client_address", "")
+                    self.business_logo_path = data.get("business_logo_path", "")
             except Exception as e:
                 print(f"[FocusLog] Failed to load app settings: {e}")
 
     def _save_app_settings(self):
         try:
             dirpath = os.path.dirname(APP_SETTINGS_FILE)
-            if dirpath: 
+            if dirpath:
                 os.makedirs(dirpath, exist_ok=True)
-            with open(APP_SETTINGS_FILE, "w") as f:
-                json.dump({
-                    "confirm_on_close": self.confirm_on_close, 
-                    "min_track_seconds": self.min_track_seconds, 
-                    "auto_save_seconds": self.auto_save_seconds, 
-                    "currency_symbol": self.currency_symbol, 
-                    "hourly_rate": self.hourly_rate, 
-                    "idle_threshold_seconds_total": self.idle_threshold_seconds_total
-                }, f)
+            data = {
+                "confirm_on_close": self.confirm_on_close,
+                "min_track_seconds": self.min_track_seconds,
+                "auto_save_seconds": self.auto_save_seconds,
+                "currency_symbol": self.currency_symbol,
+                "hourly_rate": self.hourly_rate,
+                "idle_threshold_seconds_total": self.idle_threshold_seconds_total,
+                "business_name": self.business_name,
+                "business_email": self.business_email,
+                "business_phone": self.business_phone,
+                "business_address": self.business_address,
+                "business_payment": self.business_payment,
+                "client_name": self.client_name,
+                "client_address": self.client_address,
+                "business_logo_path": self.business_logo_path,
+            }
+            with open(APP_SETTINGS_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4)
         except Exception as e:
             print(f"[FocusLog] Failed to save app settings: {e}")
 
     def _show_settings(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Settings")
-        self._center_window(dialog, 380, 520)
+        self._center_window(dialog, 480, 600)
         
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(14, 12, 14, 12)
@@ -1541,21 +1632,56 @@ class FocusLogApp(QMainWindow):
         title.setStyleSheet("font-family: 'Segoe UI'; font-size: 15px; font-weight: bold; color: #1A1A1A;")
         layout.addWidget(title)
         
-        form = QFormLayout()
-        form.setSpacing(8)
+        # QTabWidget for settings categories
+        settings_tabs = QTabWidget(dialog)
+        settings_tabs.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #E2E8F0;
+                background-color: #FFFFFF;
+                border-radius: 8px;
+            }
+            QTabBar::tab {
+                background-color: #F8FAFC;
+                color: #475569;
+                padding: 6px 16px;
+                font-family: 'Segoe UI';
+                font-size: 12px;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                border: 1px solid #E2E8F0;
+                border-bottom: none;
+                margin-right: 2px;
+            }
+            QTabBar::tab:selected {
+                background-color: #FFFFFF;
+                color: #0078D4;
+                font-weight: bold;
+                border: 1px solid #CBD5E1;
+                border-bottom: none;
+            }
+        """)
         
-        cb_confirm = QCheckBox("Always ask for confirmation before closing", dialog)
+        # ── Tab 1: General Settings ──────────────────────────────────
+        tab_general = QWidget()
+        tg_layout = QVBoxLayout(tab_general)
+        tg_layout.setContentsMargins(10, 10, 10, 10)
+        tg_layout.setSpacing(6)
+        
+        cb_confirm = QCheckBox("Always ask for confirmation before closing", tab_general)
         cb_confirm.setChecked(self.confirm_on_close)
         cb_confirm.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
-        layout.addWidget(cb_confirm)
+        tg_layout.addWidget(cb_confirm)
         
-        min_sec_entry = QLineEdit(dialog)
+        form_general = QFormLayout()
+        form_general.setSpacing(6)
+        
+        min_sec_entry = QLineEdit(tab_general)
         min_sec_entry.setText(str(self.min_track_seconds))
-        form.addRow("Min activity threshold (seconds):", min_sec_entry)
+        form_general.addRow("Min activity threshold (secs):", min_sec_entry)
         
-        auto_save_entry = QLineEdit(dialog)
+        auto_save_entry = QLineEdit(tab_general)
         auto_save_entry.setText(str(self.auto_save_seconds))
-        form.addRow("Auto-save interval (seconds):", auto_save_entry)
+        form_general.addRow("Auto-save interval (secs):", auto_save_entry)
         
         # Idle row
         idle_row = QHBoxLayout()
@@ -1564,27 +1690,22 @@ class FocusLogApp(QMainWindow):
         _idle_m_def = _idle_total // 60
         _idle_s_def = _idle_total % 60
         
-        idle_min_entry = QLineEdit(dialog)
+        idle_min_entry = QLineEdit(tab_general)
         idle_min_entry.setFixedWidth(40)
         idle_min_entry.setText(str(_idle_m_def))
         idle_row.addWidget(idle_min_entry)
         idle_row.addWidget(QLabel("min"))
         
-        idle_sec_entry = QLineEdit(dialog)
+        idle_sec_entry = QLineEdit(tab_general)
         idle_sec_entry.setFixedWidth(40)
         idle_sec_entry.setText(str(_idle_s_def))
         idle_row.addWidget(idle_sec_entry)
         idle_row.addWidget(QLabel("sec"))
         idle_row.addStretch()
         
-        form.addRow("Idle auto-pause (0 min 0 sec = disabled):", idle_row)
-        layout.addLayout(form)
+        form_general.addRow("Idle auto-pause:", idle_row)
         
-        # Billing Group
-        billing_box = QGroupBox("Billing", dialog)
-        billing_box.setStyleSheet("QGroupBox { font-family: 'Segoe UI'; font-weight: bold; font-size: 12px; color: #616161; }")
-        billing_layout = QFormLayout(billing_box)
-        
+        # Billing Group details inside general tab
         currency_options = [
             "$ (USD)", "€ (EUR)", "£ (GBP)", "¥ (JPY/CNY)", "₱ (PHP)", "₹ (INR)", 
             "₽ (RUB)", "₩ (KRW)", "₫ (VND)", "฿ (THB)", "₪ (ILS)", "₺ (TRY)", 
@@ -1592,26 +1713,26 @@ class FocusLogApp(QMainWindow):
             "NZ$ (NZD)", "CHF (CHF)", "kr (SEK/NOK)", "zł (PLN)", "Kč (CZK)", 
             "Ft (HUF)", "lei (RON)", "лв (BGN)", "₴ (UAH)", "R (ZAR)"
         ]
-        curr_combo = QComboBox(dialog)
+        curr_combo = QComboBox(tab_general)
         curr_combo.addItems(currency_options)
         matched = [c for c in currency_options if c.startswith(self.currency_symbol)]
         if matched:
             curr_combo.setCurrentText(matched[0])
         else:
             curr_combo.setCurrentText(self.currency_symbol)
-        billing_layout.addRow("Currency symbol:", curr_combo)
+        form_general.addRow("Currency symbol:", curr_combo)
         
-        rate_entry = QLineEdit(dialog)
+        rate_entry = QLineEdit(tab_general)
         rate_entry.setText(f"{self.hourly_rate:.2f}")
-        billing_layout.addRow("Hourly rate:", rate_entry)
+        form_general.addRow("Hourly rate:", rate_entry)
         
-        layout.addWidget(billing_box)
-
-        # Config files Buttons
-        config_box = QGroupBox("Configuration Files", dialog)
-        config_box.setStyleSheet("QGroupBox { font-family: 'Segoe UI'; font-weight: bold; font-size: 12px; color: #616161; }")
+        tg_layout.addLayout(form_general)
+        
+        # Config Files Group
+        config_box = QGroupBox("Configuration & Categories", tab_general)
         config_layout = QVBoxLayout(config_box)
-        config_layout.setSpacing(6)
+        config_layout.setContentsMargins(8, 8, 8, 8)
+        config_layout.setSpacing(4)
         
         def _open_file(filepath):
             if filepath == AUTO_EXCLUDE_FILE:
@@ -1637,24 +1758,24 @@ class FocusLogApp(QMainWindow):
             except Exception: 
                 QMessageBox.critical(dialog, "Error", f"Could not open: {filepath}")
 
-        btn_overrides = QPushButton("Edit Name Overrides", dialog)
+        btn_overrides = QPushButton("Edit Name Overrides", tab_general)
         btn_overrides.setObjectName("NormalButton")
         btn_overrides.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_overrides.clicked.connect(lambda: _open_file(OVERRIDES_FILE))
         config_layout.addWidget(btn_overrides)
         
         excl_row = QHBoxLayout()
-        btn_excl = QPushButton("Edit Auto-Exclusions", dialog)
+        btn_excl = QPushButton("Edit Auto-Exclusions", tab_general)
         btn_excl.setObjectName("NormalButton")
         btn_excl.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_excl.clicked.connect(lambda: _open_file(AUTO_EXCLUDE_FILE))
         excl_row.addWidget(btn_excl, 1)
         
-        btn_reload = QPushButton("🔄 Reload", dialog)
+        btn_reload = QPushButton("🔄 Reload", tab_general)
         btn_reload.setObjectName("NormalButton")
         btn_reload.setCursor(Qt.CursorShape.PointingHandCursor)
         
-        reload_status_lbl = QLabel(" ", dialog)
+        reload_status_lbl = QLabel(" ", tab_general)
         reload_status_lbl.setStyleSheet("font-size: 11px; font-weight: bold;")
         
         def _reload_exclusions():
@@ -1673,15 +1794,108 @@ class FocusLogApp(QMainWindow):
         excl_row.addWidget(reload_status_lbl)
         config_layout.addLayout(excl_row)
         
-        btn_categories = QPushButton("Manage Project Categories", dialog)
+        btn_categories = QPushButton("Manage Project Categories...", tab_general)
         btn_categories.setObjectName("NormalButton")
-        btn_categories.setStyleSheet("font-weight: bold;")
         btn_categories.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_categories.clicked.connect(self._show_categories_dialog)
         config_layout.addWidget(btn_categories)
         
-        layout.addWidget(config_box)
-
+        tg_layout.addWidget(config_box)
+        tg_layout.addStretch()
+        
+        # ── Tab 2: Billing & Invoicing Details ────────────────────────
+        tab_invoice = QWidget()
+        ti_layout = QVBoxLayout(tab_invoice)
+        ti_layout.setContentsMargins(12, 12, 12, 12)
+        ti_layout.setSpacing(8)
+        
+        scroll_invoice = QScrollArea(tab_invoice)
+        scroll_invoice.setWidgetResizable(True)
+        scroll_invoice_content = QWidget()
+        scroll_invoice_layout = QVBoxLayout(scroll_invoice_content)
+        scroll_invoice_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_invoice_layout.setSpacing(10)
+        
+        # Freelancer Business Profile
+        biz_box = QGroupBox("Business Profile Details", scroll_invoice_content)
+        biz_layout = QFormLayout(biz_box)
+        biz_layout.setSpacing(6)
+        
+        business_name_entry = QLineEdit(biz_box)
+        business_name_entry.setText(self.business_name)
+        biz_layout.addRow("Business Name:", business_name_entry)
+        
+        business_email_entry = QLineEdit(biz_box)
+        business_email_entry.setText(self.business_email)
+        biz_layout.addRow("Contact Email:", business_email_entry)
+        
+        business_phone_entry = QLineEdit(biz_box)
+        business_phone_entry.setText(self.business_phone)
+        biz_layout.addRow("Contact Phone:", business_phone_entry)
+        
+        business_address_entry = QLineEdit(biz_box)
+        business_address_entry.setText(self.business_address)
+        biz_layout.addRow("Billing Address:", business_address_entry)
+        
+        business_payment_entry = QLineEdit(biz_box)
+        business_payment_entry.setPlaceholderText("e.g. IBAN: US12 3456... or PayPal: ...")
+        business_payment_entry.setText(self.business_payment)
+        biz_layout.addRow("Payment Details:", business_payment_entry)
+        
+        scroll_invoice_layout.addWidget(biz_box)
+        
+        # Default Client Profile
+        client_box = QGroupBox("Default Client Profile", scroll_invoice_content)
+        client_layout = QFormLayout(client_box)
+        client_layout.setSpacing(6)
+        
+        client_name_entry = QLineEdit(client_box)
+        client_name_entry.setText(self.client_name)
+        client_layout.addRow("Client Name:", client_name_entry)
+        
+        client_address_entry = QLineEdit(client_box)
+        client_address_entry.setText(self.client_address)
+        client_layout.addRow("Client Address:", client_address_entry)
+        
+        scroll_invoice_layout.addWidget(client_box)
+        
+        # Logo Profile Configuration
+        logo_box = QGroupBox("Invoice Business Logo", scroll_invoice_content)
+        logo_layout = QVBoxLayout(logo_box)
+        logo_layout.setSpacing(4)
+        
+        logo_row = QHBoxLayout()
+        logo_path_entry = QLineEdit(logo_box)
+        logo_path_entry.setText(self.business_logo_path)
+        logo_row.addWidget(logo_path_entry, 1)
+        
+        def _browse_logo():
+            path, _ = QFileDialog.getOpenFileName(dialog, "Select Business Logo Image", "", "Image files (*.png *.jpg *.jpeg)")
+            if path:
+                logo_path_entry.setText(path)
+                
+        browse_logo_btn = QPushButton("Browse...", logo_box)
+        browse_logo_btn.setObjectName("NormalButton")
+        browse_logo_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        browse_logo_btn.clicked.connect(_browse_logo)
+        logo_row.addWidget(browse_logo_btn)
+        logo_layout.addLayout(logo_row)
+        
+        logo_spec_lbl = QLabel("Image Spec: PNG, JPG, or JPEG. Max size: 250px (w) x 80px (h). Proportionally resized automatically.", logo_box)
+        logo_spec_lbl.setWordWrap(True)
+        logo_spec_lbl.setStyleSheet("color: #64748B; font-size: 10px; font-family: 'Segoe UI';")
+        logo_layout.addWidget(logo_spec_lbl)
+        
+        scroll_invoice_layout.addWidget(logo_box)
+        
+        scroll_invoice.setWidget(scroll_invoice_content)
+        ti_layout.addWidget(scroll_invoice)
+        
+        # Add Tabs to Widget
+        settings_tabs.addTab(tab_general, "General & Controls")
+        settings_tabs.addTab(tab_invoice, "Billing & Invoices")
+        layout.addWidget(settings_tabs)
+        
         # Bottom Buttons
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
@@ -1707,6 +1921,16 @@ class FocusLogApp(QMainWindow):
                 self.tracker.save_interval = self.auto_save_seconds
                 self.tracker.idle_threshold_seconds = self.idle_threshold_seconds_total
                 
+                # Invoice settings
+                self.business_name = business_name_entry.text().strip()
+                self.business_email = business_email_entry.text().strip()
+                self.business_phone = business_phone_entry.text().strip()
+                self.business_address = business_address_entry.text().strip()
+                self.business_payment = business_payment_entry.text().strip()
+                self.client_name = client_name_entry.text().strip()
+                self.client_address = client_address_entry.text().strip()
+                self.business_logo_path = logo_path_entry.text().strip()
+                
                 self._save_app_settings()
                 
                 # Update live indicators
@@ -1730,6 +1954,35 @@ class FocusLogApp(QMainWindow):
         
         layout.addLayout(btn_layout)
         dialog.exec()
+
+        
+
+
+
+                
+
+                
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
+
+        
+
+
 
     def _show_categories_dialog(self):
         dialog = QDialog(self)
@@ -2209,8 +2462,502 @@ class FocusLogApp(QMainWindow):
         else: 
             QMessageBox.critical(self, "Error", "Failed to export CSV.")
 
+    def _show_dashboard(self):
+        dialog = FocusLogDashboard(self)
+        dialog.exec()
+
     def run(self):
         self.show()
+
+class FocusLogDashboard(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.main_app = parent  # Reference to FocusLogApp
+        self.setWindowTitle("FocusLog — Analytics Dashboard")
+        self.resize(800, 680)
+        self.setMinimumSize(740, 600)
+        
+        # Center dashboard window
+        self.main_app._center_window(self, 800, 680)
+        
+        # Set styling similar to main window
+        self.setStyleSheet(self.main_app.styleSheet())
+        
+        self.init_ui()
+        
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # 1. Header Bar
+        hdr = QFrame(self)
+        hdr.setFixedHeight(46)
+        hdr.setStyleSheet("QFrame { background-color: #FFFFFF; border-bottom: 1px solid #E2E8F0; }")
+        hdr_layout = QHBoxLayout(hdr)
+        hdr_layout.setContentsMargins(16, 0, 16, 0)
+        
+        title_lbl = QLabel("📊 Focus Analytics Dashboard", hdr)
+        title_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 15px; font-weight: bold; color: #0F172A; border: none;")
+        hdr_layout.addWidget(title_lbl)
+        hdr_layout.addStretch()
+        
+        close_icon_btn = QPushButton("Close", hdr)
+        close_icon_btn.setObjectName("NormalButton")
+        close_icon_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        close_icon_btn.clicked.connect(self.accept)
+        hdr_layout.addWidget(close_icon_btn)
+        
+        layout.addWidget(hdr)
+        
+        # 2. Tab Widget
+        self.tabs = QTabWidget(self)
+        self.tabs.setObjectName("DashboardTabs")
+        self.tabs.setStyleSheet("""
+            QTabWidget::pane {
+                border: none;
+                background-color: #F8FAFC;
+            }
+            QTabBar::tab {
+                background-color: #FFFFFF;
+                border: 1px solid #E2E8F0;
+                border-bottom: none;
+                padding: 8px 24px;
+                font-family: 'Segoe UI';
+                font-size: 13px;
+                font-weight: 500;
+                color: #475569;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                margin-right: 4px;
+                margin-top: 6px;
+            }
+            QTabBar::tab:selected {
+                background-color: #F8FAFC;
+                border-color: #E2E8F0;
+                color: #0078D4;
+                font-weight: bold;
+            }
+        """)
+        
+        # Create Tab 1: Live Analytics
+        self.live_tab = QWidget()
+        self.build_live_tab()
+        
+        # Create Tab 2: Historical Insights
+        self.history_tab = QWidget()
+        self.build_history_tab()
+        
+        self.tabs.addTab(self.live_tab, "Live Tracker Insights")
+        self.tabs.addTab(self.history_tab, "Historical Insights")
+        self.tabs.currentChanged.connect(self.on_tab_changed)
+        
+        layout.addWidget(self.tabs)
+        
+        # Timer for real-time live data updates
+        self.live_timer = QTimer(self)
+        self.live_timer.timeout.connect(self.update_live_data)
+        
+        # Set initial state
+        self.on_tab_changed(0)
+
+    def create_kpi_card(self, title, value_text, icon_text=None, value_color="#0F172A"):
+        card = QFrame(self)
+        card.setObjectName("MainCard")
+        card.setStyleSheet("""
+            QFrame#MainCard {
+                background-color: #FFFFFF;
+                border: 1px solid #E2E8F0;
+                border-radius: 8px;
+            }
+        """)
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(2)
+        
+        if icon_text:
+            title_row = QHBoxLayout()
+            title_lbl = QLabel(title)
+            title_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B; font-weight: 500;")
+            icon_lbl = QLabel(icon_text)
+            icon_lbl.setStyleSheet("font-size: 14px;")
+            title_row.addWidget(title_lbl)
+            title_row.addStretch()
+            title_row.addWidget(icon_lbl)
+            layout.addLayout(title_row)
+        else:
+            title_lbl = QLabel(title)
+            title_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B; font-weight: 500;")
+            layout.addWidget(title_lbl)
+            
+        val_lbl = QLabel(value_text)
+        val_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 18px; font-weight: bold; color: {value_color};")
+        layout.addWidget(val_lbl)
+        
+        return card, val_lbl
+
+    def build_live_tab(self):
+        self.live_layout = QVBoxLayout(self.live_tab)
+        self.live_layout.setContentsMargins(16, 16, 16, 16)
+        self.live_layout.setSpacing(12)
+        
+        # Placeholder for when tracking is inactive
+        self.live_placeholder = QFrame(self.live_tab)
+        self.live_placeholder.setObjectName("MainCard")
+        ph_layout = QVBoxLayout(self.live_placeholder)
+        ph_layout.setContentsMargins(40, 40, 40, 40)
+        ph_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        ph_icon = QLabel("💤", self.live_placeholder)
+        ph_icon.setStyleSheet("font-size: 48px;")
+        ph_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ph_layout.addWidget(ph_icon)
+        
+        ph_lbl = QLabel("No active session is currently running.", self.live_placeholder)
+        ph_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #475569; margin-top: 10px;")
+        ph_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ph_layout.addWidget(ph_lbl)
+        
+        ph_sub = QLabel("Start focus tracking from the main screen to view real-time live insights.", self.live_placeholder)
+        ph_sub.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; color: #94A3B8; margin-top: 4px;")
+        ph_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ph_layout.addWidget(ph_sub)
+        
+        self.live_layout.addWidget(self.live_placeholder)
+        
+        # Actual content container
+        self.live_content = QWidget(self.live_tab)
+        self.live_content_layout = QHBoxLayout(self.live_content)
+        self.live_content_layout.setContentsMargins(0, 0, 0, 0)
+        self.live_content_layout.setSpacing(16)
+        
+        # Left column: KPI Cards
+        left_col = QVBoxLayout()
+        left_col.setSpacing(10)
+        
+        self.card_live_total, self.lbl_live_total = self.create_kpi_card("Total Session Time", "00:00:00", "🕒")
+        self.card_live_focus, self.lbl_live_focus = self.create_kpi_card("Counted Focus Time", "00:00:00", "🛡️", "#0078D4")
+        self.card_live_earnings, self.lbl_live_earnings = self.create_kpi_card("Session Earnings", "0.00", "💰", "#16A34A")
+        self.card_live_active, self.lbl_live_active = self.create_kpi_card("Current Active App", "None", "💻")
+        
+        left_col.addWidget(self.card_live_total)
+        left_col.addWidget(self.card_live_focus)
+        left_col.addWidget(self.card_live_earnings)
+        left_col.addWidget(self.card_live_active)
+        left_col.addStretch()
+        
+        self.live_content_layout.addLayout(left_col, 2)
+        
+        # Right column: Donut Chart & Category breakdown
+        right_col = QVBoxLayout()
+        right_col.setSpacing(10)
+        
+        chart_card = QFrame(self.live_content)
+        chart_card.setObjectName("MainCard")
+        chart_card_layout = QVBoxLayout(chart_card)
+        chart_card_layout.setContentsMargins(12, 12, 12, 12)
+        
+        chart_lbl = QLabel("App Time Allocation", chart_card)
+        chart_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: #475569;")
+        chart_card_layout.addWidget(chart_lbl)
+        
+        self.live_donut = DonutChartWidget(chart_card)
+        chart_card_layout.addWidget(self.live_donut, 1)
+        
+        right_col.addWidget(chart_card, 3)
+        
+        # Bottom Legend / Category List for Live Tab
+        self.live_legend_card = QFrame(self.live_content)
+        self.live_legend_card.setObjectName("MainCard")
+        ll_layout = QVBoxLayout(self.live_legend_card)
+        ll_layout.setContentsMargins(12, 10, 12, 10)
+        
+        ll_title = QLabel("Focus Categories breakdown", self.live_legend_card)
+        ll_title.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: #475569;")
+        ll_layout.addWidget(ll_title)
+        
+        # Scroll area for legend list
+        self.live_legend_scroll = QScrollArea(self.live_legend_card)
+        self.live_legend_scroll.setWidgetResizable(True)
+        self.live_legend_scroll.setFixedHeight(120)
+        self.live_legend_widget = QWidget()
+        self.live_legend_list_layout = QVBoxLayout(self.live_legend_widget)
+        self.live_legend_list_layout.setContentsMargins(0, 4, 0, 4)
+        self.live_legend_list_layout.setSpacing(4)
+        self.live_legend_scroll.setWidget(self.live_legend_widget)
+        ll_layout.addWidget(self.live_legend_scroll)
+        
+        right_col.addWidget(self.live_legend_card, 2)
+        
+        self.live_content_layout.addLayout(right_col, 3)
+        self.live_layout.addWidget(self.live_content)
+
+    def build_history_tab(self):
+        self.history_layout = QVBoxLayout(self.history_tab)
+        self.history_layout.setContentsMargins(16, 16, 16, 16)
+        self.history_layout.setSpacing(12)
+        
+        # Top Period Selector bar
+        period_bar = QHBoxLayout()
+        period_bar.setSpacing(8)
+        
+        period_lbl = QLabel("Select Analysis Range:", self.history_tab)
+        period_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: #475569;")
+        period_bar.addWidget(period_lbl)
+        
+        self.period_combo = QComboBox(self.history_tab)
+        self.period_combo.addItems(["Today", "Last 7 Days", "This Month"])
+        self.period_combo.currentTextChanged.connect(self.update_history_range)
+        self.period_combo.setFixedWidth(140)
+        period_bar.addWidget(self.period_combo)
+        period_bar.addStretch()
+        
+        self.history_layout.addLayout(period_bar)
+        
+        # Main content area (Split layout)
+        self.history_content = QWidget(self.history_tab)
+        self.hc_layout = QHBoxLayout(self.history_content)
+        self.hc_layout.setContentsMargins(0, 0, 0, 0)
+        self.hc_layout.setSpacing(16)
+        
+        # Left side: Historical KPIs
+        left_col = QVBoxLayout()
+        left_col.setSpacing(10)
+        
+        self.card_hist_sessions, self.lbl_hist_sessions = self.create_kpi_card("Tracked Sessions", "0", "📊")
+        self.card_hist_total, self.lbl_hist_total = self.create_kpi_card("Total Tracked Time", "00:00:00", "🕒")
+        self.card_hist_focus, self.lbl_hist_focus = self.create_kpi_card("Total Focus Time", "00:00:00", "🛡️", "#0078D4")
+        self.card_hist_earnings, self.lbl_hist_earnings = self.create_kpi_card("Aggregated Earnings", "0.00", "💰", "#16A34A")
+        
+        left_col.addWidget(self.card_hist_sessions)
+        left_col.addWidget(self.card_hist_total)
+        left_col.addWidget(self.card_hist_focus)
+        left_col.addWidget(self.card_hist_earnings)
+        left_col.addStretch()
+        
+        self.hc_layout.addLayout(left_col, 2)
+        
+        # Right side: Visual Charts & Legend
+        right_col = QVBoxLayout()
+        right_col.setSpacing(12)
+        
+        # Top row: Donut & Bar Charts side-by-side
+        charts_row = QHBoxLayout()
+        charts_row.setSpacing(10)
+        
+        # App allocation chart card
+        app_card = QFrame(self.history_content)
+        app_card.setObjectName("MainCard")
+        app_card.setFixedHeight(240)
+        ac_layout = QVBoxLayout(app_card)
+        ac_layout.setContentsMargins(10, 10, 10, 10)
+        
+        ac_lbl = QLabel("App Allocation", app_card)
+        ac_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: #475569;")
+        ac_layout.addWidget(ac_lbl)
+        
+        self.hist_donut = DonutChartWidget(app_card)
+        ac_layout.addWidget(self.hist_donut, 1)
+        charts_row.addWidget(app_card, 1)
+        
+        # Productivity trend bar chart card
+        trend_card = QFrame(self.history_content)
+        trend_card.setObjectName("MainCard")
+        trend_card.setFixedHeight(240)
+        tc_layout = QVBoxLayout(trend_card)
+        tc_layout.setContentsMargins(10, 10, 10, 10)
+        
+        tc_lbl = QLabel("Productivity Hours Trend", trend_card)
+        tc_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: #475569;")
+        tc_layout.addWidget(tc_lbl)
+        
+        self.hist_bar = BarChartWidget(trend_card)
+        tc_layout.addWidget(self.hist_bar, 1)
+        charts_row.addWidget(trend_card, 1)
+        
+        right_col.addLayout(charts_row)
+        
+        # Bottom: Categories/Projects Allocation Summary Legend list
+        self.hist_legend_card = QFrame(self.history_content)
+        self.hist_legend_card.setObjectName("MainCard")
+        hl_layout = QVBoxLayout(self.hist_legend_card)
+        hl_layout.setContentsMargins(12, 10, 12, 10)
+        
+        hl_title = QLabel("Focus Categories Aggregation", self.hist_legend_card)
+        hl_title.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: #475569;")
+        hl_layout.addWidget(hl_title)
+        
+        self.hist_legend_scroll = QScrollArea(self.hist_legend_card)
+        self.hist_legend_scroll.setWidgetResizable(True)
+        self.hist_legend_scroll.setFixedHeight(120)
+        self.hist_legend_widget = QWidget()
+        self.hist_legend_list_layout = QVBoxLayout(self.hist_legend_widget)
+        self.hist_legend_list_layout.setContentsMargins(0, 4, 0, 4)
+        self.hist_legend_list_layout.setSpacing(4)
+        self.hist_legend_scroll.setWidget(self.hist_legend_widget)
+        hl_layout.addWidget(self.hist_legend_scroll)
+        
+        right_col.addWidget(self.hist_legend_card)
+        
+        self.hc_layout.addLayout(right_col, 5)
+        self.history_layout.addWidget(self.history_content)
+
+    def on_tab_changed(self, index):
+        if index == 0:
+            self.live_timer.start(1000)
+            self.update_live_data()
+        else:
+            self.live_timer.stop()
+            self.update_historical_data()
+
+    def update_history_range(self, text):
+        self.update_historical_data()
+
+    def update_live_data(self):
+        tracker = self.main_app.tracker
+        if not tracker.running:
+            self.live_placeholder.setVisible(True)
+            self.live_content.setVisible(False)
+            return
+        
+        self.live_placeholder.setVisible(False)
+        self.live_content.setVisible(True)
+        
+        # Live stats
+        elapsed = tracker.get_elapsed()
+        self.lbl_live_total.setText(format_duration_hms(elapsed))
+        
+        counted = tracker.get_counted_seconds()
+        self.lbl_live_focus.setText(format_duration_hms(counted))
+        
+        hourly = self.main_app.hourly_rate
+        earned = (counted / 3600.0) * hourly if hourly > 0 else 0.0
+        display_symbol = self.main_app.currency_symbol
+        self.lbl_live_earnings.setText(f"{display_symbol}{earned:,.2f}")
+        
+        current_app = tracker.get_current_app() or "None"
+        self.lbl_live_active.setText(current_app)
+        
+        # Apps donut
+        report = build_report_data(tracker, hourly_rate=hourly, currency_symbol=display_symbol)
+        apps_breakdown = []
+        for app in report.get("apps", []):
+            if not app["excluded"]:
+                apps_breakdown.append({
+                    "name": app["name"],
+                    "seconds": app["seconds"],
+                    "color": get_tag_color(app["tag"])
+                })
+        self.live_donut.set_data(apps_breakdown)
+        
+        # Refresh live legend list
+        for i in reversed(range(self.live_legend_list_layout.count())):
+            item = self.live_legend_list_layout.itemAt(i)
+            if item and item.widget():
+                item.widget().setParent(None)
+                
+        project_breakdown = report.get("project_breakdown", [])
+        for pb in project_breakdown:
+            row_f = QFrame()
+            row_f.setFixedHeight(22)
+            row_layout = QHBoxLayout(row_f)
+            row_layout.setContentsMargins(4, 0, 4, 0)
+            row_layout.setSpacing(6)
+            
+            swatch = QLabel("■", row_f)
+            swatch.setStyleSheet(f"color: {pb['color']}; font-size: 13px;")
+            row_layout.addWidget(swatch)
+            
+            lbl = QLabel(pb["project"], row_f)
+            lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: #1A1A1A;")
+            row_layout.addWidget(lbl)
+            
+            pct_lbl = QLabel(f"{pb['percent']:.1f}%", row_f)
+            pct_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B;")
+            row_layout.addWidget(pct_lbl)
+            
+            row_layout.addStretch()
+            
+            time_lbl = QLabel(pb["formatted"], row_f)
+            time_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; font-weight: 500; color: #1A1A1A;")
+            row_layout.addWidget(time_lbl)
+            
+            self.live_legend_list_layout.addWidget(row_f)
+        self.live_legend_list_layout.addStretch()
+
+    def update_historical_data(self):
+        range_text = self.period_combo.currentText()
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        if range_text == "Today":
+            start_d = today
+            end_d = datetime.now()
+        elif range_text == "Last 7 Days":
+            start_d = today - timedelta(days=6)
+            end_d = datetime.now()
+        else:  # "This Month"
+            start_d = today.replace(day=1)
+            end_d = datetime.now()
+            
+        hourly = self.main_app.hourly_rate
+        curr_sym = self.main_app.currency_symbol
+        
+        data = aggregate_history_data(start_d, end_d, hourly_rate=hourly, currency_symbol=curr_sym)
+        
+        # Fill historical KPI Cards
+        self.lbl_hist_sessions.setText(str(data["session_count"]))
+        self.lbl_hist_total.setText(data["total_formatted"])
+        self.lbl_hist_focus.setText(data["counted_formatted"])
+        self.lbl_hist_earnings.setText(data["total_earned_display"])
+        
+        # App breakdown donut
+        apps_breakdown = []
+        for app in data.get("apps", []):
+            if not app["excluded"]:
+                apps_breakdown.append({
+                    "name": app["name"],
+                    "seconds": app["seconds"],
+                    "color": get_tag_color(app["tag"])
+                })
+        self.hist_donut.set_data(apps_breakdown)
+        
+        # Productivity bar trend
+        self.hist_bar.set_data(data.get("daily_trend", []))
+        
+        # Refresh historical legend list
+        for i in reversed(range(self.hist_legend_list_layout.count())):
+            item = self.hist_legend_list_layout.itemAt(i)
+            if item and item.widget():
+                item.widget().setParent(None)
+                
+        project_breakdown = data.get("project_breakdown", [])
+        for pb in project_breakdown:
+            row_f = QFrame()
+            row_f.setFixedHeight(22)
+            row_layout = QHBoxLayout(row_f)
+            row_layout.setContentsMargins(4, 0, 4, 0)
+            row_layout.setSpacing(6)
+            
+            swatch = QLabel("■", row_f)
+            swatch.setStyleSheet(f"color: {pb['color']}; font-size: 13px;")
+            row_layout.addWidget(swatch)
+            
+            lbl = QLabel(pb["project"], row_f)
+            lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: #1A1A1A;")
+            row_layout.addWidget(lbl)
+            
+            pct_lbl = QLabel(f"{pb['percent']:.1f}%", row_f)
+            pct_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B;")
+            row_layout.addWidget(pct_lbl)
+            
+            row_layout.addStretch()
+            
+            time_lbl = QLabel(pb["formatted"], row_f)
+            time_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; font-weight: 500; color: #1A1A1A;")
+            row_layout.addWidget(time_lbl)
+            
+            self.hist_legend_list_layout.addWidget(row_f)
+        self.hist_legend_list_layout.addStretch()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
