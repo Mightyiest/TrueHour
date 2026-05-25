@@ -729,6 +729,56 @@ def merge_sessions_for_invoice(filepaths: List[str], tracker, hourly_rate: float
         "session_count": len(unique_sessions)
     }
 
+def mask_email(email: str) -> str:
+    """
+    Masks sensitive email data.
+    e.g., neil@gmail.com -> ne**@*****.com
+    """
+    if not email or "@" not in email:
+        return email
+    try:
+        parts = email.split("@")
+        local = parts[0]
+        domain = "@".join(parts[1:])
+        
+        # Local part: preserve first 2 characters, rest replaced with '**'
+        if len(local) <= 2:
+            masked_local = local + "**"
+        else:
+            masked_local = local[:2] + "**"
+            
+        # Domain: mask domain name with '*****', preserve TLD
+        if "." in domain:
+            domain_parts = domain.split(".")
+            tld = domain_parts[-1]
+            masked_domain = "*****." + tld
+        else:
+            masked_domain = "*****"
+            
+        return f"{masked_local}@{masked_domain}"
+    except Exception:
+        return email
+
+def mask_phone(phone: str) -> str:
+    """
+    Masks sensitive phone numbers.
+    e.g., +1 (555) 123-4567 -> +1 (555) ***-****
+    """
+    if not phone:
+        return phone
+    try:
+        masked = []
+        mask_count = 0
+        for c in reversed(phone):
+            if c.isdigit() and mask_count < 7:
+                masked.append('*')
+                mask_count += 1
+            else:
+                masked.append(c)
+        return "".join(reversed(masked))
+    except Exception:
+        return phone
+
 def generate_invoice_html(billing_data, settings_data) -> str:
     """
     Generates a stunning, premium, modern A4 HTML invoice.
@@ -757,6 +807,79 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     hourly_rate = settings_data.get("hourly_rate", 0.0)
     curr_sym = settings_data.get("currency_symbol", "$")
 
+    # Email & Phone Masking & Multi-Email Processing
+    mask_biz_emails = settings_data.get("mask_business_emails", settings_data.get("mask_sensitive_data", False))
+    mask_biz_phone = settings_data.get("mask_business_phone", settings_data.get("mask_sensitive_data", False))
+    mask_client_emails = settings_data.get("mask_client_emails", settings_data.get("mask_sensitive_data", False))
+    
+    # Process business emails
+    biz_emails = settings_data.get("business_emails", [])
+    if not biz_emails:
+        legacy_email = settings_data.get("business_email", "")
+        if legacy_email:
+            biz_emails = [e.strip() for e in legacy_email.split(",") if e.strip()]
+            
+    if mask_biz_emails:
+        biz_emails_processed = [mask_email(e) for e in biz_emails]
+    else:
+        biz_emails_processed = biz_emails
+        
+    biz_email_str = ", ".join(biz_emails_processed)
+    
+    # Process business phone
+    biz_phone = settings_data.get("business_phone", "")
+    if biz_phone and mask_biz_phone:
+        biz_phone = mask_phone(biz_phone)
+        
+    biz_contact_parts = []
+    if biz_email_str:
+        biz_contact_parts.append(biz_email_str)
+    if biz_phone:
+        biz_contact_parts.append(biz_phone)
+    biz_contact_html = " &nbsp;&bull;&nbsp; ".join(biz_contact_parts)
+
+    # Process client emails
+    client_emails = settings_data.get("client_emails", [])
+    if mask_client_emails:
+        client_emails_processed = [mask_email(e) for e in client_emails]
+    else:
+        client_emails_processed = client_emails
+
+    client_emails_html = ""
+    if client_emails_processed:
+        emails_joined = ", ".join(client_emails_processed)
+        client_emails_html = f'<div class="client-email">{emails_joined}</div>'
+
+    # Load and encode payment QR codes
+    qr_html = ""
+    qr_code_paths = settings_data.get("qr_code_paths", [])
+    if qr_code_paths:
+        from config import get_app_data_dir
+        qr_dir = os.path.join(get_app_data_dir(), "qr_codes")
+        qr_items = []
+        for qr_fname in qr_code_paths:
+            qr_full_path = os.path.join(qr_dir, qr_fname)
+            if os.path.exists(qr_full_path):
+                try:
+                    ext = os.path.splitext(qr_fname)[1].lower().replace(".", "")
+                    if ext in ["png", "jpg", "jpeg"]:
+                        with open(qr_full_path, "rb") as f:
+                            encoded_qr = base64.b64encode(f.read()).decode("utf-8")
+                        qr_data_uri = f"data:image/{ext};base64,{encoded_qr}"
+                        qr_items.append(f"""
+                            <div class="qr-code-item">
+                                <img src="{qr_data_uri}" class="qr-code-image" alt="Payment QR Code" />
+                            </div>
+                        """)
+                except Exception as ex:
+                    print(f"[FocusLog] Error base64 encoding QR code {qr_fname}: {ex}")
+        if qr_items:
+            qr_html = f"""
+            <div class="qr-codes-container">
+                {"".join(qr_items)}
+            </div>
+            """
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -778,349 +901,59 @@ def generate_invoice_html(billing_data, settings_data) -> str:
             --text-muted: #64748B;
         }}
 
-        * {{
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }}
-
-        body {{
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            line-height: 1.5;
-            padding: 40px 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }}
-
-        /* Print utility bar */
-        .print-actions-bar {{
-            width: 100%;
-            max-width: 800px;
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px 24px;
-            margin-bottom: 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
-            animation: slideDown 0.4s ease-out;
-        }}
-
-        @keyframes slideDown {{
-            from {{ transform: translateY(-20px); opacity: 0; }}
-            to {{ transform: translateY(0); opacity: 1; }}
-        }}
-
-        .print-title {{
-            font-weight: 600;
-            font-size: 14px;
-            color: var(--text-main);
-        }}
-
-        .print-btn {{
-            background-color: var(--accent);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 13px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.3);
-        }}
-
-        .print-btn:hover {{
-            background-color: var(--accent-hover);
-            transform: translateY(-1px);
-            box-shadow: 0 6px 16px -2px rgba(79, 70, 229, 0.4);
-        }}
-
-        /* Invoice Container conforming to A4 */
-        .invoice-container {{
-            width: 100%;
-            max-width: 800px;
-            background-color: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 50px;
-            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04);
-            position: relative;
-        }}
-
-        /* Header Layout */
-        .invoice-header-row {{
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            border-bottom: 2px solid var(--bg-body);
-            padding-bottom: 30px;
-            margin-bottom: 35px;
-        }}
-
-        .invoice-logo {{
-            max-width: 200px;
-            max-height: 70px;
-            object-fit: contain;
-            margin-bottom: 12px;
-            display: block;
-        }}
-
-        .profile-title {{
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--primary);
-            letter-spacing: -0.02em;
-        }}
-
-        .profile-details {{
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-top: 6px;
-            line-height: 1.4;
-        }}
-
-        .meta-column {{
-            text-align: right;
-        }}
-
-        .invoice-badge {{
-            font-size: 28px;
-            font-weight: 800;
-            color: var(--primary);
-            letter-spacing: -0.03em;
-            margin-bottom: 12px;
-        }}
-
-        .meta-item {{
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-bottom: 4px;
-            line-height: 1.4;
-        }}
-
-        .meta-item strong {{
-            color: var(--text-main);
-            font-weight: 600;
-        }}
-
-        /* Client Info Section */
-        .billed-to-container {{
-            margin-bottom: 35px;
-        }}
-
-        .section-label {{
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            color: var(--accent);
-            letter-spacing: 0.1em;
-            margin-bottom: 8px;
-        }}
-
-        .client-name {{
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--text-main);
-        }}
-
-        .client-address {{
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-top: 4px;
-            line-height: 1.4;
-        }}
-
-        /* Callout summary cards grid */
-        .dashboard-grid {{
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 40px;
-        }}
-
-        .kpi-card {{
-            background: var(--bg-body);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 20px;
-            transition: all 0.2s ease;
-        }}
-
-        .kpi-card:hover {{
-            border-color: var(--text-muted);
-        }}
-
-        .kpi-label {{
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            letter-spacing: 0.05em;
-        }}
-
-        .kpi-val {{
-            font-size: 26px;
-            font-weight: 800;
-            margin-top: 6px;
-            letter-spacing: -0.03em;
-        }}
-
-        .hours-val {{ color: var(--accent); }}
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{ font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--bg-body); color: var(--text-main); line-height: 1.5; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }}
+        .print-actions-bar {{ width: 100%; max-width: 800px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 12px; padding: 16px 24px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }}
+        .print-btn {{ background-color: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s ease; }}
+        .invoice-container {{ width: 100%; max-width: 800px; background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 50px; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04); }}
+        .invoice-header-row {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--bg-body); padding-bottom: 30px; margin-bottom: 35px; }}
+        .invoice-logo {{ max-width: 200px; max-height: 70px; object-fit: contain; margin-bottom: 12px; display: block; }}
+        .profile-title {{ font-size: 18px; font-weight: 700; color: var(--primary); letter-spacing: -0.02em; }}
+        .profile-details {{ font-size: 13px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }}
+        .meta-column {{ text-align: right; }}
+        .invoice-badge {{ font-size: 28px; font-weight: 800; color: var(--primary); letter-spacing: -0.03em; margin-bottom: 12px; }}
+        .meta-item {{ font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }}
+        .billed-to-container {{ margin-bottom: 35px; }}
+        .section-label {{ font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--accent); letter-spacing: 0.1em; margin-bottom: 8px; }}
+        .client-name {{ font-size: 15px; font-weight: 700; color: var(--text-main); }}
+        .client-address {{ font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }}
+        .client-email {{ font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }}
+        .qr-codes-container {{ display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; justify-content: flex-start; }}
+        .qr-code-item {{ display: flex; flex-direction: column; align-items: center; background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }}
+        .qr-code-image {{ width: 140px; height: 140px; object-fit: contain; border-radius: 4px; }}
+        .dashboard-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }}
+        .kpi-card {{ background-color: var(--bg-body); border: 1px solid transparent; border-radius: 12px; padding: 20px 24px; transition: all 0.25s ease; }}
+        .kpi-card:hover {{ background-color: var(--bg-card); border-color: var(--border); }}
+        .kpi-label {{ font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; }}
+        .kpi-val {{ font-size: 24px; font-weight: 800; color: var(--primary); }}
         .amount-val {{ color: var(--success); }}
-
-        /* Itemized table styling */
-        .table-title {{
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--text-main);
-            margin-bottom: 12px;
-        }}
-
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 35px;
-        }}
-
-        th {{
-            background-color: var(--primary);
-            color: white;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            padding: 12px 16px;
-            text-align: left;
-        }}
-
-        th:first-child {{ border-top-left-radius: 8px; border-bottom-left-radius: 8px; }}
-        th:last-child {{ border-top-right-radius: 8px; border-bottom-right-radius: 8px; text-align: right; }}
-
-        td {{
-            padding: 14px 16px;
-            font-size: 13px;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-main);
-        }}
-
-        td:last-child {{
-            text-align: right;
-            font-weight: 600;
-        }}
-
-        tr:hover td {{
-            background-color: var(--bg-body);
-        }}
-
-        /* Subtotal summary section */
-        .subtotal-row td {{
-            border-bottom: none;
-            padding-top: 20px;
-        }}
-
-        .subtotal-label {{
-            text-align: right;
-            font-weight: 700;
-            font-size: 13px;
-            color: var(--text-muted);
-        }}
-
-        .subtotal-value {{
-            text-align: right;
-            font-weight: 800;
-            font-size: 18px;
-            color: var(--success);
-            letter-spacing: -0.02em;
-        }}
-
-        /* Bottom Details Box */
-        .payment-box {{
-            background-color: var(--bg-body);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 20px;
-            margin-top: 10px;
-        }}
-
-        .payment-box-title {{
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            letter-spacing: 0.05em;
-            margin-bottom: 6px;
-        }}
-
-        .payment-content {{
-            font-size: 12px;
-            color: var(--text-main);
-            line-height: 1.5;
-        }}
-
-        /* Browser Printing Styles */
-        @media print {{
-            body {{
-                background-color: white;
-                padding: 0;
-            }}
-            .print-actions-bar {{
-                display: none;
-            }}
-            .invoice-container {{
-                border: none;
-                box-shadow: none;
-                padding: 0;
-                width: 100%;
-                max-width: 100%;
-            }}
-            .kpi-card {{
-                border-color: var(--border) !important;
-                background-color: #F8FAFC !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }}
-        }}
+        table {{ width: 100%; border-collapse: collapse; margin-bottom: 45px; }}
+        th {{ font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); text-align: left; padding: 12px 16px; border-bottom: 2px solid var(--border); }}
+        td {{ font-size: 13px; color: var(--text-main); padding: 16px; border-bottom: 1px solid var(--border); }}
+        .subtotal-row td {{ border-bottom: none; padding-top: 24px; }}
+        .subtotal-label {{ font-size: 14px; font-weight: 700; text-align: right; color: var(--text-muted); }}
+        .subtotal-value {{ font-size: 18px; font-weight: 800; color: var(--success); text-align: right; padding-right: 16px; }}
+        .payment-box {{ background-color: #F8FAFC; border: 1px solid var(--border); border-radius: 12px; padding: 24px; }}
+        .payment-box-title {{ font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--primary); margin-bottom: 10px; }}
+        .payment-content {{ font-size: 13px; color: var(--text-muted); line-height: 1.5; white-space: pre-wrap; }}
+        @media print {{ body {{ background-color: white; padding: 0; }} .print-actions-bar {{ display: none; }} .invoice-container {{ border: none; box-shadow: none; padding: 0; }} }}
     </style>
 </head>
 <body>
-
-    <!-- Dynamic Browser Action Bar -->
     <div class="print-actions-bar">
-        <div class="print-title">📄 Invoice HTML Created successfully. Ready to print or export to PDF.</div>
-        <button class="print-btn" onclick="window.print()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                <rect x="6" y="14" width="12" height="8"></rect>
-            </svg>
-            Print / Save as PDF
-        </button>
+        <div>📄 Invoice generated.</div>
+        <button class="print-btn" onclick="window.print()">Print / Save PDF</button>
     </div>
-
-    <!-- Main Print Document Container -->
     <div class="invoice-container">
-        
-        <!-- Header Info -->
         <div class="invoice-header-row">
             <div>
                 {logo_html}
                 <div class="profile-title">{settings_data.get("business_name", "FocusLog Invoice")}</div>
                 <div class="profile-details">
                     {settings_data.get("business_address", "")}<br>
-                    {settings_data.get("business_email", "")} {settings_data.get("business_phone", "")}
+                    {biz_contact_html}
                 </div>
             </div>
-            
             <div class="meta-column">
                 <div class="invoice-badge">INVOICE</div>
                 <div class="meta-item"><strong>Invoice No:</strong> INV-{datetime.now().strftime("%Y%m%d%H%M")}</div>
@@ -1128,40 +961,25 @@ def generate_invoice_html(billing_data, settings_data) -> str:
                 <div class="meta-item"><strong>Sessions Compiled:</strong> {billing_data.get("session_count", 1)}</div>
             </div>
         </div>
-
-        <!-- Billed to Client -->
         <div class="billed-to-container">
             <div class="section-label">Billed To</div>
             <div class="client-name">{settings_data.get("client_name", "Valued Client")}</div>
-            <div class="client-address">
-                {settings_data.get("client_address", "")}
-            </div>
+            <div class="client-address">{settings_data.get("client_address", "")}</div>
+            {client_emails_html}
         </div>
-
-        <!-- Visual Analytics Dashboard Cards -->
         <div class="dashboard-grid">
             <div class="kpi-card">
                 <div class="kpi-label">Total Work Hours</div>
-                <div class="kpi-val hours-val">{hours_counted:.2f} hrs</div>
+                <div class="kpi-val">{hours_counted:.2f} hrs</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Total Amount Due</div>
                 <div class="kpi-val amount-val">{billing_data["total_earned_display"]}</div>
             </div>
         </div>
-
-        <!-- Itemized Breakdowns -->
         <div class="section-label">Itemized Work Breakdown</div>
         <table>
-            <thead>
-                <tr>
-                    <th>Focus Category</th>
-                    <th>Formatted Time</th>
-                    <th>Hours</th>
-                    <th>Rate</th>
-                    <th style="text-align: right;">Total Amount</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Focus Category</th><th>Formatted Time</th><th>Hours</th><th>Rate</th><th style="text-align: right;">Total Amount</th></tr></thead>
             <tbody>
     """
 
@@ -1184,17 +1002,12 @@ def generate_invoice_html(billing_data, settings_data) -> str:
                 </tr>
             </tbody>
         </table>
-
-        <!-- Footer terms and info -->
         <div class="payment-box">
             <div class="payment-box-title">Payment Terms & Instructions</div>
-            <div class="payment-content">
-                {settings_data.get("business_payment", "Payment is due within 14 days of invoice date.")}
-            </div>
+            <div class="payment-content">{settings_data.get("business_payment", "Payment is due within 14 days of invoice date.")}</div>
+            {qr_html}
         </div>
-
     </div>
-
 </body>
 </html>
 """

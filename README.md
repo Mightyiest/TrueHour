@@ -14,7 +14,7 @@ FocusLog automatically monitors your active window to track productivity, calcul
 
 *   **🕒 Automatic Time Tracking:** Detects the foreground application and logs usage duration with second-level precision.
 *   **📊 Interactive Visual Analytics Dashboard:** Custom drawn interactive PyQt6 charts (`DonutChartWidget`, `BarChartWidget`) displaying real-time live and range-filtered historical category allocation.
-*   **📄 HTML Client Invoice Builder & Browser Printer:** Native dynamic invoicing profiles, dynamic "Unassigned" app category resolving session merger, premium HTML templates, and seamless browser-based A4 PDF printing.
+*   **📄 HTML Client Invoice Builder & Browser Printer:** Native dynamic invoicing profiles with Gmail-style multi-email chip token inputs, sensitive email masking (e.g., `ne**@*****.com`) for client privacy, dynamic "Unassigned" app category resolving, premium HTML templates, base64-embedded payment QR code graphics, and seamless browser-based A4 PDF printing.
 *   **💰 Earnings Calculator:** Set an hourly rate to see real-time earnings accumulation during work sessions.
 *   **🛡️ Smart Exclusion System:**
     *   **Auto-Exclude:** Automatically ignores system processes (Explorer, Taskbar, Search, etc.) so they don't clutter your data.
