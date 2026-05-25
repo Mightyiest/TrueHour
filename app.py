@@ -16,9 +16,10 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFrame, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QScrollArea, QCheckBox, QComboBox, QLineEdit,
     QDialog, QFormLayout, QGroupBox, QMenu, QMessageBox, QFileDialog,
-    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy
+    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy,
+    QLayout
 )
-from PyQt6.QtCore import Qt, QTimer, QSize, QObject, pyqtSignal, QRectF, QPointF
+from PyQt6.QtCore import Qt, QTimer, QSize, QObject, pyqtSignal, QRectF, QPointF, QRect, QPoint
 from PyQt6.QtGui import QColor, QPainter, QBrush, QPen, QImage, QPixmap, QIcon, QPainterPath, QPalette
 
 from tracker import AppTracker, AUTO_EXCLUDE_FILE, create_auto_excluded_if_missing
@@ -177,6 +178,288 @@ def ensure_checkmark_icon():
             except Exception as e2:
                 logger.debug(f"Fallback checkmark writing failed: {e2}")
     return checkmark_path
+
+# ── Email Chip Widget (Gmail-style Token Input) ──────────────────────
+class EmailChipWidget(QWidget):
+    """A multi-email input widget with Gmail-style chips/tokens."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._emails = []
+        self._chip_widgets = []
+
+        self._outer_layout = QVBoxLayout(self)
+        self._outer_layout.setContentsMargins(0, 0, 0, 0)
+        self._outer_layout.setSpacing(4)
+
+        # Chip container with flow-wrap behavior
+        self._chip_container = QWidget(self)
+        self._chip_container.setStyleSheet("background: transparent;")
+        self._flow_layout = FlowLayout(self._chip_container, margin=2, spacing=4)
+        self._outer_layout.addWidget(self._chip_container)
+
+        # Text input line
+        self._input = QLineEdit(self)
+        self._input.setPlaceholderText("Type email and press Enter or comma...")
+        self._input.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #E2E8F0;
+                border-radius: 6px;
+                padding: 5px 8px;
+                font-family: 'Segoe UI';
+                font-size: 12px;
+                background-color: #FFFFFF;
+            }
+            QLineEdit:focus {
+                border-color: #0078D4;
+            }
+        """)
+        self._input.returnPressed.connect(self._on_commit)
+        self._input.textChanged.connect(self._on_text_changed)
+        self._outer_layout.addWidget(self._input)
+
+    def _on_text_changed(self, text):
+        """Detect comma or semicolon separator to commit chip."""
+        if text.endswith(",") or text.endswith(";"):
+            self._input.setText(text[:-1])
+            self._on_commit()
+
+    def _on_commit(self):
+        """Validate and add current text as a chip."""
+        text = self._input.text().strip().lower()
+        if not text:
+            return
+        if "@" not in text or "." not in text.split("@")[-1]:
+            return  # Basic validation
+        if text in self._emails:
+            self._input.clear()
+            return  # No duplicates
+        self._emails.append(text)
+        self._add_chip_widget(text)
+        self._input.clear()
+
+    def _add_chip_widget(self, email):
+        """Create a visual chip pill for an email."""
+        chip = QFrame(self._chip_container)
+        chip.setStyleSheet("""
+            QFrame {
+                background-color: #EEF2FF;
+                border: 1px solid #C7D2FE;
+                border-radius: 12px;
+                padding: 2px 4px;
+            }
+        """)
+        chip_layout = QHBoxLayout(chip)
+        chip_layout.setContentsMargins(8, 2, 4, 2)
+        chip_layout.setSpacing(4)
+
+        label = QLabel(email, chip)
+        label.setStyleSheet("color: #3730A3; font-size: 11px; font-family: 'Segoe UI'; font-weight: 500; border: none; background: transparent;")
+        chip_layout.addWidget(label)
+
+        remove_btn = QPushButton("✕", chip)
+        remove_btn.setFixedSize(16, 16)
+        remove_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        remove_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+                color: #6366F1;
+                font-size: 11px;
+                font-weight: bold;
+                padding: 0;
+            }
+            QPushButton:hover {
+                color: #DC2626;
+            }
+        """)
+        remove_btn.clicked.connect(lambda checked, e=email, c=chip: self._remove_chip(e, c))
+        chip_layout.addWidget(remove_btn)
+
+        self._flow_layout.addWidget(chip)
+        self._chip_widgets.append(chip)
+
+    def _remove_chip(self, email, chip_widget):
+        """Remove a chip by email and destroy its widget."""
+        if email in self._emails:
+            self._emails.remove(email)
+        if chip_widget in self._chip_widgets:
+            self._chip_widgets.remove(chip_widget)
+        self._flow_layout.removeWidget(chip_widget)
+        chip_widget.deleteLater()
+
+    def get_emails(self):
+        """Return the list of entered emails."""
+        return list(self._emails)
+
+    def set_emails(self, email_list):
+        """Set emails from a list, creating chips for each."""
+        self.clear()
+        for email in email_list:
+            email = email.strip().lower()
+            if email and email not in self._emails:
+                self._emails.append(email)
+                self._add_chip_widget(email)
+
+    def clear(self):
+        """Remove all chips and clear input."""
+        self._emails.clear()
+        for chip in self._chip_widgets:
+            self._flow_layout.removeWidget(chip)
+            chip.deleteLater()
+        self._chip_widgets.clear()
+        self._input.clear()
+
+
+class FlowLayout(QLayout):
+    """Dynamic flow layout that wraps widgets dynamically based on available width."""
+
+    def __init__(self, parent=None, margin=0, spacing=4):
+        super().__init__(parent)
+        self.setContentsMargins(margin, margin, margin, margin)
+        self.setSpacing(spacing)
+        self._items = []
+
+    def __del__(self):
+        item = self.takeAt(0)
+        while item:
+            item = self.takeAt(0)
+
+    def addItem(self, item):
+        self._items.append(item)
+
+    def count(self):
+        return len(self._items)
+
+    def itemAt(self, index):
+        if 0 <= index < len(self._items):
+            return self._items[index]
+        return None
+
+    def takeAt(self, index):
+        if 0 <= index < len(self._items):
+            return self._items.pop(index)
+        return None
+
+    def expandingDirections(self):
+        return Qt.Orientation(0)
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        return self._do_layout(QRect(0, 0, width, 0), True)
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self._do_layout(rect, False)
+
+    def sizeHint(self):
+        return self.minimumSize()
+
+    def minimumSize(self):
+        size = QSize()
+        for item in self._items:
+            size = size.expandedTo(item.minimumSize())
+        margins = self.contentsMargins()
+        size += QSize(margins.left() + margins.right(), margins.top() + margins.bottom())
+        return size
+
+    def _do_layout(self, rect, test_only):
+        margins = self.contentsMargins()
+        x = rect.x() + margins.left()
+        y = rect.y() + margins.top()
+        row_height = 0
+        space_x = self.spacing()
+        space_y = self.spacing()
+        
+        for item in self._items:
+            widget = item.widget()
+            if not widget:
+                continue
+            item_width = item.sizeHint().width()
+            item_height = item.sizeHint().height()
+            
+            next_x = x + item_width + space_x
+            if next_x - space_x > rect.right() - margins.right() and row_height > 0:
+                x = rect.x() + margins.left()
+                y = y + row_height + space_y
+                next_x = x + item_width + space_x
+                row_height = 0
+                
+            if not test_only:
+                item.setGeometry(QRect(QPoint(x, y), item.sizeHint()))
+                
+            x = next_x
+            row_height = max(row_height, item_height)
+            
+        return y + row_height - rect.y() + margins.bottom()
+
+
+# ── Invoice Privacy Options Dialog (Custom Checkable Popup Prompt) ────
+class InvoicePrivacyOptionsDialog(QDialog):
+    """Custom checkbox selection prompt for sensitive data masking prior to invoice generation."""
+
+    def __init__(self, parent=None, default_biz_email=False, default_biz_phone=False, default_client_email=False):
+        super().__init__(parent)
+        self.setWindowTitle("Invoice Privacy Options")
+        self.setFixedSize(380, 240)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+        
+        title = QLabel("Privacy & Masking Options", self)
+        title.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #1A1A1A; border: none; background: transparent;")
+        layout.addWidget(title)
+        
+        desc = QLabel("Select which sensitive details you would like to mask on this invoice:", self)
+        desc.setWordWrap(True)
+        desc.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B; border: none; background: transparent;")
+        layout.addWidget(desc)
+        
+        # Options Group
+        options_box = QFrame(self)
+        options_box.setStyleSheet("QFrame { background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; }")
+        options_layout = QVBoxLayout(options_box)
+        options_layout.setContentsMargins(12, 8, 12, 8)
+        options_layout.setSpacing(6)
+        
+        self.cb_biz_email = QCheckBox("Mask business contact emails (e.g. bu**@****.com)", options_box)
+        self.cb_biz_email.setChecked(default_biz_email)
+        self.cb_biz_email.setStyleSheet("border: none; background: transparent; font-family: 'Segoe UI'; font-size: 12px;")
+        options_layout.addWidget(self.cb_biz_email)
+        
+        self.cb_biz_phone = QCheckBox("Mask business contact phone (e.g. +1***)", options_box)
+        self.cb_biz_phone.setChecked(default_biz_phone)
+        self.cb_biz_phone.setStyleSheet("border: none; background: transparent; font-family: 'Segoe UI'; font-size: 12px;")
+        options_layout.addWidget(self.cb_biz_phone)
+        
+        self.cb_client_email = QCheckBox("Mask client contact emails (e.g. cl**@****.com)", options_box)
+        self.cb_client_email.setChecked(default_client_email)
+        self.cb_client_email.setStyleSheet("border: none; background: transparent; font-family: 'Segoe UI'; font-size: 12px;")
+        options_layout.addWidget(self.cb_client_email)
+        
+        layout.addWidget(options_box)
+        
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        
+        cancel_btn = QPushButton("Cancel", self)
+        cancel_btn.setObjectName("NormalButton")
+        cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel_btn.clicked.connect(self.reject)
+        
+        gen_btn = QPushButton("Generate", self)
+        gen_btn.setObjectName("AccentButton")
+        gen_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        gen_btn.clicked.connect(self.accept)
+        
+        btn_layout.addWidget(cancel_btn)
+        btn_layout.addWidget(gen_btn)
+        layout.addLayout(btn_layout)
+
 
 # ── Thread-Safe Signals ──────────────────────────────────────────────
 class TrackerSignals(QObject):
@@ -1435,20 +1718,41 @@ class FocusLogApp(QMainWindow):
                 return
                 
             try:
+                # Mask sensitive data custom options dialog
+                privacy_dialog = InvoicePrivacyOptionsDialog(
+                    dialog,
+                    default_biz_email=self.mask_business_emails,
+                    default_biz_phone=self.mask_business_phone,
+                    default_client_email=self.mask_client_emails
+                )
+                if privacy_dialog.exec() != QDialog.DialogCode.Accepted:
+                    return
+                
+                mask_biz_email = privacy_dialog.cb_biz_email.isChecked()
+                mask_biz_phone = privacy_dialog.cb_biz_phone.isChecked()
+                mask_client_email = privacy_dialog.cb_client_email.isChecked()
+
                 from report import merge_sessions_for_invoice, generate_invoice_html
                 
                 billing_data = merge_sessions_for_invoice(list(selected_sessions), self.tracker, self.hourly_rate, self.currency_symbol)
                 settings_data = {
                     "business_name": self.business_name,
+                    "business_emails": self.business_emails,
                     "business_email": self.business_email,
                     "business_phone": self.business_phone,
                     "business_address": self.business_address,
                     "business_payment": self.business_payment,
                     "client_name": self.client_name,
+                    "client_emails": self.client_emails,
                     "client_address": self.client_address,
                     "business_logo_path": self.business_logo_path,
                     "hourly_rate": self.hourly_rate,
                     "currency_symbol": self.currency_symbol,
+                    "qr_code_paths": self.qr_code_paths,
+                    
+                    "mask_business_emails": mask_biz_email,
+                    "mask_business_phone": mask_biz_phone,
+                    "mask_client_emails": mask_client_email,
                 }
                 
                 html_content = generate_invoice_html(billing_data, settings_data)
@@ -1550,6 +1854,56 @@ class FocusLogApp(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Resume Error", f"Could not resume session:\n{e}")
 
+    def _handle_interrupted_session(self):
+        """Prompt the user to recover a crashed or interrupted tracking session."""
+        from tracker import ACTIVE_SESSION_FILE
+        if not os.path.exists(ACTIVE_SESSION_FILE):
+            return
+            
+        reply = QMessageBox.question(
+            self,
+            "Recover Session?",
+            "FocusLog detected an interrupted tracking session. Would you like to recover it?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                if self.tracker.recover_session():
+                    self.start_btn.setEnabled(False)
+                    self.pause_btn.setEnabled(True)
+                    self.pause_btn.setText("⏸ Pause" if not self.tracker.paused else "▶ Resume")
+                    self.stop_btn.setEnabled(True)
+                    
+                    self.start_btn.setObjectName("AccentButton")
+                    self.pause_btn.setObjectName("NormalButton")
+                    self.stop_btn.setObjectName("RedButton")
+                    
+                    if self.hourly_rate > 0:
+                        self.earnings_label.setText(f"💰 {self.currency_symbol}0.00 earned")
+                    self.active_label.setText(f"▶ Recovered: {self.tracker.session_name}")
+                    self.active_label.setStyleSheet("color: #0F7B0F; font-size: 10px;")
+                    
+                    self.clock_timer.start(250)
+                    self._refresh_app_list()
+                    QMessageBox.information(self, "Recovered", "Previous session recovered successfully.")
+                else:
+                    QMessageBox.critical(self, "Recovery Error", "Failed to recover the previous session.")
+                    if os.path.exists(ACTIVE_SESSION_FILE):
+                        os.remove(ACTIVE_SESSION_FILE)
+            except Exception as e:
+                QMessageBox.critical(self, "Recovery Error", f"An error occurred during recovery:\n{e}")
+                if os.path.exists(ACTIVE_SESSION_FILE):
+                    try:
+                        os.remove(ACTIVE_SESSION_FILE)
+                    except Exception:
+                        pass
+        else:
+            try:
+                os.remove(ACTIVE_SESSION_FILE)
+            except Exception:
+                pass
+
     def _load_app_settings(self):
         self.confirm_on_close = True
         self.min_track_seconds = 2
@@ -1558,13 +1912,20 @@ class FocusLogApp(QMainWindow):
         self.hourly_rate = 0.0
         self.idle_threshold_seconds_total = 120  # default: 2 min (0 = disabled)
         self.business_name = ""
-        self.business_email = ""
+        self.business_emails = []   # NEW: list of business contact emails
+        self.business_email = ""    # LEGACY: kept for backward compat
         self.business_phone = ""
         self.business_address = ""
         self.business_payment = ""
         self.client_name = ""
+        self.client_emails = []     # NEW: list of client contact emails
         self.client_address = ""
         self.business_logo_path = ""
+        self.qr_code_paths = []     # NEW: list of payment QR code filenames
+        self.mask_business_emails = False
+        self.mask_business_phone = False
+        self.mask_client_emails = False
+        self.mask_sensitive_data = False  # LEGACY: default mask toggle for invoices
         
         if os.path.exists(APP_SETTINGS_FILE):
             try:
@@ -1583,13 +1944,30 @@ class FocusLogApp(QMainWindow):
                     self.tracker.idle_threshold_seconds = self.idle_threshold_seconds_total
                     
                     self.business_name = data.get("business_name", "")
-                    self.business_email = data.get("business_email", "")
                     self.business_phone = data.get("business_phone", "")
                     self.business_address = data.get("business_address", "")
                     self.business_payment = data.get("business_payment", "")
                     self.client_name = data.get("client_name", "")
                     self.client_address = data.get("client_address", "")
                     self.business_logo_path = data.get("business_logo_path", "")
+                    
+                    # Multi-email lists with backward compat migration
+                    self.business_emails = data.get("business_emails", [])
+                    if not self.business_emails:
+                        old_email = data.get("business_email", "")
+                        if old_email:
+                            self.business_emails = [old_email]
+                    self.business_email = ", ".join(self.business_emails)  # legacy compat
+                    
+                    self.client_emails = data.get("client_emails", [])
+                    
+                    # QR codes and masking with granular preferences
+                    self.qr_code_paths = data.get("qr_code_paths", [])
+                    legacy_mask = data.get("mask_sensitive_data", False)
+                    self.mask_business_emails = data.get("mask_business_emails", legacy_mask)
+                    self.mask_business_phone = data.get("mask_business_phone", legacy_mask)
+                    self.mask_client_emails = data.get("mask_client_emails", legacy_mask)
+                    self.mask_sensitive_data = legacy_mask
             except Exception as e:
                 print(f"[FocusLog] Failed to load app settings: {e}")
 
@@ -1606,13 +1984,20 @@ class FocusLogApp(QMainWindow):
                 "hourly_rate": self.hourly_rate,
                 "idle_threshold_seconds_total": self.idle_threshold_seconds_total,
                 "business_name": self.business_name,
-                "business_email": self.business_email,
+                "business_emails": self.business_emails,
+                "business_email": ", ".join(self.business_emails),  # legacy compat
                 "business_phone": self.business_phone,
                 "business_address": self.business_address,
                 "business_payment": self.business_payment,
                 "client_name": self.client_name,
+                "client_emails": self.client_emails,
                 "client_address": self.client_address,
                 "business_logo_path": self.business_logo_path,
+                "qr_code_paths": self.qr_code_paths,
+                "mask_business_emails": self.mask_business_emails,
+                "mask_business_phone": self.mask_business_phone,
+                "mask_client_emails": self.mask_client_emails,
+                "mask_sensitive_data": self.mask_business_emails or self.mask_business_phone or self.mask_client_emails,
             }
             with open(APP_SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
@@ -1622,7 +2007,7 @@ class FocusLogApp(QMainWindow):
     def _show_settings(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Settings")
-        self._center_window(dialog, 480, 600)
+        self._center_window(dialog, 520, 650)
         
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(14, 12, 14, 12)
@@ -1663,11 +2048,21 @@ class FocusLogApp(QMainWindow):
         
         # ── Tab 1: General Settings ──────────────────────────────────
         tab_general = QWidget()
-        tg_layout = QVBoxLayout(tab_general)
-        tg_layout.setContentsMargins(10, 10, 10, 10)
+        tg_main_layout = QVBoxLayout(tab_general)
+        tg_main_layout.setContentsMargins(0, 0, 0, 0)
+        tg_main_layout.setSpacing(0)
+        
+        scroll_general = QScrollArea(tab_general)
+        scroll_general.setWidgetResizable(True)
+        scroll_general.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_general.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        
+        scroll_general_content = QWidget()
+        tg_layout = QVBoxLayout(scroll_general_content)
+        tg_layout.setContentsMargins(12, 12, 12, 12)
         tg_layout.setSpacing(6)
         
-        cb_confirm = QCheckBox("Always ask for confirmation before closing", tab_general)
+        cb_confirm = QCheckBox("Always ask for confirmation before closing", scroll_general_content)
         cb_confirm.setChecked(self.confirm_on_close)
         cb_confirm.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
         tg_layout.addWidget(cb_confirm)
@@ -1675,11 +2070,11 @@ class FocusLogApp(QMainWindow):
         form_general = QFormLayout()
         form_general.setSpacing(6)
         
-        min_sec_entry = QLineEdit(tab_general)
+        min_sec_entry = QLineEdit(scroll_general_content)
         min_sec_entry.setText(str(self.min_track_seconds))
         form_general.addRow("Min activity threshold (secs):", min_sec_entry)
         
-        auto_save_entry = QLineEdit(tab_general)
+        auto_save_entry = QLineEdit(scroll_general_content)
         auto_save_entry.setText(str(self.auto_save_seconds))
         form_general.addRow("Auto-save interval (secs):", auto_save_entry)
         
@@ -1690,13 +2085,13 @@ class FocusLogApp(QMainWindow):
         _idle_m_def = _idle_total // 60
         _idle_s_def = _idle_total % 60
         
-        idle_min_entry = QLineEdit(tab_general)
+        idle_min_entry = QLineEdit(scroll_general_content)
         idle_min_entry.setFixedWidth(40)
         idle_min_entry.setText(str(_idle_m_def))
         idle_row.addWidget(idle_min_entry)
         idle_row.addWidget(QLabel("min"))
         
-        idle_sec_entry = QLineEdit(tab_general)
+        idle_sec_entry = QLineEdit(scroll_general_content)
         idle_sec_entry.setFixedWidth(40)
         idle_sec_entry.setText(str(_idle_s_def))
         idle_row.addWidget(idle_sec_entry)
@@ -1713,7 +2108,7 @@ class FocusLogApp(QMainWindow):
             "NZ$ (NZD)", "CHF (CHF)", "kr (SEK/NOK)", "zł (PLN)", "Kč (CZK)", 
             "Ft (HUF)", "lei (RON)", "лв (BGN)", "₴ (UAH)", "R (ZAR)"
         ]
-        curr_combo = QComboBox(tab_general)
+        curr_combo = QComboBox(scroll_general_content)
         curr_combo.addItems(currency_options)
         matched = [c for c in currency_options if c.startswith(self.currency_symbol)]
         if matched:
@@ -1722,14 +2117,14 @@ class FocusLogApp(QMainWindow):
             curr_combo.setCurrentText(self.currency_symbol)
         form_general.addRow("Currency symbol:", curr_combo)
         
-        rate_entry = QLineEdit(tab_general)
+        rate_entry = QLineEdit(scroll_general_content)
         rate_entry.setText(f"{self.hourly_rate:.2f}")
         form_general.addRow("Hourly rate:", rate_entry)
         
         tg_layout.addLayout(form_general)
         
         # Config Files Group
-        config_box = QGroupBox("Configuration & Categories", tab_general)
+        config_box = QGroupBox("Configuration & Categories", scroll_general_content)
         config_layout = QVBoxLayout(config_box)
         config_layout.setContentsMargins(8, 8, 8, 8)
         config_layout.setSpacing(4)
@@ -1758,24 +2153,24 @@ class FocusLogApp(QMainWindow):
             except Exception: 
                 QMessageBox.critical(dialog, "Error", f"Could not open: {filepath}")
 
-        btn_overrides = QPushButton("Edit Name Overrides", tab_general)
+        btn_overrides = QPushButton("Edit Name Overrides", scroll_general_content)
         btn_overrides.setObjectName("NormalButton")
         btn_overrides.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_overrides.clicked.connect(lambda: _open_file(OVERRIDES_FILE))
         config_layout.addWidget(btn_overrides)
         
         excl_row = QHBoxLayout()
-        btn_excl = QPushButton("Edit Auto-Exclusions", tab_general)
+        btn_excl = QPushButton("Edit Auto-Exclusions", scroll_general_content)
         btn_excl.setObjectName("NormalButton")
         btn_excl.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_excl.clicked.connect(lambda: _open_file(AUTO_EXCLUDE_FILE))
         excl_row.addWidget(btn_excl, 1)
         
-        btn_reload = QPushButton("🔄 Reload", tab_general)
+        btn_reload = QPushButton("🔄 Reload", scroll_general_content)
         btn_reload.setObjectName("NormalButton")
         btn_reload.setCursor(Qt.CursorShape.PointingHandCursor)
         
-        reload_status_lbl = QLabel(" ", tab_general)
+        reload_status_lbl = QLabel(" ", scroll_general_content)
         reload_status_lbl.setStyleSheet("font-size: 11px; font-weight: bold;")
         
         def _reload_exclusions():
@@ -1794,7 +2189,7 @@ class FocusLogApp(QMainWindow):
         excl_row.addWidget(reload_status_lbl)
         config_layout.addLayout(excl_row)
         
-        btn_categories = QPushButton("Manage Project Categories...", tab_general)
+        btn_categories = QPushButton("Manage Project Categories...", scroll_general_content)
         btn_categories.setObjectName("NormalButton")
         btn_categories.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_categories.clicked.connect(self._show_categories_dialog)
@@ -1803,17 +2198,23 @@ class FocusLogApp(QMainWindow):
         tg_layout.addWidget(config_box)
         tg_layout.addStretch()
         
+        scroll_general.setWidget(scroll_general_content)
+        tg_main_layout.addWidget(scroll_general)
+        
         # ── Tab 2: Billing & Invoicing Details ────────────────────────
         tab_invoice = QWidget()
         ti_layout = QVBoxLayout(tab_invoice)
-        ti_layout.setContentsMargins(12, 12, 12, 12)
-        ti_layout.setSpacing(8)
+        ti_layout.setContentsMargins(0, 0, 0, 0)
+        ti_layout.setSpacing(0)
         
         scroll_invoice = QScrollArea(tab_invoice)
         scroll_invoice.setWidgetResizable(True)
+        scroll_invoice.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_invoice.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        
         scroll_invoice_content = QWidget()
         scroll_invoice_layout = QVBoxLayout(scroll_invoice_content)
-        scroll_invoice_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_invoice_layout.setContentsMargins(12, 12, 12, 12)
         scroll_invoice_layout.setSpacing(10)
         
         # Freelancer Business Profile
@@ -1825,9 +2226,10 @@ class FocusLogApp(QMainWindow):
         business_name_entry.setText(self.business_name)
         biz_layout.addRow("Business Name:", business_name_entry)
         
-        business_email_entry = QLineEdit(biz_box)
-        business_email_entry.setText(self.business_email)
-        biz_layout.addRow("Contact Email:", business_email_entry)
+        # Email Chip Widget for business contact emails
+        business_email_chips = EmailChipWidget(biz_box)
+        business_email_chips.set_emails(self.business_emails)
+        biz_layout.addRow("Contact Emails:", business_email_chips)
         
         business_phone_entry = QLineEdit(biz_box)
         business_phone_entry.setText(self.business_phone)
@@ -1852,6 +2254,11 @@ class FocusLogApp(QMainWindow):
         client_name_entry = QLineEdit(client_box)
         client_name_entry.setText(self.client_name)
         client_layout.addRow("Client Name:", client_name_entry)
+        
+        # Email Chip Widget for client contact emails
+        client_email_chips = EmailChipWidget(client_box)
+        client_email_chips.set_emails(self.client_emails)
+        client_layout.addRow("Client Emails:", client_email_chips)
         
         client_address_entry = QLineEdit(client_box)
         client_address_entry.setText(self.client_address)
@@ -1888,12 +2295,156 @@ class FocusLogApp(QMainWindow):
         
         scroll_invoice_layout.addWidget(logo_box)
         
+        # ── Payment QR Codes Section ─────────────────────────────────
+        qr_box = QGroupBox("Payment QR Codes", scroll_invoice_content)
+        qr_box_layout = QVBoxLayout(qr_box)
+        qr_box_layout.setSpacing(6)
+        
+        qr_thumbs_widget = QWidget(qr_box)
+        qr_thumbs_layout = QHBoxLayout(qr_thumbs_widget)
+        qr_thumbs_layout.setContentsMargins(0, 0, 0, 0)
+        qr_thumbs_layout.setSpacing(8)
+        
+        # Track QR paths for this dialog session
+        _qr_paths_local = list(self.qr_code_paths)
+        _qr_thumb_refs = []  # keep references to thumbnail frames
+        
+        def _refresh_qr_thumbnails():
+            """Rebuild QR thumbnail strip from _qr_paths_local."""
+            # Clear existing thumbnails
+            for ref in _qr_thumb_refs:
+                qr_thumbs_layout.removeWidget(ref)
+                ref.deleteLater()
+            _qr_thumb_refs.clear()
+            
+            qr_dir = os.path.join(get_app_data_dir(), "qr_codes")
+            for qr_filename in _qr_paths_local:
+                qr_full_path = os.path.join(qr_dir, qr_filename)
+                if not os.path.exists(qr_full_path):
+                    continue
+                    
+                thumb_frame = QFrame(qr_thumbs_widget)
+                thumb_frame.setFixedSize(72, 72)
+                thumb_frame.setStyleSheet("""
+                    QFrame {
+                        background-color: #F8FAFC;
+                        border: 1px solid #E2E8F0;
+                        border-radius: 8px;
+                    }
+                """)
+                thumb_inner = QVBoxLayout(thumb_frame)
+                thumb_inner.setContentsMargins(4, 4, 4, 4)
+                thumb_inner.setSpacing(0)
+                
+                # QR image thumbnail
+                pix = QPixmap(qr_full_path)
+                if not pix.isNull():
+                    pix = pix.scaled(56, 56, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                thumb_lbl = QLabel(thumb_frame)
+                thumb_lbl.setPixmap(pix)
+                thumb_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                thumb_lbl.setStyleSheet("border: none; background: transparent;")
+                thumb_inner.addWidget(thumb_lbl)
+                
+                # Overlay remove button
+                remove_qr_btn = QPushButton("✕", thumb_frame)
+                remove_qr_btn.setFixedSize(18, 18)
+                remove_qr_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                remove_qr_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: rgba(239, 68, 68, 0.85);
+                        color: white;
+                        border: none;
+                        border-radius: 9px;
+                        font-size: 10px;
+                        font-weight: bold;
+                    }
+                    QPushButton:hover {
+                        background-color: #DC2626;
+                    }
+                """)
+                remove_qr_btn.move(54, 0)
+                
+                def _remove_qr(fname=qr_filename):
+                    if fname in _qr_paths_local:
+                        _qr_paths_local.remove(fname)
+                    _refresh_qr_thumbnails()
+                
+                remove_qr_btn.clicked.connect(_remove_qr)
+                
+                qr_thumbs_layout.addWidget(thumb_frame)
+                _qr_thumb_refs.append(thumb_frame)
+            
+            qr_thumbs_layout.addStretch()
+        
+        _refresh_qr_thumbnails()
+        qr_box_layout.addWidget(qr_thumbs_widget)
+        
+        def _add_qr_code():
+            if len(_qr_paths_local) >= 4:
+                QMessageBox.information(dialog, "QR Limit", "Maximum of 4 QR code images allowed.")
+                return
+            path, _ = QFileDialog.getOpenFileName(dialog, "Select Payment QR Code Image", "", "Image files (*.png *.jpg *.jpeg)")
+            if not path:
+                return
+            import shutil
+            qr_dir = os.path.join(get_app_data_dir(), "qr_codes")
+            os.makedirs(qr_dir, exist_ok=True)
+            fname = f"qr_{len(_qr_paths_local)+1}_{os.path.basename(path)}"
+            dest = os.path.join(qr_dir, fname)
+            try:
+                shutil.copy2(path, dest)
+                _qr_paths_local.append(fname)
+                _refresh_qr_thumbnails()
+            except Exception as ex:
+                QMessageBox.critical(dialog, "Error", f"Failed to copy QR image:\n{ex}")
+        
+        add_qr_btn = QPushButton("+ Add QR Code", qr_box)
+        add_qr_btn.setObjectName("NormalButton")
+        add_qr_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_qr_btn.clicked.connect(_add_qr_code)
+        qr_box_layout.addWidget(add_qr_btn)
+        
+        qr_spec_lbl = QLabel("Upload up to 4 payment QR code images (PNG/JPG). They will appear in generated invoices at 140×140px.", qr_box)
+        qr_spec_lbl.setWordWrap(True)
+        qr_spec_lbl.setStyleSheet("color: #64748B; font-size: 10px; font-family: 'Segoe UI';")
+        qr_box_layout.addWidget(qr_spec_lbl)
+        
+        scroll_invoice_layout.addWidget(qr_box)
+        
+        # ── Sensitive Data Masking Toggles ────────────────────────────
+        mask_box = QGroupBox("Privacy Settings", scroll_invoice_content)
+        mask_layout = QVBoxLayout(mask_box)
+        mask_layout.setSpacing(6)
+        
+        mask_biz_email_cb = QCheckBox("Mask business contact emails by default", mask_box)
+        mask_biz_email_cb.setChecked(self.mask_business_emails)
+        mask_biz_email_cb.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px;")
+        mask_layout.addWidget(mask_biz_email_cb)
+        
+        mask_biz_phone_cb = QCheckBox("Mask business contact phone number by default", mask_box)
+        mask_biz_phone_cb.setChecked(self.mask_business_phone)
+        mask_biz_phone_cb.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px;")
+        mask_layout.addWidget(mask_biz_phone_cb)
+        
+        mask_client_email_cb = QCheckBox("Mask client contact emails by default", mask_box)
+        mask_client_email_cb.setChecked(self.mask_client_emails)
+        mask_client_email_cb.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px;")
+        mask_layout.addWidget(mask_client_email_cb)
+        
+        mask_hint = QLabel("When enabled, sensitive contact details (emails, phone) are masked on the generated invoice. You can override these per-invoice.", mask_box)
+        mask_hint.setWordWrap(True)
+        mask_hint.setStyleSheet("color: #64748B; font-size: 10px; font-family: 'Segoe UI';")
+        mask_layout.addWidget(mask_hint)
+        
+        scroll_invoice_layout.addWidget(mask_box)
+        
         scroll_invoice.setWidget(scroll_invoice_content)
         ti_layout.addWidget(scroll_invoice)
         
         # Add Tabs to Widget
-        settings_tabs.addTab(tab_general, "General & Controls")
-        settings_tabs.addTab(tab_invoice, "Billing & Invoices")
+        settings_tabs.addTab(tab_general, "General && Controls")
+        settings_tabs.addTab(tab_invoice, "Billing && Invoices")
         layout.addWidget(settings_tabs)
         
         # Bottom Buttons
@@ -1923,13 +2474,21 @@ class FocusLogApp(QMainWindow):
                 
                 # Invoice settings
                 self.business_name = business_name_entry.text().strip()
-                self.business_email = business_email_entry.text().strip()
+                self.business_emails = business_email_chips.get_emails()
+                self.business_email = ", ".join(self.business_emails)
                 self.business_phone = business_phone_entry.text().strip()
                 self.business_address = business_address_entry.text().strip()
                 self.business_payment = business_payment_entry.text().strip()
                 self.client_name = client_name_entry.text().strip()
+                self.client_emails = client_email_chips.get_emails()
                 self.client_address = client_address_entry.text().strip()
                 self.business_logo_path = logo_path_entry.text().strip()
+                self.qr_code_paths = list(_qr_paths_local)
+                
+                self.mask_business_emails = mask_biz_email_cb.isChecked()
+                self.mask_business_phone = mask_biz_phone_cb.isChecked()
+                self.mask_client_emails = mask_client_email_cb.isChecked()
+                self.mask_sensitive_data = self.mask_business_emails or self.mask_business_phone or self.mask_client_emails
                 
                 self._save_app_settings()
                 
@@ -2975,6 +3534,33 @@ if __name__ == "__main__":
     font.setPointSize(10)
     app.setFont(font)
     
+    # Single instance lock using QLockFile to prevent multiple running instances
+    from PyQt6.QtCore import QLockFile
+    lock_file_path = os.path.join(get_app_data_dir(), "focuslog.lock")
+    lock_file = QLockFile(lock_file_path)
+    
+    if not lock_file.tryLock(100):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Icon.Warning)
+        msg.setWindowTitle("FocusLog Already Running")
+        msg.setText("Another instance of FocusLog is already running.\nOnly one instance of FocusLog can be active at a time.")
+        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        
+        # Load style on message box to match app theme
+        msg.setStyle(app.style())
+        msg.setStyleSheet(QSS_STYLE.replace("CHECKMARK_PATH", checkmark_path))
+        msg_font = msg.font()
+        msg_font.setFamily(FONT_FAMILY)
+        msg_font.setPointSize(10)
+        msg.setFont(msg_font)
+        
+        msg.exec()
+        sys.exit(1)
+        
     focus_app = FocusLogApp()
     focus_app.run()
-    sys.exit(app.exec())
+    
+    # Keep reference to lock_file during execution and unlock upon exiting
+    exit_code = app.exec()
+    lock_file.unlock()
+    sys.exit(exit_code)
