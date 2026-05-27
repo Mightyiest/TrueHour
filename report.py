@@ -119,10 +119,6 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
             "end": entry["end"].strftime("%H:%M:%S"),
         })
 
-    earned = 0.0
-    if hourly_rate > 0:
-        earned = (counted / 3600) * hourly_rate
-
     total_counted = sum(project_times.values())
     breakdown = []
     for proj, secs in project_times.items():
@@ -138,6 +134,10 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
             "color": get_project_color(proj)
         })
     breakdown.sort(key=lambda x: x["seconds"], reverse=True)
+
+    earned = 0.0
+    if hourly_rate > 0:
+        earned = sum(pb["earned"] for pb in breakdown)
 
     # ── New Activity: diff against resume snapshot ─────────────────────────
     # Only populated when the session was loaded from a saved file via Session Manager.
@@ -630,7 +630,7 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
     # Calculate total earned
     total_earned = 0.0
     if hourly_rate > 0:
-        total_earned = (counted_seconds / 3600.0) * hourly_rate
+        total_earned = sum(item["earned"] for item in project_list)
 
     return {
         "total_seconds": total_seconds,
@@ -716,7 +716,7 @@ def merge_sessions_for_invoice(filepaths: List[str], tracker, hourly_rate: float
     
     total_earned = 0.0
     if hourly_rate > 0:
-        total_earned = (counted_seconds / 3600.0) * hourly_rate
+        total_earned = sum(item["earned"] for item in breakdown)
         
     return {
         "total_seconds": total_seconds,
