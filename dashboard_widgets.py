@@ -41,8 +41,6 @@ class DonutChartWidget(QWidget):
             angle = math.degrees(math.atan2(dy, dx))
             # Shift angle to start from top (12 o'clock) and increase clockwise
             angle = (angle + 90) % 360
-            if angle < 0:
-                angle += 360
                 
             # Determine which segment contains this angle
             current_angle = 0.0

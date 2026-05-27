@@ -145,8 +145,6 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
     is_resumed = resume_snapshot is not None
     new_activity = []
     if is_resumed:
-        # Collect all app names across both snapshot and current app_times
-        all_app_names = set(resume_snapshot.keys()) | set(tracker.app_times.keys())
         # Sort by new seconds descending, then name
         for name, secs, included in apps:
             prev_secs = resume_snapshot.get(name, 0)
@@ -324,7 +322,7 @@ def load_session_json(filepath):
             "excluded": a.get('excluded', False),
             "tag": tag
         })
-        if not a['excluded']:
+        if not a.get('excluded', False):
             project_times[tag] = project_times.get(tag, 0) + a['seconds']
 
     total_counted = sum(project_times.values())
@@ -344,14 +342,24 @@ def load_session_json(filepath):
     breakdown.sort(key=lambda x: x["seconds"], reverse=True)
 
     timeline = []
+    day_offset = timedelta(days=0)  # Track accumulated midnight crossovers
+    prev_end_time = None
     for t in data['timeline']:
-        t_start = datetime.strptime(data['date'] + " " + t['start'], "%Y-%m-%d %H:%M:%S")
-        t_end = datetime.strptime(data['date'] + " " + t['end'], "%Y-%m-%d %H:%M:%S")
+        t_start = datetime.strptime(data['date'] + " " + t['start'], "%Y-%m-%d %H:%M:%S") + day_offset
+        t_end = datetime.strptime(data['date'] + " " + t['end'], "%Y-%m-%d %H:%M:%S") + day_offset
         
-        # Midnight crossover guard
+        # Detect if this entry's start is before the previous entry's end (crossed midnight)
+        if prev_end_time and t_start < prev_end_time:
+            day_offset += timedelta(days=1)
+            t_start += timedelta(days=1)
+            t_end += timedelta(days=1)
+        
+        # Midnight crossover guard within entry
         if t_end <= t_start:
             t_end += timedelta(days=1)
-            
+            day_offset += timedelta(days=1)
+        
+        prev_end_time = t_end
         timeline.append({
             "app": t['app'],
             "start": t_start,
@@ -564,7 +572,11 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
             
             app_times[name] = app_times.get(name, 0) + secs
             app_tags[name] = tag
-            app_exclusions[name] = excluded
+            # Only mark as excluded if ALL sessions excluded it
+            if name not in app_exclusions:
+                app_exclusions[name] = excluded
+            elif not excluded:
+                app_exclusions[name] = False
             
             # Map exe path if present in session
             exe_path = session.get("app_exe_paths", {}).get(name)
@@ -787,6 +799,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     """
     import base64
     import sys
+    from html import escape as _esc
     logo_path = settings_data.get("business_logo_path", "")
     logo_data_uri = ""
     if logo_path and os.path.exists(logo_path):
@@ -822,16 +835,19 @@ def generate_invoice_html(billing_data, settings_data) -> str:
             biz_emails = [e.strip() for e in legacy_email.split(",") if e.strip()]
             
     if mask_biz_emails:
-        biz_emails_processed = [mask_email(e) for e in biz_emails]
+        biz_emails_processed = [_esc(mask_email(e)) for e in biz_emails]
     else:
-        biz_emails_processed = biz_emails
+        biz_emails_processed = [_esc(e) for e in biz_emails]
         
     biz_email_str = ", ".join(biz_emails_processed)
     
     # Process business phone
     biz_phone = settings_data.get("business_phone", "")
-    if biz_phone and mask_biz_phone:
-        biz_phone = mask_phone(biz_phone)
+    if biz_phone:
+        if mask_biz_phone:
+            biz_phone = _esc(mask_phone(biz_phone))
+        else:
+            biz_phone = _esc(biz_phone)
         
     biz_contact_parts = []
     if biz_email_str:
@@ -843,9 +859,9 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     # Process client emails
     client_emails = settings_data.get("client_emails", [])
     if mask_client_emails:
-        client_emails_processed = [mask_email(e) for e in client_emails]
+        client_emails_processed = [_esc(mask_email(e)) for e in client_emails]
     else:
-        client_emails_processed = client_emails
+        client_emails_processed = [_esc(e) for e in client_emails]
 
     client_emails_html = ""
     if client_emails_processed:
@@ -1029,19 +1045,19 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     # Replace all placeholders in HTML template
     html = template_html
     html = html.replace("{{LOGO_HTML}}", logo_html)
-    html = html.replace("{{BUSINESS_NAME}}", settings_data.get("business_name", "FocusLog Invoice"))
-    html = html.replace("{{BUSINESS_ADDRESS}}", settings_data.get("business_address", ""))
+    html = html.replace("{{BUSINESS_NAME}}", _esc(settings_data.get("business_name", "FocusLog Invoice")))
+    html = html.replace("{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", "")))
     html = html.replace("{{BUSINESS_CONTACT}}", biz_contact_html)
     html = html.replace("{{INVOICE_NO}}", f"INV-{datetime.now().strftime('%Y%m%d%H%M')}")
     html = html.replace("{{DATE}}", datetime.now().strftime("%B %d, %Y"))
     html = html.replace("{{SESSIONS_COMPILED}}", str(billing_data.get("session_count", 1)))
-    html = html.replace("{{CLIENT_NAME}}", settings_data.get("client_name", "Valued Client"))
-    html = html.replace("{{CLIENT_ADDRESS}}", settings_data.get("client_address", ""))
+    html = html.replace("{{CLIENT_NAME}}", _esc(settings_data.get("client_name", "Valued Client")))
+    html = html.replace("{{CLIENT_ADDRESS}}", _esc(settings_data.get("client_address", "")))
     html = html.replace("{{CLIENT_EMAILS_HTML}}", client_emails_html)
     html = html.replace("{{HOURS_COUNTED}}", f"{hours_counted:.2f}")
-    html = html.replace("{{TOTAL_AMOUNT_DUE}}", billing_data["total_earned_display"])
-    html = html.replace("{{GRAND_TOTAL}}", billing_data["total_earned_display"])
-    html = html.replace("{{PAYMENT_INSTRUCTIONS}}", settings_data.get("business_payment", "Payment is due within 14 days of invoice date."))
+    html = html.replace("{{TOTAL_AMOUNT_DUE}}", _esc(billing_data["total_earned_display"]))
+    html = html.replace("{{GRAND_TOTAL}}", _esc(billing_data["total_earned_display"]))
+    html = html.replace("{{PAYMENT_INSTRUCTIONS}}", _esc(settings_data.get("business_payment", "Payment is due within 14 days of invoice date.")))
     html = html.replace("{{QR_HTML}}", qr_html)
 
     # Generate Itemized Rows
@@ -1073,6 +1089,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     Loads templates/report_template.html from disk, auto-creating it if missing.
     """
     import sys
+    from html import escape as _esc
     if getattr(sys, 'frozen', False):
         base_dir = os.path.dirname(sys.executable)
     else:
@@ -1299,10 +1316,12 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     if new_activity:
         rows_html = ""
         for a in new_activity:
-            tag = a.get("tag", "Unassigned")
-            tag_color = get_project_color(tag)
+            raw_tag = a.get("tag", "Unassigned")
+            tag_color = get_project_color(raw_tag)
             pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" else ""
-            initial = a['name'][0].upper() if a['name'] else "?"
+            escaped_name = _esc(a['name'])
+            escaped_tag = _esc(raw_tag)
+            initial = _esc(a['name'][0].upper()) if a['name'] else "?"
             icon_html = f"""<svg class="app-icon" style="vertical-align: middle; margin-right: 8px;" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect width="24" height="24" rx="6" fill="{tag_color}1a"/>
                 <text x="12" y="16" fill="{tag_color}" font-size="12" font-weight="800" font-family="Inter, system-ui, sans-serif" text-anchor="middle">{initial}</text>
@@ -1310,8 +1329,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             
             rows_html += f"""
             <tr>
-                <td style="font-weight: 600;">{icon_html}{a['name']}</td>
-                <td><span class="tag-pill" style="{pill_style}">{tag}</span></td>
+                <td style="font-weight: 600;">{icon_html}{escaped_name}</td>
+                <td><span class="tag-pill" style="{pill_style}">{escaped_tag}</span></td>
                 <td>{a['previous_formatted']}</td>
                 <td style="color: var(--success); font-weight: 600;">+{a['new_formatted']}</td>
                 <td style="text-align: right; font-weight: 600;">{a['total_formatted']}</td>
@@ -1361,9 +1380,11 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         if app.get("excluded", False):
             continue
         pct = app.get("percent", 0.0)
-        tag = app.get("tag", "Unassigned")
-        tag_color = get_project_color(tag)
+        raw_tag = app.get("tag", "Unassigned")
+        tag_color = get_project_color(raw_tag)
         pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" else ""
+        escaped_app_name = _esc(app['name'])
+        escaped_tag = _esc(raw_tag)
         
         # Extract app icon as base64 PNG
         local_b64 = ""
@@ -1440,7 +1461,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             if local_b64:
                 fallback_src = f"data:image/png;base64,{local_b64}"
             else:
-                initial = app['name'][0].upper() if app['name'] else "?"
+                initial = _esc(app['name'][0].upper()) if app['name'] else "?"
                 fallback_src = f"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><rect width='24' height='24' rx='6' fill='{tag_color.replace('#', '%23')}1a'/><text x='12' y='16' fill='{tag_color.replace('#', '%23')}' font-size='12' font-weight='800' font-family='sans-serif' text-anchor='middle'>{initial}</text></svg>"
             
             # Escape quotes safely for HTML attributes
@@ -1452,7 +1473,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             icon_html = f'<img src="data:image/png;base64,{local_b64}" class="app-icon" />'
         else:
             # High-fidelity category-colored letter-initial SVG vector (completely offline & local)
-            initial = app['name'][0].upper() if app['name'] else "?"
+            initial = _esc(app['name'][0].upper()) if app['name'] else "?"
             icon_html = f"""<svg class="app-icon" style="vertical-align: middle; margin-right: 8px;" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect width="24" height="24" rx="6" fill="{tag_color}1a"/>
                 <text x="12" y="16" fill="{tag_color}" font-size="12" font-weight="800" font-family="Inter, system-ui, sans-serif" text-anchor="middle">{initial}</text>
@@ -1460,8 +1481,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         
         apps_rows += f"""
         <tr>
-            <td style="font-weight: 600;">{icon_html}{app['name']}</td>
-            <td><span class="tag-pill" style="{pill_style}">{tag}</span></td>
+            <td style="font-weight: 600;">{icon_html}{escaped_app_name}</td>
+            <td><span class="tag-pill" style="{pill_style}">{escaped_tag}</span></td>
             <td>{app['formatted']}</td>
             <td style="text-align: right; font-weight: 600;">{pct:.1f}%</td>
         </tr>
@@ -1493,10 +1514,12 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             duration_secs = int(t_end.timestamp() - t_start.timestamp())
         duration_str = format_duration(duration_secs) if duration_secs > 0 else ""
         
+        escaped_app_name = _esc(app_name)
+        escaped_app_tag = _esc(app_tag)
         timeline_items += f"""
         <div class="timeline-item" style="border-left-color: {tag_color};">
             <span class="timeline-time">{start_str} - {end_str}</span>
-            <span class="timeline-app">{app_name} <span style="font-weight: normal; color: var(--text-muted); font-size: 11px;">({app_tag})</span></span>
+            <span class="timeline-app">{escaped_app_name} <span style="font-weight: normal; color: var(--text-muted); font-size: 11px;">({escaped_app_tag})</span></span>
             <span class="timeline-duration">{duration_str}</span>
         </div>
         """
@@ -1510,10 +1533,10 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
 
     # Replacements
     html = template_html
-    html = html.replace("{{SESSION_NAME}}", report.get("session_name", "Unnamed Session"))
-    html = html.replace("{{DATE}}", report.get("date_display", report.get("date", "")))
-    html = html.replace("{{START_TIME}}", report.get("start_display", report.get("start", "")))
-    html = html.replace("{{END_TIME}}", report.get("end_display", report.get("end", "")))
+    html = html.replace("{{SESSION_NAME}}", _esc(report.get("session_name", "Unnamed Session")))
+    html = html.replace("{{DATE}}", _esc(report.get("date_display", report.get("date", ""))))
+    html = html.replace("{{START_TIME}}", _esc(report.get("start_display", report.get("start", ""))))
+    html = html.replace("{{END_TIME}}", _esc(report.get("end_display", report.get("end", ""))))
     html = html.replace("{{TOTAL_DURATION}}", report.get("total_formatted", format_duration(total_secs)))
     html = html.replace("{{PRODUCTIVE_DURATION}}", report.get("counted_formatted", format_duration(counted_secs)))
     html = html.replace("{{PRODUCTIVITY_RATIO}}", f"{ratio:.1f}")
