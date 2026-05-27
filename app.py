@@ -2646,10 +2646,12 @@ class FocusLogApp(QMainWindow):
                 
                 # QR image thumbnail
                 pix = QPixmap(qr_full_path)
+                thumb_lbl = QLabel(thumb_frame)
                 if not pix.isNull():
                     pix = pix.scaled(56, 56, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                thumb_lbl = QLabel(thumb_frame)
-                thumb_lbl.setPixmap(pix)
+                    thumb_lbl.setPixmap(pix)
+                else:
+                    thumb_lbl.setText("⚠")
                 thumb_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 thumb_lbl.setStyleSheet("border: none; background: transparent;")
                 thumb_inner.addWidget(thumb_lbl)

@@ -732,7 +732,7 @@ class AppTracker:
             # Adjust paused time to account for the gap while the app was closed
             now = datetime.now()
             tracked_duration = sum(self.app_times.values())
-            self._total_paused_time = (now - self.session_start).total_seconds() - tracked_duration
+            self._total_paused_time = max(0, (now - self.session_start).total_seconds() - tracked_duration)
             if self.paused:
                 self._pause_start = time.time()  # reset so UI shows correct paused state
             
@@ -844,7 +844,7 @@ class AppTracker:
             
             # Restore pause data
             self.paused = state.get("paused", False)
-            self._pause_start = state.get("_pause_start")
+            self._pause_start = time.time() if self.paused else None
             self._total_paused_time = state.get("_total_paused_time", 0)
             
             # Flush any current app active during the crash
