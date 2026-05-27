@@ -1214,6 +1214,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
 
         {{EARNINGS_HTML}}
 
+        {{NEW_ACTIVITY_HTML}}
+
         <div class="section-header">
             <div class="section-title">Project & Category Breakdown</div>
         </div>
@@ -1289,6 +1291,50 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
                 <div class="kpi-val" style="color: var(--success);">{total_earned_display}</div>
             </div>
         </div>
+        """
+
+    # New Activity logic for resumed sessions
+    new_activity_html = ""
+    new_activity = [a for a in report.get("new_activity", []) if not a.get("excluded", False)]
+    if new_activity:
+        rows_html = ""
+        for a in new_activity:
+            tag = a.get("tag", "Unassigned")
+            tag_color = get_project_color(tag)
+            pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" else ""
+            initial = a['name'][0].upper() if a['name'] else "?"
+            icon_html = f"""<svg class="app-icon" style="vertical-align: middle; margin-right: 8px;" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="24" height="24" rx="6" fill="{tag_color}1a"/>
+                <text x="12" y="16" fill="{tag_color}" font-size="12" font-weight="800" font-family="Inter, system-ui, sans-serif" text-anchor="middle">{initial}</text>
+            </svg>"""
+            
+            rows_html += f"""
+            <tr>
+                <td style="font-weight: 600;">{icon_html}{a['name']}</td>
+                <td><span class="tag-pill" style="{pill_style}">{tag}</span></td>
+                <td>{a['previous_formatted']}</td>
+                <td style="color: var(--success); font-weight: 600;">+{a['new_formatted']}</td>
+                <td style="text-align: right; font-weight: 600;">{a['total_formatted']}</td>
+            </tr>
+            """
+        new_activity_html = f"""
+        <div class="section-header">
+            <div class="section-title">New Activity (Resumed Session)</div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Application</th>
+                    <th>Project Category</th>
+                    <th>Previous Time</th>
+                    <th>New Time Added</th>
+                    <th style="text-align: right;">Total Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows_html}
+            </tbody>
+        </table>
         """
 
     # Projects visual
@@ -1472,6 +1518,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     html = html.replace("{{PRODUCTIVE_DURATION}}", report.get("counted_formatted", format_duration(counted_secs)))
     html = html.replace("{{PRODUCTIVITY_RATIO}}", f"{ratio:.1f}")
     html = html.replace("{{EARNINGS_HTML}}", earnings_html)
+    html = html.replace("{{NEW_ACTIVITY_HTML}}", new_activity_html)
     html = html.replace("{{PROJECTS_VISUAL}}", projects_visual)
     html = html.replace("{{APPS_TABLE_ROWS}}", apps_rows)
     html = html.replace("{{TIMELINE_ITEMS}}", timeline_items)
