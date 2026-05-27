@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QLabel, QPushButton, QScrollArea, QCheckBox, QComboBox, QLineEdit,
     QDialog, QFormLayout, QGroupBox, QMenu, QMessageBox, QFileDialog,
     QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy,
-    QLayout
+    QLayout, QInputDialog
 )
 from PyQt6.QtCore import Qt, QTimer, QSize, QObject, pyqtSignal, QRectF, QPointF, QRect, QPoint
 from PyQt6.QtGui import QColor, QPainter, QBrush, QPen, QImage, QPixmap, QIcon, QPainterPath, QPalette
@@ -30,10 +30,11 @@ from report import (
     format_duration, format_duration_hms, build_report_data,
     export_txt, export_json, export_csv, export_csv_history,
     save_to_autosave, save_to_history, load_session_json,
-    aggregate_history_data,
+    aggregate_history_data, generate_session_report_html,
 )
 from version import VERSION_SHORT, VERSION_FULL
 from dashboard_widgets import DonutChartWidget, BarChartWidget
+from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG
 
 # Configure logging for the app module
 logger = logging.getLogger(__name__)
@@ -1547,7 +1548,94 @@ class FocusLogApp(QMainWindow):
         
         tab_widget = QTabWidget(dialog)
         tab_widget.setObjectName("SessionTabs")
-        
+
+        edit_btn = QPushButton("Edit", dialog)
+        edit_btn.setCheckable(True)
+        edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        edit_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF;
+                border: 1px solid #CBD5E1;
+                border-radius: 4px;
+                padding: 4px 12px;
+                font-family: 'Segoe UI';
+                font-size: 12px;
+                font-weight: bold;
+                color: #475569;
+            }
+            QPushButton:checked {
+                background-color: #0078D4;
+                color: white;
+                border-color: #0078D4;
+            }
+            QPushButton:hover {
+                background-color: #F1F5F9;
+            }
+            QPushButton:checked:hover {
+                background-color: #106EBE;
+            }
+        """)
+        tab_widget.setCornerWidget(edit_btn, Qt.Corner.TopRightCorner)
+
+        def get_svg_icon(svg_content, size=QSize(16, 16), color="#33363F"):
+            pixmap = QPixmap(size)
+            pixmap.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            try:
+                from PyQt6.QtSvg import QSvgRenderer
+                from PyQt6.QtCore import QByteArray
+                renderer = QSvgRenderer(QByteArray(svg_content))
+                renderer.render(painter, QRectF(pixmap.rect()))
+            except Exception:
+                painter.setPen(QPen(QColor(color), 2))
+                painter.drawRect(2, 2, 12, 12)
+            painter.end()
+            return QIcon(pixmap)
+
+        rename_svg = RENAME_SVG
+        trash_svg = TRASH_SVG
+        restore_svg = RESTORE_SVG
+
+        def send_to_recycle_bin(path):
+            try:
+                import ctypes
+                from ctypes import wintypes
+                
+                class SHFILEOPSTRUCTW(ctypes.Structure):
+                    _fields_ = [
+                        ("hwnd", wintypes.HWND),
+                        ("wFunc", wintypes.UINT),
+                        ("pFrom", wintypes.LPCWSTR),
+                        ("pTo", wintypes.LPCWSTR),
+                        ("fFlags", wintypes.USHORT),
+                        ("fAnyOperationsAborted", wintypes.BOOL),
+                        ("hNameMappings", wintypes.LPVOID),
+                        ("lpszProgressTitle", wintypes.LPCWSTR),
+                    ]
+                
+                FO_DELETE = 3
+                FOF_ALLOWUNDO = 0x0040
+                FOF_NOCONFIRMATION = 0x0010
+                FOF_NOERRORUI = 0x0400
+                
+                abs_path = os.path.abspath(path)
+                path_dn = abs_path + "\0\0"
+                
+                fileop = SHFILEOPSTRUCTW()
+                fileop.hwnd = None
+                fileop.wFunc = FO_DELETE
+                fileop.pFrom = path_dn
+                fileop.pTo = None
+                fileop.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI
+                
+                shell32 = ctypes.windll.shell32
+                result = shell32.SHFileOperationW(ctypes.byref(fileop))
+                return result == 0
+            except Exception as e:
+                print(f"[FocusLog] Recycle bin failed: {e}")
+                return False
+         
         sessions_scroll = QScrollArea()
         sessions_scroll.setWidgetResizable(True)
         sessions_widget = QWidget()
@@ -1563,11 +1651,21 @@ class FocusLogApp(QMainWindow):
         recoveries_layout = QVBoxLayout(recoveries_widget)
         recoveries_layout.setContentsMargins(4, 4, 4, 4)
         recoveries_layout.setSpacing(4)
+
+        trash_scroll = QScrollArea()
+        trash_scroll.setWidgetResizable(True)
+        trash_widget = QWidget()
+        trash_widget.setObjectName("trash_widget")
+        trash_layout = QVBoxLayout(trash_widget)
+        trash_layout.setContentsMargins(4, 4, 4, 4)
+        trash_layout.setSpacing(4)
         
         history_folder = os.path.join(get_app_data_dir(), "sessions")
         autosave_folder = os.path.join(get_app_data_dir(), "autosave")
+        trash_folder = os.path.join(get_app_data_dir(), "trash")
         os.makedirs(history_folder, exist_ok=True)
         os.makedirs(autosave_folder, exist_ok=True)
+        os.makedirs(trash_folder, exist_ok=True)
         
         def _get_relative_time(timestamp):
             diff = time.time() - timestamp
@@ -1581,16 +1679,21 @@ class FocusLogApp(QMainWindow):
  
         import glob
         def _render_list(layout_container, folder, is_recoveries):
-            # Clear old layout
-            for i in reversed(range(layout_container.count())):
-                item = layout_container.itemAt(i)
+            # Clear old layout (including widgets and stretches)
+            while layout_container.count() > 0:
+                item = layout_container.takeAt(0)
                 if item and item.widget():
                     item.widget().setParent(None)
                     
             files = glob.glob(os.path.join(folder, "*.json"))
             files.sort(key=os.path.getmtime, reverse=True)
             if not files:
-                label_txt = "No auto-saves/recoveries found." if is_recoveries else "No manual sessions found."
+                if folder == trash_folder:
+                    label_txt = "No trashed sessions found."
+                elif is_recoveries:
+                    label_txt = "No auto-saves/recoveries found."
+                else:
+                    label_txt = "No manual sessions found."
                 lbl = QLabel(label_txt)
                 lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; color: #ABABAB; margin: 40px;")
@@ -1608,7 +1711,8 @@ class FocusLogApp(QMainWindow):
                 row_layout = QHBoxLayout(row_frame)
                 row_layout.setContentsMargins(8, 8, 8, 8)
                 
-                if not is_recoveries:
+                is_trash = (folder == trash_folder)
+                if not is_recoveries and not is_trash:
                     cb_select = QCheckBox(row_frame)
                     cb_select.setFixedWidth(20)
                     
@@ -1668,32 +1772,225 @@ class FocusLogApp(QMainWindow):
                         self._on_stop()
                     self._resume_session(path)
                     dialog.accept()
- 
-                res_btn = QPushButton("▶ Resume", row_frame)
-                res_btn.setObjectName("AccentButton")
-                res_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                res_btn.clicked.connect(lambda checked, p=filepath: _resume_from_file(p))
-                btn_layout.addWidget(res_btn)
-                
-                view_btn = QPushButton("View", row_frame)
-                view_btn.setObjectName("NormalButton")
-                view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                view_btn.clicked.connect(lambda checked, p=filepath: _open_report_local(p))
-                btn_layout.addWidget(view_btn)
+
+                def _rename_session_file(path, current_name):
+                    new_name, ok = QInputDialog.getText(dialog, "Rename Session", "Enter new session name:", QLineEdit.EchoMode.Normal, current_name)
+                    if ok and new_name.strip():
+                        confirm = QMessageBox.question(
+                            dialog,
+                            "Confirm Rename",
+                            f"Are you sure you want to rename this session to '{new_name.strip()}'?",
+                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                            QMessageBox.StandardButton.No
+                        )
+                        if confirm == QMessageBox.StandardButton.Yes:
+                            try:
+                                with open(path, "r", encoding="utf-8") as f:
+                                    data = json.load(f)
+                                data["session_name"] = new_name.strip()
+                                with open(path, "w", encoding="utf-8") as f:
+                                    json.dump(data, f, indent=4)
+                                _refresh_all_lists()
+                            except Exception as e:
+                                QMessageBox.critical(dialog, "Error", f"Could not rename session:\n{e}")
+
+                def _delete_session_file(path):
+                    is_trash = (folder == trash_folder)
+                    if is_trash:
+                        reply = QMessageBox.question(
+                            dialog,
+                            "Delete Permanently",
+                            "Are you sure you want to permanently move this session to the Windows Recycle Bin?",
+                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                            QMessageBox.StandardButton.No
+                        )
+                        if reply == QMessageBox.StandardButton.Yes:
+                            try:
+                                selected_sessions.discard(path)
+                                if not send_to_recycle_bin(path):
+                                    if os.path.exists(path):
+                                        os.remove(path)
+                                _refresh_all_lists()
+                            except Exception as e:
+                                QMessageBox.critical(dialog, "Error", f"Could not delete session:\n{e}")
+                    else:
+                        reply = QMessageBox.question(
+                            dialog,
+                            "Move to Trash",
+                            "Are you sure you want to move this session to the Trash?",
+                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                            QMessageBox.StandardButton.No
+                        )
+                        if reply == QMessageBox.StandardButton.Yes:
+                            try:
+                                filename = os.path.basename(path)
+                                dest_path = os.path.join(trash_folder, filename)
+                                if os.path.exists(dest_path):
+                                    base, ext = os.path.splitext(filename)
+                                    dest_path = os.path.join(trash_folder, f"{base}_{int(time.time())}{ext}")
+                                import shutil
+                                shutil.move(path, dest_path)
+                                selected_sessions.discard(path)
+                                _refresh_all_lists()
+                            except Exception as e:
+                                QMessageBox.critical(dialog, "Error", f"Could not move session to Trash:\n{e}")
+
+                def _restore_session_file(path):
+                    try:
+                        filename = os.path.basename(path)
+                        if "auto_" in filename or "recovery_" in filename:
+                            dest_folder = autosave_folder
+                        else:
+                            dest_folder = history_folder
+                        dest_path = os.path.join(dest_folder, filename)
+                        if os.path.exists(dest_path):
+                            base, ext = os.path.splitext(filename)
+                            dest_path = os.path.join(dest_folder, f"{base}_restored_{int(time.time())}{ext}")
+                        import shutil
+                        shutil.move(path, dest_path)
+                        _refresh_all_lists()
+                    except Exception as e:
+                        QMessageBox.critical(dialog, "Error", f"Could not restore session:\n{e}")
+
+                is_trash = (folder == trash_folder)
+                is_edit_active = edit_btn.isChecked()
+
+                if is_trash:
+                    rest_icon = get_svg_icon(restore_svg, QSize(16, 16), "#0F7B0F")
+                    del_icon = get_svg_icon(trash_svg, QSize(18, 18), "#FF0000")
+
+                    restore_btn = QPushButton(row_frame)
+                    restore_btn.setIcon(rest_icon)
+                    restore_btn.setIconSize(QSize(16, 16))
+                    restore_btn.setToolTip("Restore Session")
+                    restore_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                    restore_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #F0FDF4;
+                            border: 1px solid #DCFCE7;
+                            border-radius: 4px;
+                            padding: 4px;
+                            min-width: 28px;
+                            min-height: 28px;
+                        }
+                        QPushButton:hover {
+                            background-color: #DCFCE7;
+                            border-color: #86EFAC;
+                        }
+                    """)
+                    restore_btn.clicked.connect(lambda checked, p=filepath: _restore_session_file(p))
+                    btn_layout.addWidget(restore_btn)
+
+                    delete_btn = QPushButton(row_frame)
+                    delete_btn.setIcon(del_icon)
+                    delete_btn.setIconSize(QSize(18, 18))
+                    delete_btn.setToolTip("Move to Windows Recycle Bin")
+                    delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                    delete_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #FFF5F5;
+                            border: 1px solid #FEE2E2;
+                            border-radius: 4px;
+                            padding: 4px;
+                            min-width: 28px;
+                            min-height: 28px;
+                        }
+                        QPushButton:hover {
+                            background-color: #FEE2E2;
+                            border-color: #FCA5A5;
+                        }
+                    """)
+                    delete_btn.clicked.connect(lambda checked, p=filepath: _delete_session_file(p))
+                    btn_layout.addWidget(delete_btn)
+
+                    restore_btn.setVisible(is_edit_active)
+                    delete_btn.setVisible(is_edit_active)
+                else:
+                    ren_icon = get_svg_icon(rename_svg, QSize(16, 16), "#0078D4")
+                    del_icon = get_svg_icon(trash_svg, QSize(18, 18), "#FF0000")
+
+                    res_btn = QPushButton("▶ Resume", row_frame)
+                    res_btn.setObjectName("AccentButton")
+                    res_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                    res_btn.clicked.connect(lambda checked, p=filepath: _resume_from_file(p))
+                    btn_layout.addWidget(res_btn)
+                    
+                    view_btn = QPushButton("View", row_frame)
+                    view_btn.setObjectName("NormalButton")
+                    view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                    view_btn.clicked.connect(lambda checked, p=filepath: _open_report_local(p))
+                    btn_layout.addWidget(view_btn)
+
+                    rename_btn = QPushButton(row_frame)
+                    rename_btn.setIcon(ren_icon)
+                    rename_btn.setIconSize(QSize(16, 16))
+                    rename_btn.setToolTip("Rename Session")
+                    rename_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                    rename_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #FFFFFF;
+                            border: 1px solid #CBD5E1;
+                            border-radius: 4px;
+                            padding: 4px;
+                            min-width: 28px;
+                            min-height: 28px;
+                        }
+                        QPushButton:hover {
+                            background-color: #F1F5F9;
+                            border-color: #94A3B8;
+                        }
+                    """)
+                    rename_btn.clicked.connect(lambda checked, p=filepath, n=session_name: _rename_session_file(p, n))
+                    btn_layout.addWidget(rename_btn)
+
+                    delete_btn = QPushButton(row_frame)
+                    delete_btn.setIcon(del_icon)
+                    delete_btn.setIconSize(QSize(18, 18))
+                    delete_btn.setToolTip("Move to Trash")
+                    delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                    delete_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #FFF5F5;
+                            border: 1px solid #FEE2E2;
+                            border-radius: 4px;
+                            padding: 4px;
+                            min-width: 28px;
+                            min-height: 28px;
+                        }
+                        QPushButton:hover {
+                            background-color: #FEE2E2;
+                            border-color: #FCA5A5;
+                        }
+                    """)
+                    delete_btn.clicked.connect(lambda checked, p=filepath: _delete_session_file(p))
+                    btn_layout.addWidget(delete_btn)
+
+                    res_btn.setVisible(not is_edit_active)
+                    view_btn.setVisible(not is_edit_active)
+                    rename_btn.setVisible(is_edit_active)
+                    delete_btn.setVisible(is_edit_active)
                 
                 row_layout.addLayout(btn_layout)
                 layout_container.addWidget(row_frame)
                 
             layout_container.addStretch()
  
-        _render_list(sessions_layout, history_folder, False)
-        _render_list(recoveries_layout, autosave_folder, True)
+        def _refresh_all_lists():
+            _render_list(sessions_layout, history_folder, False)
+            _render_list(recoveries_layout, autosave_folder, True)
+            _render_list(trash_layout, trash_folder, False)
+
+        _refresh_all_lists()
+
+        edit_btn.clicked.connect(_refresh_all_lists)
         
         sessions_scroll.setWidget(sessions_widget)
         recoveries_scroll.setWidget(recoveries_widget)
+        trash_scroll.setWidget(trash_widget)
         
         tab_widget.addTab(sessions_scroll, "Sessions")
         tab_widget.addTab(recoveries_scroll, "Recoveries")
+        tab_widget.addTab(trash_scroll, "Trash")
         
         layout.addWidget(tab_widget)
         
@@ -2939,15 +3236,10 @@ class FocusLogApp(QMainWindow):
         txt_btn.clicked.connect(lambda: export_with_name("txt"))
         footer_layout.addWidget(txt_btn)
         
-        json_btn = QPushButton("Export .json", footer_f)
-        json_btn.setObjectName("AccentButton")
-        json_btn.clicked.connect(lambda: export_with_name("json"))
-        footer_layout.addWidget(json_btn)
-        
-        csv_btn = QPushButton("Export .csv", footer_f)
-        csv_btn.setObjectName("AccentButton")
-        csv_btn.clicked.connect(lambda: export_with_name("csv"))
-        footer_layout.addWidget(csv_btn)
+        html_btn = QPushButton("Export .html", footer_f)
+        html_btn.setObjectName("AccentButton")
+        html_btn.clicked.connect(lambda: export_with_name("html"))
+        footer_layout.addWidget(html_btn)
         
         footer_layout.addStretch()
         
@@ -2975,20 +3267,28 @@ class FocusLogApp(QMainWindow):
     def _export(self, report, fmt):
         if fmt == "txt": 
             path, _ = QFileDialog.getSaveFileName(self, "Export TXT", f"focuslog_{report['date']}.txt", "Text files (*.txt)")
-        elif fmt == "json": 
-            path, _ = QFileDialog.getSaveFileName(self, "Export JSON", f"focuslog_{report['date']}.json", "JSON files (*.json)")
         else: 
-            path, _ = QFileDialog.getSaveFileName(self, "Export CSV", f"focuslog_{report['date']}.csv", "CSV files (*.csv)")
+            path, _ = QFileDialog.getSaveFileName(self, "Export HTML", f"focuslog_{report['date']}.html", "HTML Files (*.html)")
             
         if not path: 
             return
         try:
             if fmt == "txt": 
                 export_txt(report, path)
-            elif fmt == "json": 
-                export_json(report, path)
             else: 
-                export_csv(report, path)
+                html_content = generate_session_report_html(report, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                reply = QMessageBox.question(
+                    self, "Open Report",
+                    f"Session HTML report generated successfully at:\n{path}\n\nWould you like to open it in your browser now?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes
+                )
+                if reply == QMessageBox.StandardButton.Yes:
+                    import os
+                    os.startfile(path)
+                return
             QMessageBox.information(self, "Exported", f"Report saved to:\n{path}")
         except Exception as e:
             QMessageBox.critical(self, "Export Error", str(e))

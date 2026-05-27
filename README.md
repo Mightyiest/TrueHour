@@ -1,8 +1,8 @@
-# FocusLog v2.0.5
+# FocusLog v2.1.0
 
 > **A lightweight, privacy-first Windows desktop time tracker with a modern Windows 11-style UI.**
 
-FocusLog automatically monitors your active window to track productivity, calculate earnings based on hourly rates, and generate detailed session reports. It features crash recovery, auto-exclusion of system apps, and flexible export options (CSV, JSON, TXT).
+FocusLog automatically monitors your active window to track productivity, calculate earnings based on hourly rates, and generate detailed session reports. It features crash recovery, auto-exclusion of system apps, customizable external HTML templates, offline app icon extraction, and flexible export options (CSV, JSON, TXT, HTML).
 
 ![License](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows)
@@ -14,7 +14,10 @@ FocusLog automatically monitors your active window to track productivity, calcul
 
 *   **🕒 Automatic Time Tracking:** Detects the foreground application and logs usage duration with second-level precision.
 *   **📊 Interactive Visual Analytics Dashboard:** Custom drawn interactive PyQt6 charts (`DonutChartWidget`, `BarChartWidget`) displaying real-time live and range-filtered historical category allocation.
-*   **📄 HTML Client Invoice Builder & Browser Printer:** Native dynamic invoicing profiles with Gmail-style multi-email chip token inputs, sensitive email masking (e.g., `ne**@*****.com`) for client privacy, dynamic "Unassigned" app category resolving, premium HTML templates, base64-embedded payment QR code graphics, and seamless browser-based A4 PDF printing.
+*   **📄 Customizable External HTML Templates:** High-fidelity templates for **Client Invoices** (`templates/invoice.html`) and **Session Reports** (`templates/report_template.html`) live directly in the folder next to the app, making editing styles or layouts in external editors effortless.
+*   **🩺 Automated Self-Healing Templates:** If the `templates/` folder or any HTML template file is missing, the application automatically regenerates fresh, pristine default files at runtime so it never crashes.
+*   **🖼️ Offline App Icon Extraction:** Automatically extracts standard Windows executable icons locally and embeds them as high-quality **inline base64 PNGs** inside exported HTML session reports — no internet connection or external servers required.
+*   **📄 HTML Client Invoice Builder & Browser Printer:** Native dynamic invoicing profiles with Gmail-style multi-email chip token inputs, sensitive email masking (e.g., `ne**@*****.com`) for client privacy, dynamic "Unassigned" app category resolving, base64-embedded payment QR code graphics, and seamless browser-based A4 PDF printing.
 *   **💰 Earnings Calculator:** Set an hourly rate to see real-time earnings accumulation during work sessions.
 *   **🛡️ Smart Exclusion System:**
     *   **Auto-Exclude:** Automatically ignores system processes (Explorer, Taskbar, Search, etc.) so they don't clutter your data.
@@ -27,10 +30,10 @@ FocusLog automatically monitors your active window to track productivity, calcul
 *   **💾 Crash Recovery:** If the app closes unexpectedly, your session is saved to an `autosave` folder and can be recovered or viewed later.
 *   **📊 Detailed Reporting:**
     *   View live session stats.
-    *   Export sessions to **TXT**, **JSON**, **CSV**, or premium print-ready **HTML Invoice**.
+    *   Export sessions to **TXT**, **JSON**, **CSV**, or premium print-ready **HTML Invoice / HTML Session Report**.
     *   Bulk export all history to a single CSV file.
 *   **🎨 Modern UI:** Clean, light-themed interface inspired by Windows 11 Fluent Design, built with PyQt6.
-*   **🖼️ App Icons:** Extracts and displays actual executable icons for easy visual identification.
+*   **🖼️ App Icons:** Extracts and displays actual executable icons in the UI for easy visual identification.
 
 ---
 
@@ -103,7 +106,7 @@ FocusLog/
 ├── icon.ico            # Application Icon
 ├── app.py              # Main UI Entry Point (PyQt6)
 ├── tracker.py          # Core Logic: Polling loop, state management, crash recovery
-├── report.py           # Data formatting, export utilities (CSV/JSON/TXT)
+├── report.py           # Data formatting, export utilities (CSV/JSON/TXT/HTML)
 ├── appinfo.py          # Windows API wrappers: Get foreground window, extract icons/names
 ├── config.py           # Configuration helpers: Data directory management
 ├── secure_time.py      # Anti-tamper security: Monotonic clocks, hash chaining, NTP sync
@@ -111,7 +114,10 @@ FocusLog/
 ├── build.bat           # Automated PyInstaller build script
 ├── requirements.txt    # Python dependencies
 ├── README.md           # This file
-└── SECURITY_FEATURES.md # Detailed documentation of anti-tamper protections
+├── SECURITY_FEATURES.md # Detailed documentation of anti-tamper protections
+└── templates/          # A4 HTML templates (invoices, session reports)
+    ├── invoice.html          # Client invoice HTML template (customizable)
+    └── report_template.html  # Session report HTML template (customizable)
 ```
 
 ---
@@ -146,6 +152,14 @@ Set your currency and hourly rate in the **Settings** menu.
 *   **Currency Symbol:** Choose from USD, EUR, GBP, JPY, etc.
 *   **Hourly Rate:** Enter your rate (e.g., `50.00`).
 *   *Note:* Earnings are calculated based on **Counted Work Time** only (excluded apps do not earn money).
+
+### 4. Custom HTML Templates (A4 Layouts)
+FocusLog allows you to fully customize how client invoices and session reports look when printed to PDF or exported.
+1.  Open the `templates/` folder in the FocusLog root directory.
+2.  Open **`invoice.html`** or **`report_template.html`** in a code/text editor (e.g., VS Code).
+3.  Modify the styling (CSS), fonts, layout structures, and text as you like.
+4.  Keep placeholders in place (e.g., `{{BUSINESS_NAME}}`, `{{ITEMS}}`, `{{TIMELINE_ITEMS}}`) so the application can dynamically populate your tracking details.
+5.  *Self-Healing:* If you ever make a mistake or break a file, simply delete the file or the `templates/` directory, and FocusLog will instantly recreate a fresh default copy at runtime.
 
 ---
 
