@@ -783,8 +783,10 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     """
     Generates a stunning, premium, modern A4 HTML invoice.
     Optimized for high-fidelity web viewing and perfect browser-based PDF printing.
+    Loads templates/invoice.html from disk, auto-creating it if missing.
     """
     import base64
+    import sys
     logo_path = settings_data.get("business_logo_path", "")
     logo_data_uri = ""
     if logo_path and os.path.exists(logo_path):
@@ -880,15 +882,28 @@ def generate_invoice_html(billing_data, settings_data) -> str:
             </div>
             """
 
-    html = f"""<!DOCTYPE html>
+    # Self-healing logic: find templates/invoice.html or auto-create it
+    if getattr(sys, 'frozen', False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        try:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        except Exception:
+            base_dir = os.getcwd()
+
+    templates_dir = os.path.join(base_dir, "templates")
+    template_path = os.path.join(templates_dir, "invoice.html")
+
+    # Define default template fallback
+    default_template = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Invoice - {settings_data.get("business_name", "FocusLog")}</title>
+    <title>Invoice - {{BUSINESS_NAME}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root {{
+        :root {
             --primary: #0F172A;
             --primary-light: #1E293B;
             --accent: #4F46E5;
@@ -899,44 +914,44 @@ def generate_invoice_html(billing_data, settings_data) -> str:
             --border: #E2E8F0;
             --text-main: #0F172A;
             --text-muted: #64748B;
-        }}
+        }
 
-        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-        body {{ font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--bg-body); color: var(--text-main); line-height: 1.5; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }}
-        .print-actions-bar {{ width: 100%; max-width: 800px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 12px; padding: 16px 24px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }}
-        .print-btn {{ background-color: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s ease; }}
-        .invoice-container {{ width: 100%; max-width: 800px; background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 50px; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04); }}
-        .invoice-header-row {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--bg-body); padding-bottom: 30px; margin-bottom: 35px; }}
-        .invoice-logo {{ max-width: 200px; max-height: 70px; object-fit: contain; margin-bottom: 12px; display: block; }}
-        .profile-title {{ font-size: 18px; font-weight: 700; color: var(--primary); letter-spacing: -0.02em; }}
-        .profile-details {{ font-size: 13px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }}
-        .meta-column {{ text-align: right; }}
-        .invoice-badge {{ font-size: 28px; font-weight: 800; color: var(--primary); letter-spacing: -0.03em; margin-bottom: 12px; }}
-        .meta-item {{ font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }}
-        .billed-to-container {{ margin-bottom: 35px; }}
-        .section-label {{ font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--accent); letter-spacing: 0.1em; margin-bottom: 8px; }}
-        .client-name {{ font-size: 15px; font-weight: 700; color: var(--text-main); }}
-        .client-address {{ font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }}
-        .client-email {{ font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }}
-        .qr-codes-container {{ display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; justify-content: flex-start; }}
-        .qr-code-item {{ display: flex; flex-direction: column; align-items: center; background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }}
-        .qr-code-image {{ width: 140px; height: 140px; object-fit: contain; border-radius: 4px; }}
-        .dashboard-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }}
-        .kpi-card {{ background-color: var(--bg-body); border: 1px solid transparent; border-radius: 12px; padding: 20px 24px; transition: all 0.25s ease; }}
-        .kpi-card:hover {{ background-color: var(--bg-card); border-color: var(--border); }}
-        .kpi-label {{ font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; }}
-        .kpi-val {{ font-size: 24px; font-weight: 800; color: var(--primary); }}
-        .amount-val {{ color: var(--success); }}
-        table {{ width: 100%; border-collapse: collapse; margin-bottom: 45px; }}
-        th {{ font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); text-align: left; padding: 12px 16px; border-bottom: 2px solid var(--border); }}
-        td {{ font-size: 13px; color: var(--text-main); padding: 16px; border-bottom: 1px solid var(--border); }}
-        .subtotal-row td {{ border-bottom: none; padding-top: 24px; }}
-        .subtotal-label {{ font-size: 14px; font-weight: 700; text-align: right; color: var(--text-muted); }}
-        .subtotal-value {{ font-size: 18px; font-weight: 800; color: var(--success); text-align: right; padding-right: 16px; }}
-        .payment-box {{ background-color: #F8FAFC; border: 1px solid var(--border); border-radius: 12px; padding: 24px; }}
-        .payment-box-title {{ font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--primary); margin-bottom: 10px; }}
-        .payment-content {{ font-size: 13px; color: var(--text-muted); line-height: 1.5; white-space: pre-wrap; }}
-        @media print {{ body {{ background-color: white; padding: 0; }} .print-actions-bar {{ display: none; }} .invoice-container {{ border: none; box-shadow: none; padding: 0; }} }}
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--bg-body); color: var(--text-main); line-height: 1.5; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }
+        .print-actions-bar { width: 100%; max-width: 800px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 12px; padding: 16px 24px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }
+        .print-btn { background-color: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s ease; }
+        .invoice-container { width: 100%; max-width: 800px; background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 50px; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04); }
+        .invoice-header-row { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--bg-body); padding-bottom: 30px; margin-bottom: 35px; }
+        .invoice-logo { max-width: 200px; max-height: 70px; object-fit: contain; margin-bottom: 12px; display: block; }
+        .profile-title { font-size: 18px; font-weight: 700; color: var(--primary); letter-spacing: -0.02em; }
+        .profile-details { font-size: 13px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+        .meta-column { text-align: right; }
+        .invoice-badge { font-size: 28px; font-weight: 800; color: var(--primary); letter-spacing: -0.03em; margin-bottom: 12px; }
+        .meta-item { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+        .billed-to-container { margin-bottom: 35px; }
+        .section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--accent); letter-spacing: 0.1em; margin-bottom: 8px; }
+        .client-name { font-size: 15px; font-weight: 700; color: var(--text-main); }
+        .client-address { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+        .client-email { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+        .qr-codes-container { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; justify-content: flex-start; }
+        .qr-code-item { display: flex; flex-direction: column; align-items: center; background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .qr-code-image { width: 140px; height: 140px; object-fit: contain; border-radius: 4px; }
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+        .kpi-card { background-color: var(--bg-body); border: 1px solid transparent; border-radius: 12px; padding: 20px 24px; transition: all 0.25s ease; }
+        .kpi-card:hover { background-color: var(--bg-card); border-color: var(--border); }
+        .kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; }
+        .kpi-val { font-size: 24px; font-weight: 800; color: var(--primary); }
+        .amount-val { color: var(--success); }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 45px; }
+        th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); text-align: left; padding: 12px 16px; border-bottom: 2px solid var(--border); }
+        td { font-size: 13px; color: var(--text-main); padding: 16px; border-bottom: 1px solid var(--border); }
+        .subtotal-row td { border-bottom: none; padding-top: 24px; }
+        .subtotal-label { font-size: 14px; font-weight: 700; text-align: right; color: var(--text-muted); }
+        .subtotal-value { font-size: 18px; font-weight: 800; color: var(--success); text-align: right; padding-right: 16px; }
+        .payment-box { background-color: #F8FAFC; border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+        .payment-box-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--primary); margin-bottom: 10px; }
+        .payment-content { font-size: 13px; color: var(--text-muted); line-height: 1.5; white-space: pre-wrap; }
+        @media print { body { background-color: white; padding: 0; } .print-actions-bar { display: none; } .invoice-container { border: none; box-shadow: none; padding: 0; } }
     </style>
 </head>
 <body>
@@ -947,45 +962,93 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     <div class="invoice-container">
         <div class="invoice-header-row">
             <div>
-                {logo_html}
-                <div class="profile-title">{settings_data.get("business_name", "FocusLog Invoice")}</div>
+                {{LOGO_HTML}}
+                <div class="profile-title">{{BUSINESS_NAME}}</div>
                 <div class="profile-details">
-                    {settings_data.get("business_address", "")}<br>
-                    {biz_contact_html}
+                    {{BUSINESS_ADDRESS}}<br>
+                    {{BUSINESS_CONTACT}}
                 </div>
             </div>
             <div class="meta-column">
                 <div class="invoice-badge">INVOICE</div>
-                <div class="meta-item"><strong>Invoice No:</strong> INV-{datetime.now().strftime("%Y%m%d%H%M")}</div>
-                <div class="meta-item"><strong>Date:</strong> {datetime.now().strftime("%B %d, %Y")}</div>
-                <div class="meta-item"><strong>Sessions Compiled:</strong> {billing_data.get("session_count", 1)}</div>
+                <div class="meta-item"><strong>Invoice No:</strong> {{INVOICE_NO}}</div>
+                <div class="meta-item"><strong>Date:</strong> {{DATE}}</div>
+                <div class="meta-item"><strong>Sessions Compiled:</strong> {{SESSIONS_COMPILED}}</div>
             </div>
         </div>
         <div class="billed-to-container">
             <div class="section-label">Billed To</div>
-            <div class="client-name">{settings_data.get("client_name", "Valued Client")}</div>
-            <div class="client-address">{settings_data.get("client_address", "")}</div>
-            {client_emails_html}
+            <div class="client-name">{{CLIENT_NAME}}</div>
+            <div class="client-address">{{CLIENT_ADDRESS}}</div>
+            {{CLIENT_EMAILS_HTML}}
         </div>
         <div class="dashboard-grid">
             <div class="kpi-card">
                 <div class="kpi-label">Total Work Hours</div>
-                <div class="kpi-val">{hours_counted:.2f} hrs</div>
+                <div class="kpi-val">{{HOURS_COUNTED}} hrs</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Total Amount Due</div>
-                <div class="kpi-val amount-val">{billing_data["total_earned_display"]}</div>
+                <div class="kpi-val amount-val">{{TOTAL_AMOUNT_DUE}}</div>
             </div>
         </div>
         <div class="section-label">Itemized Work Breakdown</div>
         <table>
             <thead><tr><th>Focus Category</th><th>Formatted Time</th><th>Hours</th><th>Rate</th><th style="text-align: right;">Total Amount</th></tr></thead>
             <tbody>
-    """
+                <!-- {{ITEMS}} -->
+                <tr class="subtotal-row">
+                    <td colspan="4" class="subtotal-label">Grand Total:</td>
+                    <td class="subtotal-value">{{GRAND_TOTAL}}</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="payment-box">
+            <div class="payment-box-title">Payment Terms & Instructions</div>
+            <div class="payment-content">{{PAYMENT_INSTRUCTIONS}}</div>
+            {{QR_HTML}}
+        </div>
+    </div>
+</body>
+</html>"""
 
+    if not os.path.exists(template_path):
+        os.makedirs(templates_dir, exist_ok=True)
+        try:
+            with open(template_path, "w", encoding="utf-8") as f:
+                f.write(default_template.strip())
+        except Exception as e:
+            print(f"[FocusLog] Recreating template file failed: {e}")
+
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            template_html = f.read()
+    except Exception:
+        template_html = default_template
+
+    # Replace all placeholders in HTML template
+    html = template_html
+    html = html.replace("{{LOGO_HTML}}", logo_html)
+    html = html.replace("{{BUSINESS_NAME}}", settings_data.get("business_name", "FocusLog Invoice"))
+    html = html.replace("{{BUSINESS_ADDRESS}}", settings_data.get("business_address", ""))
+    html = html.replace("{{BUSINESS_CONTACT}}", biz_contact_html)
+    html = html.replace("{{INVOICE_NO}}", f"INV-{datetime.now().strftime('%Y%m%d%H%M')}")
+    html = html.replace("{{DATE}}", datetime.now().strftime("%B %d, %Y"))
+    html = html.replace("{{SESSIONS_COMPILED}}", str(billing_data.get("session_count", 1)))
+    html = html.replace("{{CLIENT_NAME}}", settings_data.get("client_name", "Valued Client"))
+    html = html.replace("{{CLIENT_ADDRESS}}", settings_data.get("client_address", ""))
+    html = html.replace("{{CLIENT_EMAILS_HTML}}", client_emails_html)
+    html = html.replace("{{HOURS_COUNTED}}", f"{hours_counted:.2f}")
+    html = html.replace("{{TOTAL_AMOUNT_DUE}}", billing_data["total_earned_display"])
+    html = html.replace("{{GRAND_TOTAL}}", billing_data["total_earned_display"])
+    html = html.replace("{{PAYMENT_INSTRUCTIONS}}", settings_data.get("business_payment", "Payment is due within 14 days of invoice date."))
+    html = html.replace("{{QR_HTML}}", qr_html)
+
+    # Generate Itemized Rows
+    items_html = ""
     for pb in billing_data.get("project_breakdown", []):
         cat_hours = pb["seconds"] / 3600.0
-        html += f"""
+        items_html += f"""
                 <tr>
                     <td style="font-weight: 600;">{pb["project"]}</td>
                     <td>{pb["formatted"]}</td>
@@ -995,22 +1058,422 @@ def generate_invoice_html(billing_data, settings_data) -> str:
                 </tr>
         """
 
-    html += f"""
-                <tr class="subtotal-row">
-                    <td colspan="4" class="subtotal-label">Grand Total:</td>
-                    <td class="subtotal-value">{billing_data["total_earned_display"]}</td>
+    # Replace items placeholder
+    html = html.replace("<!-- {{ITEMS}} -->", items_html)
+    html = html.replace("{{ITEMS}}", items_html)
+
+    return html
+
+def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -> str:
+    """
+    Generates a stunning, premium, modern A4 HTML session report.
+    Optimized for high-fidelity web viewing and perfect browser-based PDF printing.
+    Loads templates/report_template.html from disk, auto-creating it if missing.
+    """
+    import sys
+    if getattr(sys, 'frozen', False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        try:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        except Exception:
+            base_dir = os.getcwd()
+
+    templates_dir = os.path.join(base_dir, "templates")
+    template_path = os.path.join(templates_dir, "report_template.html")
+
+    # Define default template fallback
+    default_template = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>FocusLog Session Report - {{SESSION_NAME}}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0F172A;
+            --primary-light: #1E293B;
+            --accent: #4F46E5;
+            --accent-hover: #4338CA;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --bg-body: #F8FAFC;
+            --bg-card: #FFFFFF;
+            --border: #E2E8F0;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--bg-body); color: var(--text-main); line-height: 1.5; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        .print-actions-bar { width: 100%; max-width: 900px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 12px; padding: 16px 24px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }
+        .print-btn { background-color: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s ease; }
+        .print-btn:hover { background-color: var(--accent-hover); }
+
+        .report-container { width: 100%; max-width: 900px; background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 50px; box-shadow: 0 10px 40px -15px rgba(0, 0, 0, 0.04); }
+        
+        /* Header section */
+        .report-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--bg-body); padding-bottom: 30px; margin-bottom: 35px; }
+        .report-title-section { max-width: 60%; }
+        .report-title-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--accent); letter-spacing: 0.1em; margin-bottom: 6px; }
+        .report-title { font-size: 28px; font-weight: 800; color: var(--primary); letter-spacing: -0.03em; line-height: 1.2; }
+        .report-date { font-size: 14px; color: var(--text-muted); margin-top: 6px; font-weight: 500; }
+        
+        .meta-column { text-align: right; }
+        .app-badge { font-size: 24px; font-weight: 800; color: var(--primary); letter-spacing: -0.02em; margin-bottom: 8px; }
+        .meta-item { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; font-weight: 500; }
+        .meta-item strong { color: var(--primary); }
+
+        /* KPI Dashboard Grid */
+        .dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
+        .kpi-card { background-color: var(--bg-body); border: 1px solid transparent; border-radius: 14px; padding: 20px; transition: all 0.25s ease; position: relative; overflow: hidden; }
+        .kpi-card:hover { background-color: var(--bg-card); border-color: var(--border); transform: translateY(-2px); box-shadow: 0 8px 20px -6px rgba(0,0,0,0.05); }
+        .kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; }
+        .kpi-val { font-size: 24px; font-weight: 800; color: var(--primary); }
+        .kpi-card.productive .kpi-val { color: var(--accent); }
+        .kpi-card.ratio .kpi-val { color: var(--success); }
+
+        /* Section divider */
+        .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+        .section-title { font-size: 14px; font-weight: 700; text-transform: uppercase; color: var(--primary); letter-spacing: 0.05em; }
+
+        /* Projects horizontal bars */
+        .projects-container { display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px; }
+        .project-row { display: flex; flex-direction: column; gap: 6px; }
+        .project-info { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
+        .project-name { color: var(--primary); }
+        .project-stats { color: var(--text-muted); }
+        .project-bar-bg { width: 100%; height: 10px; background-color: var(--bg-body); border-radius: 5px; overflow: hidden; }
+        .project-bar-fill { height: 100%; border-radius: 5px; transition: width 1s ease-out; }
+
+        /* Tables styling */
+        table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+        th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); text-align: left; padding: 12px 16px; border-bottom: 2px solid var(--border); }
+        td { font-size: 13px; color: var(--text-main); padding: 14px 16px; border-bottom: 1px solid var(--border); }
+        tr:hover td { background-color: var(--bg-body); }
+        .tag-pill { display: inline-block; padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; background-color: var(--bg-body); color: var(--text-muted); }
+        .app-icon { width: 20px; height: 20px; border-radius: 4px; vertical-align: middle; margin-right: 8px; }
+
+        /* Timeline Section */
+        .timeline-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+        .timeline-item { display: flex; align-items: center; background: var(--bg-body); border-radius: 8px; padding: 10px 14px; border-left: 3px solid var(--accent); }
+        .timeline-time { font-size: 11px; font-weight: 700; color: var(--text-muted); min-width: 220px; white-space: nowrap; }
+        .timeline-app { font-size: 12px; font-weight: 600; color: var(--primary); flex-grow: 1; }
+        .timeline-duration { font-size: 11px; font-weight: 600; color: var(--text-muted); text-align: right; white-space: nowrap; }
+
+        /* Footer copy */
+        .report-footer { text-align: center; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 25px; margin-top: 40px; font-weight: 500; }
+
+        @media print { 
+            body { background-color: white; padding: 0; } 
+            .print-actions-bar { display: none; } 
+            .report-container { border: none; box-shadow: none; padding: 0; max-width: 100%; } 
+            .kpi-card { background-color: #F8FAFC !important; border: 1px solid #E2E8F0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .project-bar-bg { background-color: #F8FAFC !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .project-bar-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-actions-bar">
+        <div>📄 Session Report compiled.</div>
+        <button class="print-btn" onclick="window.print()">Print / Save PDF</button>
+    </div>
+    <div class="report-container">
+        <div class="report-header">
+            <div class="report-title-section">
+                <div class="report-title-label">Session Report</div>
+                <div class="report-title">{{SESSION_NAME}}</div>
+                <div class="report-date">{{DATE}}</div>
+            </div>
+            <div class="meta-column">
+                <div class="app-badge">FocusLog</div>
+                <div class="meta-item"><strong>Start:</strong> {{START_TIME}}</div>
+                <div class="meta-item"><strong>End:</strong> {{END_TIME}}</div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Total Session Time</div>
+                <div class="kpi-val">{{TOTAL_DURATION}}</div>
+            </div>
+            <div class="kpi-card productive">
+                <div class="kpi-label">Productive (Counted) Time</div>
+                <div class="kpi-val">{{PRODUCTIVE_DURATION}}</div>
+            </div>
+            <div class="kpi-card ratio">
+                <div class="kpi-label">Productivity Ratio</div>
+                <div class="kpi-val">{{PRODUCTIVITY_RATIO}}%</div>
+            </div>
+        </div>
+
+        {{EARNINGS_HTML}}
+
+        <div class="section-header">
+            <div class="section-title">Project & Category Breakdown</div>
+        </div>
+        <div class="projects-container">
+            {{PROJECTS_VISUAL}}
+        </div>
+
+        <div class="section-header">
+            <div class="section-title">Itemized Application Usage</div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Application</th>
+                    <th>Project Category</th>
+                    <th>Time Spent</th>
+                    <th style="text-align: right;">Percentage</th>
                 </tr>
+            </thead>
+            <tbody>
+                {{APPS_TABLE_ROWS}}
             </tbody>
         </table>
-        <div class="payment-box">
-            <div class="payment-box-title">Payment Terms & Instructions</div>
-            <div class="payment-content">{settings_data.get("business_payment", "Payment is due within 14 days of invoice date.")}</div>
-            {qr_html}
+
+        <div class="section-header">
+            <div class="section-title">Detailed Timeline Activity</div>
+        </div>
+        <div class="timeline-list">
+            {{TIMELINE_ITEMS}}
+        </div>
+
+        <div class="report-footer">
+            Generated with FocusLog — Automated Time Tracking and Productivity Dashboard.
         </div>
     </div>
 </body>
-</html>
-"""
+</html>"""
+
+    if not os.path.exists(template_path):
+        os.makedirs(templates_dir, exist_ok=True)
+        try:
+            with open(template_path, "w", encoding="utf-8") as f:
+                f.write(default_template.strip())
+        except Exception as e:
+            print(f"[FocusLog] Recreating report template file failed: {e}")
+
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            template_html = f.read()
+    except Exception:
+        template_html = default_template
+
+    total_secs = report.get("total_seconds", 0)
+    counted_secs = report.get("counted_seconds", 0)
+    ratio = (counted_secs / total_secs * 100.0) if total_secs > 0 else 0.0
+
+    # Earnings logic
+    earnings_html = ""
+    if hourly_rate > 0:
+        total_earned = (counted_secs / 3600.0) * hourly_rate
+        total_earned_display = f"{currency_symbol}{total_earned:,.2f}"
+        earnings_html = f"""
+        <div class="section-header">
+            <div class="section-title">Billing & Estimated Earnings</div>
+        </div>
+        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 40px;">
+            <div class="kpi-card">
+                <div class="kpi-label">Hourly Rate</div>
+                <div class="kpi-val">{currency_symbol}{hourly_rate:.2f}/hr</div>
+            </div>
+            <div class="kpi-card productive">
+                <div class="kpi-label">Total Earned</div>
+                <div class="kpi-val" style="color: var(--success);">{total_earned_display}</div>
+            </div>
+        </div>
+        """
+
+    # Projects visual
+    projects_visual = ""
+    for pb in report.get("project_breakdown", []):
+        pct = pb.get("percent", 0.0)
+        color = pb.get("color", "#4F46E5")
+        projects_visual += f"""
+        <div class="project-row">
+            <div class="project-info">
+                <span class="project-name">{pb['project']}</span>
+                <span class="project-stats">{pb['formatted']} ({pct:.1f}%)</span>
+            </div>
+            <div class="project-bar-bg">
+                <div class="project-bar-fill" style="width: {pct:.1f}%; background-color: {color};"></div>
+            </div>
+        </div>
+        """
+
+    # Applications rows
+    apps_rows = ""
+    app_exe_paths = report.get("app_exe_paths", {})
+    for app in report.get("apps", []):
+        if app.get("excluded", False):
+            continue
+        pct = app.get("percent", 0.0)
+        tag = app.get("tag", "Unassigned")
+        tag_color = get_project_color(tag)
+        pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" else ""
+        
+        # Extract app icon as base64 PNG
+        local_b64 = ""
+        exe_path = app_exe_paths.get(app['name'], app.get("exe_path", ""))
+        if exe_path:
+            try:
+                import base64
+                import io
+                from appinfo import get_icon_image
+                pil_icon = get_icon_image(exe_path, 20)
+                if pil_icon:
+                    buf = io.BytesIO()
+                    pil_icon.save(buf, format="PNG")
+                    local_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+            except Exception:
+                pass
+        
+        # Mappings for premium online SVG icons via Simple Icons CDN
+        app_name_lower = app['name'].lower().strip()
+        simple_icons = {
+            "vs code": "visualstudiocode",
+            "vscode": "visualstudiocode",
+            "visual studio": "visualstudio",
+            "figma": "figma",
+            "notion": "notion",
+            "chrome": "googlechrome",
+            "google chrome": "googlechrome",
+            "edge": "microsoftedge",
+            "microsoft edge": "microsoftedge",
+            "firefox": "mozillafirefox",
+            "safari": "safari",
+            "slack": "slack",
+            "discord": "discord",
+            "spotify": "spotify",
+            "photoshop": "adobephotoshop",
+            "illustrator": "adobeillustrator",
+            "premiere": "adobepremierepro",
+            "blender": "blender",
+            "word": "microsoftword",
+            "excel": "microsoftexcel",
+            "powerpoint": "microsoftpowerpoint",
+            "teams": "microsoftteams",
+            "zoom": "zoom",
+            "github": "github",
+            "python": "python",
+            "node": "nodedotjs",
+            "trello": "trello",
+            "jira": "jira",
+            "asana": "asana",
+            "clickup": "clickup",
+            "whatsapp": "whatsapp",
+            "telegram": "telegram",
+            "outlook": "microsoftoutlook",
+            "sublime": "sublimetext",
+            "docker": "docker",
+            "postman": "postman",
+            "canva": "canva",
+        }
+        
+        slug = None
+        for key, value in simple_icons.items():
+            if key in app_name_lower:
+                slug = value
+                break
+                
+        icon_html = ""
+        if slug:
+            # Multi-layered fallback sources if a service is blocked or down:
+            # 1. cdn.simpleicons.org (customizable colors)
+            # 2. jsDelivr NPM CDN (Enterprise Cloudflare/Fastly backed)
+            # 3. Unpkg CDN
+            # 4. Local extracted base64 or Category-colored letter SVG
+            
+            if local_b64:
+                fallback_src = f"data:image/png;base64,{local_b64}"
+            else:
+                initial = app['name'][0].upper() if app['name'] else "?"
+                fallback_src = f"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><rect width='24' height='24' rx='6' fill='{tag_color.replace('#', '%23')}1a'/><text x='12' y='16' fill='{tag_color.replace('#', '%23')}' font-size='12' font-weight='800' font-family='sans-serif' text-anchor='middle'>{initial}</text></svg>"
+            
+            # Escape quotes safely for HTML attributes
+            escaped_fallback = fallback_src.replace("'", "\\'")
+            
+            icon_html = f"""<img src="https://cdn.simpleicons.org/{slug}" class="app-icon" onerror="this.onerror=function(){{ this.onerror=function(){{ this.onerror=null; this.src='{escaped_fallback}'; }}; this.src='https://unpkg.com/simple-icons@11.13.0/icons/{slug}.svg'; }}; this.src='https://cdn.jsdelivr.net/npm/simple-icons@11.13.0/icons/{slug}.svg';" />"""
+        elif local_b64:
+            # Use local base64 extracted exe icon
+            icon_html = f'<img src="data:image/png;base64,{local_b64}" class="app-icon" />'
+        else:
+            # High-fidelity category-colored letter-initial SVG vector (completely offline & local)
+            initial = app['name'][0].upper() if app['name'] else "?"
+            icon_html = f"""<svg class="app-icon" style="vertical-align: middle; margin-right: 8px;" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="24" height="24" rx="6" fill="{tag_color}1a"/>
+                <text x="12" y="16" fill="{tag_color}" font-size="12" font-weight="800" font-family="Inter, system-ui, sans-serif" text-anchor="middle">{initial}</text>
+            </svg>"""
+        
+        apps_rows += f"""
+        <tr>
+            <td style="font-weight: 600;">{icon_html}{app['name']}</td>
+            <td><span class="tag-pill" style="{pill_style}">{tag}</span></td>
+            <td>{app['formatted']}</td>
+            <td style="text-align: right; font-weight: 600;">{pct:.1f}%</td>
+        </tr>
+        """
+
+    # Timeline list
+    timeline_items = ""
+    timeline_entries = report.get("timeline", [])
+    capped_timeline = timeline_entries[:15]
+    for t in capped_timeline:
+        t_start = t["start"]
+        t_end = t["end"]
+        
+        start_str = t_start.strftime("%I:%M:%S %p") if hasattr(t_start, "strftime") else str(t_start)
+        end_str = t_end.strftime("%I:%M:%S %p") if hasattr(t_end, "strftime") else str(t_end)
+        
+        app_name = t.get("app", "Active Session")
+        
+        app_tag = "Unassigned"
+        for app in report.get("apps", []):
+            if app["name"] == app_name:
+                app_tag = app.get("tag", "Unassigned")
+                break
+                
+        tag_color = get_project_color(app_tag)
+        
+        duration_secs = 0
+        if hasattr(t_start, "timestamp") and hasattr(t_end, "timestamp"):
+            duration_secs = int(t_end.timestamp() - t_start.timestamp())
+        duration_str = format_duration(duration_secs) if duration_secs > 0 else ""
+        
+        timeline_items += f"""
+        <div class="timeline-item" style="border-left-color: {tag_color};">
+            <span class="timeline-time">{start_str} - {end_str}</span>
+            <span class="timeline-app">{app_name} <span style="font-weight: normal; color: var(--text-muted); font-size: 11px;">({app_tag})</span></span>
+            <span class="timeline-duration">{duration_str}</span>
+        </div>
+        """
+
+    if len(timeline_entries) > 15:
+        timeline_items += f"""
+        <div style="text-align: center; font-size: 12px; color: var(--text-muted); font-weight: 600; padding: 12px; border: 1px dashed var(--border); border-radius: 8px; margin-top: 10px; background-color: var(--bg-body);">
+            ... and {len(timeline_entries) - 15} more activity segments in this session.
+        </div>
+        """
+
+    # Replacements
+    html = template_html
+    html = html.replace("{{SESSION_NAME}}", report.get("session_name", "Unnamed Session"))
+    html = html.replace("{{DATE}}", report.get("date_display", report.get("date", "")))
+    html = html.replace("{{START_TIME}}", report.get("start_display", report.get("start", "")))
+    html = html.replace("{{END_TIME}}", report.get("end_display", report.get("end", "")))
+    html = html.replace("{{TOTAL_DURATION}}", report.get("total_formatted", format_duration(total_secs)))
+    html = html.replace("{{PRODUCTIVE_DURATION}}", report.get("counted_formatted", format_duration(counted_secs)))
+    html = html.replace("{{PRODUCTIVITY_RATIO}}", f"{ratio:.1f}")
+    html = html.replace("{{EARNINGS_HTML}}", earnings_html)
+    html = html.replace("{{PROJECTS_VISUAL}}", projects_visual)
+    html = html.replace("{{APPS_TABLE_ROWS}}", apps_rows)
+    html = html.replace("{{TIMELINE_ITEMS}}", timeline_items)
+
     return html
 
 def print_html_to_pdf(html_content: str, output_path: str):
