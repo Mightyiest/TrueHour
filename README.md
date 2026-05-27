@@ -12,29 +12,19 @@ FocusLog automatically monitors your active window to track productivity, calcul
 
 ## ✨ Features
 
-*   **🕒 Automatic Time Tracking:** Detects the foreground application and logs usage duration with second-level precision.
-*   **📊 Interactive Visual Analytics Dashboard:** Custom drawn interactive PyQt6 charts (`DonutChartWidget`, `BarChartWidget`) displaying real-time live and range-filtered historical category allocation.
-*   **📄 Customizable External HTML Templates:** High-fidelity templates for **Client Invoices** (`templates/invoice.html`) and **Session Reports** (`templates/report_template.html`) live directly in the folder next to the app, making editing styles or layouts in external editors effortless.
-*   **🩺 Automated Self-Healing Templates:** If the `templates/` folder or any HTML template file is missing, the application automatically regenerates fresh, pristine default files at runtime so it never crashes.
-*   **🖼️ Offline App Icon Extraction:** Automatically extracts standard Windows executable icons locally and embeds them as high-quality **inline base64 PNGs** inside exported HTML session reports — no internet connection or external servers required.
-*   **📄 HTML Client Invoice Builder & Browser Printer:** Native dynamic invoicing profiles with Gmail-style multi-email chip token inputs, sensitive email masking (e.g., `ne**@*****.com`) for client privacy, dynamic "Unassigned" app category resolving, base64-embedded payment QR code graphics, and seamless browser-based A4 PDF printing.
-*   **💰 Earnings Calculator:** Set an hourly rate to see real-time earnings accumulation during work sessions.
-*   **🛡️ Smart Exclusion System:**
-    *   **Auto-Exclude:** Automatically ignores system processes (Explorer, Taskbar, Search, etc.) so they don't clutter your data.
-    *   **Manual Exclude:** Easily exclude specific apps (e.g., Spotify, Discord) from counting toward "Work Time."
-*   **🔒 Anti-Tamper Security:** 
-    *   **Monotonic Clock Protection:** Uses unchangeable system clocks to detect time manipulation
-    *   **Network Time Sync:** Validates against trusted NTP servers to catch clock changes
-    *   **Cryptographic Hash Chaining:** Links all entries with SHA-256 hashes to prevent retroactive editing
-    *   **Trust Scoring:** Real-time integrity monitoring with tamper event logging
-*   **💾 Crash Recovery:** If the app closes unexpectedly, your session is saved to an `autosave` folder and can be recovered or viewed later.
-*   **📊 Detailed Reporting:**
-    *   View live session stats.
-    *   Export sessions to **TXT**, **JSON**, **CSV**, or premium print-ready **HTML Invoice / HTML Session Report**.
-    *   Bulk export all history to a single CSV file.
-*   **🎨 Modern UI:** Clean, light-themed interface inspired by Windows 11 Fluent Design, built with PyQt6.
-*   **🖼️ App Icons:** Extracts and displays actual executable icons in the UI for easy visual identification.
-
+| | Feature | Description |
+|---|---|---|
+| 🕒 | **Time Tracking** | Detects the foreground app and logs usage with second-level precision. |
+| 📊 | **Analytics Dashboard** | Interactive PyQt6 donut & bar charts with live and historical category breakdowns. |
+| 📄 | **HTML Templates** | Editable invoice and session report templates in `templates/` — easy to customize externally. |
+| 🩺 | **Self-Healing Templates** | Missing template files are auto-regenerated at runtime, preventing crashes. |
+| 🧾 | **Invoice Builder** | Dynamic invoicing with multi-email chip inputs, masked addresses, QR code graphics, and A4 PDF printing. |
+| 💰 | **Earnings Calculator** | Set an hourly rate and watch earnings accumulate live during active sessions. |
+| 🛡️ | **Smart Exclusions** | Auto-ignores system processes; manually exclude apps (e.g. Spotify) from work time. |
+| 🔒 | **Anti-Tamper Security** | Monotonic clock protection, NTP validation, and SHA-256 hash chaining with real-time integrity scoring. |
+| 💾 | **Crash Recovery** | Unexpected closures are auto-saved to an `autosave` folder for later recovery. |
+| 📤 | **Export Options** | Export to TXT, JSON, CSV, HTML Invoice, or HTML Session Report; bulk-export full history to CSV. |
+| 🎨 | **Modern UI** | Clean, light-themed interface inspired by Windows 11 Fluent Design, built with PyQt6. |
 ---
 
 ## 📸 Screenshots
