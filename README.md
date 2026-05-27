@@ -1,11 +1,11 @@
 # FocusLog v2.1.0
 
-> **A lightweight, privacy-first Windows desktop time tracker with a modern Windows 11-style UI.**
+> **A lightweight, privacy-first desktop time tracker with a modern Fluent Design UI, supporting Windows & macOS.**
 
 FocusLog automatically monitors your active window to track productivity, calculate earnings based on hourly rates, and generate detailed session reports. It features crash recovery, auto-exclusion of system apps, customizable external HTML templates, offline app icon extraction, and flexible export options (CSV, JSON, TXT, HTML).
 
 ![License](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey.svg)
-![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078D4?logo=windows)
 ![Python](https://img.shields.io/badge/python-3.8+-3776AB?logo=python)
 
 ---
@@ -53,39 +53,48 @@ FocusLog automatically monitors your active window to track productivity, calcul
     ```
 
 2.  **Install Dependencies:**
-    FocusLog requires `PyQt6`, `pywin32`, `psutil`, and `Pillow`.
-    ```bash
-    pip install PyQt6 pywin32 psutil Pillow
-    ```
+    *   **Windows:**
+        ```bash
+        pip install PyQt6 pywin32 psutil Pillow
+        ```
+    *   **macOS:**
+        ```bash
+        pip install PyQt6 pyobjc-framework-AppKit psutil Pillow
+        ```
 
 3.  **Run the Application:**
-    You can use the provided batch file for convenience:
-    ```bash
-    run.bat
-    ```
-    *(Or manually run `python app.py`)*
+    *   **Windows:** Use the batch file `run.bat` or run:
+        ```bash
+        python app.py
+        ```
+    *   **macOS:** Run the shell launcher script `./run.sh` (or manually run `python3 app.py`):
+        ```bash
+        chmod +x run.sh
+        ./run.sh
+        ```
 
-### Option 2: Build Standalone Executable (.exe)
+### Option 2: Build Standalone Executable (.exe or .app)
 
-If you want to create a single `.exe` file that doesn't require Python to be installed on the target machine:
+If you want to package a standalone binary that runs without requiring Python to be installed:
 
 1.  **Install PyInstaller:**
     ```bash
     pip install pyinstaller
     ```
 
-2.  **Prepare Icon (Optional):**
-    Ensure you have an `icon.ico` file in the root directory. If you don't have one, you can remove the `--icon=icon.ico` flag from the build script.
-
-3.  **Run the Build Script:**
-    Double-click `build.bat` or run it in your terminal:
-    ```bash
-    build.bat
-    ```
-    *This script automatically detects your Python installation path using `%APPDATA%`, builds the executable, and cleans up temporary files.*
-
-4.  **Find your Executable:**
-    The resulting `FocusLog.exe` will be placed in the root folder.
+2.  **Build Binary:**
+    *   **Windows:**
+        Double-click `build.bat` or run:
+        ```bash
+        pyinstaller --noconsole --onefile --windowed --name="FocusLog" --icon="icon.ico" app.py
+        ```
+    *   **macOS:**
+        Run the build script `./build.sh` (or manually run `pyinstaller`):
+        ```bash
+        chmod +x build.sh
+        ./build.sh
+        ```
+        *(This automatically installs dependencies, runs PyInstaller, cleans up temp files, and places a standard double-clickable `FocusLog.app` bundle in your root directory!)*
 
 ---
 
@@ -100,8 +109,10 @@ FocusLog/
 ├── appinfo.py          # Windows API wrappers: Get foreground window, extract icons/names
 ├── config.py           # Configuration helpers: Data directory management
 ├── secure_time.py      # Anti-tamper security: Monotonic clocks, hash chaining, NTP sync
-├── run.bat             # Quick launcher script
-├── build.bat           # Automated PyInstaller build script
+├── run.bat             # Windows launcher script
+├── run.sh              # macOS/Linux launcher script
+├── build.bat           # Automated Windows PyInstaller build script
+├── build.sh            # Automated macOS PyInstaller build script
 ├── requirements.txt    # Python dependencies
 ├── README.md           # This file
 ├── SECURITY_FEATURES.md # Detailed documentation of anti-tamper protections
