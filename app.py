@@ -2617,10 +2617,12 @@ class FocusLogApp(QMainWindow):
         
         def _refresh_qr_thumbnails():
             """Rebuild QR thumbnail strip from _qr_paths_local."""
-            # Clear existing thumbnails
-            for ref in _qr_thumb_refs:
-                qr_thumbs_layout.removeWidget(ref)
-                ref.deleteLater()
+            # Clear existing layout items (both widgets and stretch spacers)
+            while qr_thumbs_layout.count() > 0:
+                item = qr_thumbs_layout.takeAt(0)
+                widget = item.widget()
+                if widget:
+                    widget.deleteLater()
             _qr_thumb_refs.clear()
             
             qr_dir = os.path.join(get_app_data_dir(), "qr_codes")
