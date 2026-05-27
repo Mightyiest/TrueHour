@@ -978,9 +978,11 @@ print(f"Chain Intact: {detector.verify_chain_integrity()}")</pre>
                                 </svg>
                                 <span>Option 1: Run from Source</span>
                             </div>
+                            
+                            <h4 style="font-size: 13px; font-weight: 700; margin: 12px 0 6px 0; color: var(--text-secondary);">Windows (CMD / PowerShell)</h4>
                             <div class="code-container">
                                 <div class="code-header">
-                                    <span class="code-lang">bash</span>
+                                    <span class="code-lang">batch</span>
                                     <button class="copy-btn" id="btnCopyInstall1" onclick="copyCode('installCode1')">Copy Setup</button>
                                 </div>
                                 <pre class="code-block" id="installCode1"># Clone repository and access directory
@@ -993,6 +995,24 @@ pip install PyQt6 pywin32 psutil Pillow
 # Launch tracker script
 run.bat</pre>
                             </div>
+
+                            <h4 style="font-size: 13px; font-weight: 700; margin: 16px 0 6px 0; color: var(--text-secondary);">macOS (Terminal)</h4>
+                            <div class="code-container">
+                                <div class="code-header">
+                                    <span class="code-lang">bash</span>
+                                    <button class="copy-btn" id="btnCopyInstallMac" onclick="copyCode('installCodeMac')">Copy Setup</button>
+                                </div>
+                                <pre class="code-block" id="installCodeMac"># Clone repository and access directory
+git clone https://github.com/yourusername/FocusLog.git
+cd FocusLog
+
+# Install macOS requirements
+pip install PyQt6 pyobjc-framework-AppKit psutil Pillow
+
+# Grant executable permission and run shell launcher
+chmod +x run.sh
+./run.sh</pre>
+                            </div>
                         </div>
                         <div>
                             <div class="setup-pane-title">
@@ -1003,9 +1023,11 @@ run.bat</pre>
                                 </svg>
                                 <span>Option 2: Standalone Compiler</span>
                             </div>
+
+                            <h4 style="font-size: 13px; font-weight: 700; margin: 12px 0 6px 0; color: var(--text-secondary);">Windows (.exe)</h4>
                             <div class="code-container">
                                 <div class="code-header">
-                                    <span class="code-lang">bash</span>
+                                    <span class="code-lang">batch</span>
                                     <button class="copy-btn" id="btnCopyInstall2" onclick="copyCode('installCode2')">Copy Compiler</button>
                                 </div>
                                 <pre class="code-block" id="installCode2"># Install compilation tools
@@ -1014,8 +1036,25 @@ pip install pyinstaller
 # Run automated assembly script
 build.bat
 
-# Resulting binary is generated in the parent folder:
+# Resulting binary is generated in root:
 # .\FocusLog.exe</pre>
+                            </div>
+
+                            <h4 style="font-size: 13px; font-weight: 700; margin: 16px 0 6px 0; color: var(--text-secondary);">macOS (.app Bundle)</h4>
+                            <div class="code-container">
+                                <div class="code-header">
+                                    <span class="code-lang">bash</span>
+                                    <button class="copy-btn" id="btnCopyInstallBuildMac" onclick="copyCode('installCodeBuildMac')">Copy Compiler</button>
+                                </div>
+                                <pre class="code-block" id="installCodeBuildMac"># Install compilation tools
+pip install pyinstaller
+
+# Grant executable permission and run build script
+chmod +x build.sh
+./build.sh
+
+# Standalone double-clickable app bundle is generated in root:
+# ./FocusLog.app</pre>
                             </div>
                         </div>
                     </div>
@@ -1096,7 +1135,7 @@ build.bat
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 FocusLog · v2.0.5 (Build 2026.05.26.10). All rights reserved. Maintained locally for complete user privacy.</p>
+                <p>&copy; 2026 FocusLog · v2.1.0 (Build 2026.05.27.12). All rights reserved. Maintained locally for complete user privacy.</p>
                 <p>Built with <a href="https://www.python.org/" target="_blank" rel="noopener">Python</a> &amp; <a href="https://www.riverbankcomputing.com/software/pyqt/" target="_blank" rel="noopener">PyQt6</a>.</p>
             </div>
         </div>
