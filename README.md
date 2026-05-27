@@ -1,40 +1,30 @@
 # FocusLog v2.1.0
 
-> **A lightweight, privacy-first Windows desktop time tracker with a modern Windows 11-style UI.**
+> **A lightweight, privacy-first desktop time tracker with a modern Fluent Design UI, supporting Windows & macOS.**
 
 FocusLog automatically monitors your active window to track productivity, calculate earnings based on hourly rates, and generate detailed session reports. It features crash recovery, auto-exclusion of system apps, customizable external HTML templates, offline app icon extraction, and flexible export options (CSV, JSON, TXT, HTML).
 
 ![License](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey.svg)
-![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078D4?logo=windows)
 ![Python](https://img.shields.io/badge/python-3.8+-3776AB?logo=python)
 
 ---
 
 ## ✨ Features
 
-*   **🕒 Automatic Time Tracking:** Detects the foreground application and logs usage duration with second-level precision.
-*   **📊 Interactive Visual Analytics Dashboard:** Custom drawn interactive PyQt6 charts (`DonutChartWidget`, `BarChartWidget`) displaying real-time live and range-filtered historical category allocation.
-*   **📄 Customizable External HTML Templates:** High-fidelity templates for **Client Invoices** (`templates/invoice.html`) and **Session Reports** (`templates/report_template.html`) live directly in the folder next to the app, making editing styles or layouts in external editors effortless.
-*   **🩺 Automated Self-Healing Templates:** If the `templates/` folder or any HTML template file is missing, the application automatically regenerates fresh, pristine default files at runtime so it never crashes.
-*   **🖼️ Offline App Icon Extraction:** Automatically extracts standard Windows executable icons locally and embeds them as high-quality **inline base64 PNGs** inside exported HTML session reports — no internet connection or external servers required.
-*   **📄 HTML Client Invoice Builder & Browser Printer:** Native dynamic invoicing profiles with Gmail-style multi-email chip token inputs, sensitive email masking (e.g., `ne**@*****.com`) for client privacy, dynamic "Unassigned" app category resolving, base64-embedded payment QR code graphics, and seamless browser-based A4 PDF printing.
-*   **💰 Earnings Calculator:** Set an hourly rate to see real-time earnings accumulation during work sessions.
-*   **🛡️ Smart Exclusion System:**
-    *   **Auto-Exclude:** Automatically ignores system processes (Explorer, Taskbar, Search, etc.) so they don't clutter your data.
-    *   **Manual Exclude:** Easily exclude specific apps (e.g., Spotify, Discord) from counting toward "Work Time."
-*   **🔒 Anti-Tamper Security:** 
-    *   **Monotonic Clock Protection:** Uses unchangeable system clocks to detect time manipulation
-    *   **Network Time Sync:** Validates against trusted NTP servers to catch clock changes
-    *   **Cryptographic Hash Chaining:** Links all entries with SHA-256 hashes to prevent retroactive editing
-    *   **Trust Scoring:** Real-time integrity monitoring with tamper event logging
-*   **💾 Crash Recovery:** If the app closes unexpectedly, your session is saved to an `autosave` folder and can be recovered or viewed later.
-*   **📊 Detailed Reporting:**
-    *   View live session stats.
-    *   Export sessions to **TXT**, **JSON**, **CSV**, or premium print-ready **HTML Invoice / HTML Session Report**.
-    *   Bulk export all history to a single CSV file.
-*   **🎨 Modern UI:** Clean, light-themed interface inspired by Windows 11 Fluent Design, built with PyQt6.
-*   **🖼️ App Icons:** Extracts and displays actual executable icons in the UI for easy visual identification.
-
+| | Feature | Description |
+|---|---|---|
+| 🕒 | **Time Tracking** | Detects the foreground app and logs usage with second-level precision. |
+| 📊 | **Analytics Dashboard** | Interactive PyQt6 donut & bar charts with live and historical category breakdowns. |
+| 📄 | **HTML Templates** | Editable invoice and session report templates in `templates/` — easy to customize externally. |
+| 🩺 | **Self-Healing Templates** | Missing template files are auto-regenerated at runtime, preventing crashes. |
+| 🧾 | **Invoice Builder** | Dynamic invoicing with multi-email chip inputs, masked addresses, QR code graphics, and A4 PDF printing. |
+| 💰 | **Earnings Calculator** | Set an hourly rate and watch earnings accumulate live during active sessions. |
+| 🛡️ | **Smart Exclusions** | Auto-ignores system processes; manually exclude apps (e.g. Spotify) from work time. |
+| 🔒 | **Anti-Tamper Security** | Monotonic clock protection, NTP validation, and SHA-256 hash chaining with real-time integrity scoring. |
+| 💾 | **Crash Recovery** | Unexpected closures are auto-saved to an `autosave` folder for later recovery. |
+| 📤 | **Export Options** | Export to TXT, JSON, CSV, HTML Invoice, or HTML Session Report; bulk-export full history to CSV. |
+| 🎨 | **Modern UI** | Clean, light-themed interface inspired by Windows 11 Fluent Design, built with PyQt6. |
 ---
 
 ## 📸 Screenshots
@@ -63,39 +53,48 @@ FocusLog automatically monitors your active window to track productivity, calcul
     ```
 
 2.  **Install Dependencies:**
-    FocusLog requires `PyQt6`, `pywin32`, `psutil`, and `Pillow`.
-    ```bash
-    pip install PyQt6 pywin32 psutil Pillow
-    ```
+    *   **Windows:**
+        ```bash
+        pip install PyQt6 pywin32 psutil Pillow
+        ```
+    *   **macOS:**
+        ```bash
+        pip install PyQt6 pyobjc-framework-AppKit psutil Pillow
+        ```
 
 3.  **Run the Application:**
-    You can use the provided batch file for convenience:
-    ```bash
-    run.bat
-    ```
-    *(Or manually run `python app.py`)*
+    *   **Windows:** Use the batch file `run.bat` or run:
+        ```bash
+        python app.py
+        ```
+    *   **macOS:** Run the shell launcher script `./run.sh` (or manually run `python3 app.py`):
+        ```bash
+        chmod +x run.sh
+        ./run.sh
+        ```
 
-### Option 2: Build Standalone Executable (.exe)
+### Option 2: Build Standalone Executable (.exe or .app)
 
-If you want to create a single `.exe` file that doesn't require Python to be installed on the target machine:
+If you want to package a standalone binary that runs without requiring Python to be installed:
 
 1.  **Install PyInstaller:**
     ```bash
     pip install pyinstaller
     ```
 
-2.  **Prepare Icon (Optional):**
-    Ensure you have an `icon.ico` file in the root directory. If you don't have one, you can remove the `--icon=icon.ico` flag from the build script.
-
-3.  **Run the Build Script:**
-    Double-click `build.bat` or run it in your terminal:
-    ```bash
-    build.bat
-    ```
-    *This script automatically detects your Python installation path using `%APPDATA%`, builds the executable, and cleans up temporary files.*
-
-4.  **Find your Executable:**
-    The resulting `FocusLog.exe` will be placed in the root folder.
+2.  **Build Binary:**
+    *   **Windows:**
+        Double-click `build.bat` or run:
+        ```bash
+        pyinstaller --noconsole --onefile --windowed --name="FocusLog" --icon="icon.ico" app.py
+        ```
+    *   **macOS:**
+        Run the build script `./build.sh` (or manually run `pyinstaller`):
+        ```bash
+        chmod +x build.sh
+        ./build.sh
+        ```
+        *(This automatically installs dependencies, runs PyInstaller, cleans up temp files, and places a standard double-clickable `FocusLog.app` bundle in your root directory!)*
 
 ---
 
@@ -110,8 +109,10 @@ FocusLog/
 ├── appinfo.py          # Windows API wrappers: Get foreground window, extract icons/names
 ├── config.py           # Configuration helpers: Data directory management
 ├── secure_time.py      # Anti-tamper security: Monotonic clocks, hash chaining, NTP sync
-├── run.bat             # Quick launcher script
-├── build.bat           # Automated PyInstaller build script
+├── run.bat             # Windows launcher script
+├── run.sh              # macOS/Linux launcher script
+├── build.bat           # Automated Windows PyInstaller build script
+├── build.sh            # Automated macOS PyInstaller build script
 ├── requirements.txt    # Python dependencies
 ├── README.md           # This file
 ├── SECURITY_FEATURES.md # Detailed documentation of anti-tamper protections

@@ -2,11 +2,15 @@
 FocusLog — App info resolver.
 Extracts friendly display names and icons from Windows executables.
 """
-import win32gui
-import win32ui
-import win32api
-import win32con
-import win32process
+import platform
+SYSTEM = platform.system()
+
+if SYSTEM == "Windows":
+    import win32gui
+    import win32ui
+    import win32api
+    import win32con
+    import win32process
 import psutil
 from PIL import Image
 import os
@@ -55,6 +59,27 @@ _load_name_overrides()
 
 def get_foreground_app_info():
     """Return (friendly_name, exe_path) for the current foreground window."""
+    if SYSTEM != "Windows":
+        # macOS Implementation using native AppKit
+        try:
+            from AppKit import NSWorkspace
+            active_app = NSWorkspace.sharedWorkspace().activeApplication()
+            if not active_app:
+                return "[Idle]", ""
+            friendly = active_app.get("NSApplicationName", "[Idle]")
+            exe_path = active_app.get("NSApplicationPath", "")
+            
+            # Match against name overrides
+            key = friendly.lower()
+            if key in _NAME_OVERRIDES:
+                friendly = _NAME_OVERRIDES[key]
+                
+            return friendly, exe_path
+        except Exception as e:
+            logger.warning(f"Error getting foreground app info on macOS: {e}")
+            return "[Idle]", ""
+
+    # Windows Implementation
     try:
         hwnd = win32gui.GetForegroundWindow()
         if not hwnd:
@@ -89,6 +114,8 @@ def resolve_name(exe_path, base_name):
 
 def _get_file_description(exe_path):
     """Extract FileDescription from an executable's version info."""
+    if SYSTEM != "Windows":
+        return None
     try:
         lang, codepage = win32api.GetFileVersionInfo(exe_path, '\\VarFileInfo\\Translation')[0]
         path = f'\\StringFileInfo\\{lang:04X}{codepage:04X}\\FileDescription'
@@ -105,6 +132,26 @@ def get_icon_image(exe_path: str, size: int = 16):
     return _extract_icon(exe_path, size)
 
 def _extract_icon(exe_path, size=16):
+    if SYSTEM != "Windows":
+        # macOS Icon Extraction using native Cocoa / AppKit
+        try:
+            from AppKit import NSWorkspace
+            import io
+            
+            workspace = NSWorkspace.sharedWorkspace()
+            ns_image = workspace.iconForFile_(exe_path)
+            if ns_image:
+                # Convert NSImage to PNG data, then load into Pillow
+                tiff_data = ns_image.TIFFRepresentation()
+                img = Image.open(io.BytesIO(tiff_data))
+                resampler = getattr(Image, 'Resampling', Image).LANCZOS
+                return img.resize((size, size), resampler)
+        except Exception as e:
+            logger.debug(f"Failed to extract icon from {exe_path} on macOS: {e}")
+            return None
+        return None
+
+    # Windows Icon Extraction
     large_icons, small_icons = [], []
     screen_dc = None
     mem_dc = None
@@ -159,6 +206,30 @@ def _extract_icon(exe_path, size=16):
 def get_running_applications():
     apps = set()
     results = []
+    
+    if SYSTEM != "Windows":
+        # macOS Implementation using Cocoa / AppKit
+        try:
+            from AppKit import NSWorkspace, NSApplicationActivationPolicyRegular
+            running_apps = NSWorkspace.sharedWorkspace().runningApplications()
+            for app in running_apps:
+                if app.activationPolicy() == NSApplicationActivationPolicyRegular:
+                    name = app.localizedName()
+                    bundle_path = app.bundleURL().path() if app.bundleURL() else ""
+                    
+                    # Match against overrides
+                    key = name.lower()
+                    if key in _NAME_OVERRIDES:
+                        name = _NAME_OVERRIDES[key]
+                        
+                    if name and name not in apps:
+                        apps.add(name)
+                        results.append((name, bundle_path))
+        except Exception as e:
+            logger.debug(f"Failed to get running apps on macOS: {e}")
+        return sorted(results, key=lambda x: x[0].lower())
+
+    # Windows Implementation
     def enum_windows_proc(hwnd, lParam):
         if win32gui.IsWindowVisible(hwnd) and win32gui.GetWindowText(hwnd):
             ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)

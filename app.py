@@ -1631,10 +1631,19 @@ class FocusLogApp(QMainWindow):
                 
                 shell32 = ctypes.windll.shell32
                 result = shell32.SHFileOperationW(ctypes.byref(fileop))
-                return result == 0
+                if result == 0:
+                    return True
             except Exception as e:
-                print(f"[FocusLog] Recycle bin failed: {e}")
-                return False
+                pass
+            
+            # Cross-platform fallback for macOS/Linux
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+                    return True
+            except Exception as e:
+                print(f"[FocusLog] Cross-platform deletion failed: {e}")
+            return False
          
         sessions_scroll = QScrollArea()
         sessions_scroll.setWidgetResizable(True)
