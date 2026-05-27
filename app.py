@@ -2676,7 +2676,7 @@ class FocusLogApp(QMainWindow):
                         _qr_paths_local.remove(fname)
                     _refresh_qr_thumbnails()
                 
-                remove_qr_btn.clicked.connect(_remove_qr)
+                remove_qr_btn.clicked.connect(lambda checked, fname=qr_filename: _remove_qr(fname))
                 
                 qr_thumbs_layout.addWidget(thumb_frame)
                 _qr_thumb_refs.append(thumb_frame)
