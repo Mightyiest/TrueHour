@@ -1048,9 +1048,11 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     items_html = ""
     for pb in billing_data.get("project_breakdown", []):
         cat_hours = pb["seconds"] / 3600.0
+        tag_color = pb.get("color", "#64748B")
+        pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" else ""
         items_html += f"""
                 <tr>
-                    <td style="font-weight: 600;">{pb["project"]}</td>
+                    <td style="font-weight: 600;"><span class="tag-pill" style="{pill_style}">{pb["project"]}</span></td>
                     <td>{pb["formatted"]}</td>
                     <td>{cat_hours:.2f}</td>
                     <td>{curr_sym}{hourly_rate:.2f}/hr</td>
