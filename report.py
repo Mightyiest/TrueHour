@@ -686,9 +686,9 @@ def merge_sessions_for_invoice(filepaths: List[str], tracker, hourly_rate: float
             name = app["name"]
             secs = app.get("seconds", 0)
             
-            # Real-time overrides from active tracker
+            # Use the saved session's own exclusion status to compile exactly the productive/counted work time
             tag = tracker.get_app_tag(name)
-            included = tracker.get_included(name)
+            included = not app.get("excluded", False)
             
             if included:
                 counted_seconds += secs
