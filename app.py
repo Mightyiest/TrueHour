@@ -32,9 +32,9 @@ from report import (
     save_to_autosave, save_to_history, load_session_json,
     aggregate_history_data, generate_session_report_html,
 )
-from version import VERSION_SHORT, VERSION_FULL
+from version import VERSION_SHORT, VERSION_FULL, INFO
 from dashboard_widgets import DonutChartWidget, BarChartWidget
-from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG
+from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG
 
 # Configure logging for the app module
 logger = logging.getLogger(__name__)
@@ -2500,6 +2500,12 @@ class FocusLogApp(QMainWindow):
         btn_categories.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_categories.clicked.connect(self._show_categories_dialog)
         config_layout.addWidget(btn_categories)
+
+        btn_about = QPushButton("About FocusLog", scroll_general_content)
+        btn_about.setObjectName("NormalButton")
+        btn_about.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_about.clicked.connect(self._show_about_dialog)
+        config_layout.addWidget(btn_about)
         
         tg_layout.addWidget(config_box)
         tg_layout.addStretch()
@@ -2852,6 +2858,135 @@ class FocusLogApp(QMainWindow):
         
 
 
+
+    def _show_about_dialog(self):
+        import webbrowser
+        dialog = QDialog(self)
+        dialog.setWindowTitle("About FocusLog")
+        self._center_window(dialog, 360, 310)
+        dialog.setModal(True)
+        
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+        
+        # Title & Icon/Label
+        title = QLabel("FocusLog", dialog)
+        title.setStyleSheet("font-family: 'Segoe UI'; font-size: 22px; font-weight: bold; color: #0F172A;")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+        
+        # Subtitle or description
+        desc = QLabel("Automated Time Tracker & Productivity Assistant", dialog)
+        desc.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B; font-weight: 500;")
+        desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(desc)
+        
+        # Divider line
+        divider = QFrame(dialog)
+        divider.setFrameShape(QFrame.Shape.HLine)
+        divider.setFrameShadow(QFrame.Shadow.Sunken)
+        divider.setStyleSheet("background-color: #E2E8F0; min-height: 1px; max-height: 1px; border: none;")
+        layout.addWidget(divider)
+        
+        # Version & Build details
+        details_layout = QVBoxLayout()
+        details_layout.setSpacing(4)
+        
+        ver_lbl = QLabel(f"Version: {INFO.version}", dialog)
+        ver_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; color: #0F172A;")
+        ver_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        details_layout.addWidget(ver_lbl)
+        
+        build_lbl = QLabel(f"Build: {INFO.build_number} ({INFO.build_date})", dialog)
+        build_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; color: #64748B;")
+        build_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        details_layout.addWidget(build_lbl)
+        
+        layout.addLayout(details_layout)
+        
+        # GitHub SVG button & Legal Row
+        links_row = QHBoxLayout()
+        links_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        links_row.setSpacing(12)
+        
+        def get_svg_icon(svg_content, size=QSize(20, 20)):
+            pixmap = QPixmap(size)
+            pixmap.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            try:
+                from PyQt6.QtSvg import QSvgRenderer
+                from PyQt6.QtCore import QByteArray
+                renderer = QSvgRenderer(QByteArray(svg_content))
+                renderer.render(painter, QRectF(pixmap.rect()))
+            except Exception:
+                painter.setPen(QPen(QColor("#0078D4"), 2))
+                painter.drawEllipse(2, 2, 16, 16)
+            painter.end()
+            return QIcon(pixmap)
+            
+        github_btn = QPushButton(dialog)
+        github_btn.setIcon(get_svg_icon(GITHUB_SVG, QSize(20, 20)))
+        github_btn.setIconSize(QSize(20, 20))
+        github_btn.setToolTip("Visit FocusLog on GitHub")
+        github_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        github_btn.setFixedSize(32, 32)
+        github_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #F8FAFC;
+                border: 1px solid #E2E8F0;
+                border-radius: 16px;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #F1F5F9;
+                border-color: #CBD5E1;
+            }
+        """)
+        github_btn.clicked.connect(lambda: webbrowser.open("https://mightyiest.github.io/FocusLog/"))
+        links_row.addWidget(github_btn)
+        
+        legal_btn = QPushButton("Terms && Notices", dialog)
+        legal_btn.setObjectName("NormalButton")
+        legal_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        legal_btn.setFixedHeight(32)
+        legal_btn.setStyleSheet("""
+            QPushButton {
+                padding: 0px 14px;
+                font-size: 11px;
+                font-weight: 600;
+                border-radius: 16px;
+            }
+        """)
+        
+        def open_legal():
+            legal_path = os.path.join(ICON_DIR, "templates", "about_legal.html")
+            webbrowser.open(f"file:///{legal_path.replace('\\', '/')}")
+            
+        legal_btn.clicked.connect(open_legal)
+        links_row.addWidget(legal_btn)
+        
+        layout.addLayout(links_row)
+        
+        # Spacer
+        layout.addSpacing(6)
+        
+        # Close Button
+        close_btn = QPushButton("Close", dialog)
+        close_btn.setObjectName("AccentButton")
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        close_btn.setFixedHeight(32)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                border-radius: 16px;
+                font-size: 12px;
+            }
+        """)
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+        
+        dialog.exec()
 
     def _show_categories_dialog(self):
         dialog = QDialog(self)
