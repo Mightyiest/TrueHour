@@ -1,23 +1,24 @@
-Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)
+PolyForm Noncommercial License 1.0.0
 
-This is a human-readable summary of (and not a substitute for) the license.
-Disclaimer: https://creativecommons.org/licenses/by-nc/4.0/#
+Acceptance
+By using the software, you agree to its terms. If you do not agree, you do not have permission to use the software.
 
-You are free to:
-Share — copy and redistribute the material in any medium or format
-Adapt — remix, transform, and build upon the material
-The licensor cannot revoke these freedoms as long as you follow the license terms.
+Copyright License
+The licensor grants you a royalty-free, perpetual, worldwide, non-exclusive, sublicensable license to do everything with the software that would otherwise infringe the licensor's copyright in it, except for commercial use.
 
-Under the following terms:
-Attribution — You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+Commercial Use Restriction
+You may not make any commercial use of the software. Commercial use is any use of the software by a business or for business purposes, or as part of a commercial service, or in any way that is intended for or directed toward commercial advantage or monetary compensation.
 
-NonCommercial — You may not use the material for commercial purposes.
+Custom Commercial Permission
+If you wish to use this software for commercial purposes, sell it, or distribute it commercially, you must contact the licensor to obtain written permission or a custom commercial license. You may contact the licensor at the official FocusLog website or repository:
+https://mightyiest.github.io/FocusLog/
+https://github.com/mightyiest/FocusLog
 
-No additional restrictions — You may not apply legal terms or technological measures that legally restrict others from doing anything the license permits.
+Defensive Patent License
+The licensor grants you a patent license under their patents to do everything with the software that would otherwise infringe their patents, under the same terms as the copyright license. This patent license terminates if you bring a patent lawsuit against the licensor or anyone else for patent infringement related to the software.
 
-Notices:
-You do not have to comply with the license for elements of the material in the public domain or where your use is permitted by an applicable exception or limitation.
-No warranties are given. The license may not give you all of the permissions necessary for your intended use. For example, other rights such as publicity, privacy, or moral rights may limit how you use the material.
+Notices
+You must ensure that any copy of the software you distribute includes this license or a link to it, and all copyright and other proprietary notices.
 
-Full license text can be found at: 
-https://creativecommons.org/licenses/by-nc/4.0/legalcode
+No Warranty
+The software is provided as-is, without warranty of any kind, express or implied. The licensor is not liable for any damages or other liability related to the software.
