@@ -4,7 +4,7 @@
 
 FocusLog automatically monitors your active window to track productivity, calculate earnings based on hourly rates, and generate detailed session reports. It features crash recovery, auto-exclusion of system apps, customizable external HTML templates, offline app icon extraction, and flexible export options (CSV, JSON, TXT, HTML).
 
-![License](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey.svg)
+![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-0078D4.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078D4?logo=windows)
 ![Python](https://img.shields.io/badge/python-3.8+-3776AB?logo=python)
 
@@ -235,15 +235,14 @@ A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!
 
 ## 📄 License
 
-This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License**.
+This project is licensed under the **PolyForm Noncommercial License 1.0.0**.
 
 You are free to:
-*   **Share** — copy and redistribute the material in any medium or format.
-*   **Adapt** — remix, transform, and build upon the material.
+*   **Use, modify, and distribute** the software for personal, research, academic, or other private non-commercial requirements.
 
 Under the following terms:
-*   **Attribution** — You must give appropriate credit, provide a link to the license, and indicate if changes were made.
-*   **NonCommercial** — You may not use the material for commercial purposes.
+*   **NonCommercial** — You may not make any commercial use of the software. Commercial use is any use of the software by a business or for business purposes, or as part of a commercial service, or in any way that is intended for or directed toward commercial advantage or monetary compensation.
+*   **Commercial Permission** — Custom commercial licensing or custom permission is available for businesses, sales, or partnerships by contacting the licensor.
 
 See the [LICENSE](LICENSE.md) file for the full legal text.
 
