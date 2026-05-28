@@ -871,6 +871,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     # Load and encode payment QR codes
     qr_html = ""
     qr_code_paths = settings_data.get("qr_code_paths", [])
+    qr_code_links = settings_data.get("qr_code_links", {})
     if qr_code_paths:
         from config import get_app_data_dir
         qr_dir = os.path.join(get_app_data_dir(), "qr_codes")
@@ -884,18 +885,34 @@ def generate_invoice_html(billing_data, settings_data) -> str:
                         with open(qr_full_path, "rb") as f:
                             encoded_qr = base64.b64encode(f.read()).decode("utf-8")
                         qr_data_uri = f"data:image/{ext};base64,{encoded_qr}"
+                        
+                        link_url = qr_code_links.get(qr_fname, "")
+                        if link_url:
+                            img_html = f"""
+                                <a href="{_esc(link_url)}" target="_blank" style="cursor: pointer; display: block; text-decoration: none; text-align: center;">
+                                    <img src="{qr_data_uri}" class="qr-code-image" alt="Payment QR Code" />
+                                    <div style="font-size: 10px; color: var(--accent); margin-top: 6px; font-weight: 700; font-family: 'Inter', sans-serif;">🔗 Click to Pay</div>
+                                </a>
+                            """
+                        else:
+                            img_html = f'<img src="{qr_data_uri}" class="qr-code-image" alt="Payment QR Code" />'
+                            
                         qr_items.append(f"""
                             <div class="qr-code-item">
-                                <img src="{qr_data_uri}" class="qr-code-image" alt="Payment QR Code" />
+                                {img_html}
                             </div>
                         """)
                 except Exception as ex:
                     print(f"[FocusLog] Error base64 encoding QR code {qr_fname}: {ex}")
         if qr_items:
+            has_any_link = any(qr_code_links.get(fn, "") for fn in qr_code_paths)
+            hint_html = ""
+            if has_any_link:
+                hint_html = '\n            <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px; font-weight: 500; font-family: \'Inter\', sans-serif;">💡 Click on a QR code to open its payment link.</div>'
             qr_html = f"""
             <div class="qr-codes-container">
                 {"".join(qr_items)}
-            </div>
+            </div>{hint_html}
             """
 
     # Self-healing logic: find templates/invoice.html or auto-create it
