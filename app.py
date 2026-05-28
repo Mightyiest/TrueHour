@@ -34,7 +34,7 @@ from report import (
 )
 from version import VERSION_SHORT, VERSION_FULL, INFO
 from dashboard_widgets import DonutChartWidget, BarChartWidget
-from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG
+from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG, EDIT_SVG
 
 # Configure logging for the app module
 logger = logging.getLogger(__name__)
@@ -180,8 +180,141 @@ def ensure_checkmark_icon():
                 logger.debug(f"Fallback checkmark writing failed: {e2}")
     return checkmark_path
 
+def get_svg_icon(svg_content, size=QSize(20, 20)):
+    pixmap = QPixmap(size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    try:
+        from PyQt6.QtSvg import QSvgRenderer
+        from PyQt6.QtCore import QByteArray
+        renderer = QSvgRenderer(QByteArray(svg_content))
+        renderer.render(painter, QRectF(pixmap.rect()))
+    except Exception:
+        painter.setPen(QPen(QColor("#0078D4"), 2))
+        painter.drawEllipse(2, 2, 16, 16)
+    painter.end()
+    return QIcon(pixmap)
+
+# ── QR Code Thumbnail Widget with Hover Edit ──────────────────────────
+class QRThumbnailWidget(QFrame):
+    """Custom QFrame for QR code thumbnail displaying with hover and edit/delete overlay."""
+    def __init__(self, qr_filename, qr_full_path, initial_url, on_remove, on_link_changed, parent=None):
+        super().__init__(parent)
+        self.qr_filename = qr_filename
+        self.qr_full_path = qr_full_path
+        self.link_url = initial_url
+        self.on_remove = on_remove
+        self.on_link_changed = on_link_changed
+        
+        self.setFixedSize(72, 72)
+        self.setStyleSheet("""
+            QRThumbnailWidget {
+                background-color: #F8FAFC;
+                border: 1px solid #E2E8F0;
+                border-radius: 8px;
+            }
+            QRThumbnailWidget:hover {
+                border-color: #0078D4;
+            }
+        """)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(0)
+        
+        # QR image thumbnail
+        pix = QPixmap(qr_full_path)
+        self.thumb_lbl = QLabel(self)
+        if not pix.isNull():
+            pix = pix.scaled(56, 56, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            self.thumb_lbl.setPixmap(pix)
+        else:
+            self.thumb_lbl.setText("⚠")
+        self.thumb_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.thumb_lbl.setStyleSheet("border: none; background: transparent;")
+        layout.addWidget(self.thumb_lbl)
+        
+        # Overlay remove button
+        self.remove_btn = QPushButton("✕", self)
+        self.remove_btn.setFixedSize(18, 18)
+        self.remove_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.remove_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(239, 68, 68, 0.85);
+                color: white;
+                border: none;
+                border-radius: 9px;
+                font-size: 10px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #DC2626;
+            }
+        """)
+        self.remove_btn.move(54, 0)
+        self.remove_btn.clicked.connect(self.on_remove)
+        
+        # Overlay edit button (pencil icon in the middle)
+        self.edit_btn = QPushButton(self)
+        self.edit_btn.setFixedSize(24, 24)
+        self.edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        # SVG icon
+        self.edit_btn.setIcon(get_svg_icon(EDIT_SVG, QSize(16, 16)))
+        self.edit_btn.setIconSize(QSize(16, 16))
+        self.edit_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(255, 255, 255, 0.95);
+                border: 1px solid #CBD5E1;
+                border-radius: 12px;
+                padding: 3px;
+            }
+            QPushButton:hover {
+                background-color: #FFFFFF;
+                border-color: #0078D4;
+            }
+        """)
+        # Center in the 72x72 frame: (72 - 24) / 2 = 24
+        self.edit_btn.move(24, 24)
+        self.edit_btn.setVisible(False)
+        self.edit_btn.setToolTip("Add/Edit QR Code Link")
+        self.edit_btn.clicked.connect(self._edit_link)
+        
+        # Overlay for URL status indicator
+        self.link_indicator = QLabel(self)
+        self.link_indicator.setFixedSize(10, 10)
+        self.link_indicator.setStyleSheet("background-color: #0F7B0F; border-radius: 5px; border: 1px solid white;")
+        self.link_indicator.move(4, 4)
+        self.link_indicator.setVisible(bool(self.link_url))
+        self.link_indicator.setToolTip(f"Link: {self.link_url}" if self.link_url else "")
+
+    def _edit_link(self):
+        url, ok = QInputDialog.getText(
+            self, 
+            "Edit QR Code Link", 
+            "Enter hyperlink for this QR code (when clicked on invoice):",
+            QLineEdit.EchoMode.Normal,
+            self.link_url
+        )
+        if ok:
+            url = url.strip()
+            self.link_url = url
+            self.link_indicator.setVisible(bool(url))
+            self.link_indicator.setToolTip(f"Link: {url}" if url else "")
+            self.on_link_changed(self.qr_filename, url)
+
+    def enterEvent(self, event):
+        self.edit_btn.setVisible(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.edit_btn.setVisible(False)
+        super().leaveEvent(event)
+
 # ── Email Chip Widget (Gmail-style Token Input) ──────────────────────
 class EmailChipWidget(QWidget):
+
     """A multi-email input widget with Gmail-style chips/tokens."""
 
     def __init__(self, parent=None):
@@ -2055,6 +2188,7 @@ class FocusLogApp(QMainWindow):
                     "hourly_rate": self.hourly_rate,
                     "currency_symbol": self.currency_symbol,
                     "qr_code_paths": self.qr_code_paths,
+                    "qr_code_links": self.qr_code_links,
                     
                     "mask_business_emails": mask_biz_email,
                     "mask_business_phone": mask_biz_phone,
@@ -2228,6 +2362,7 @@ class FocusLogApp(QMainWindow):
         self.client_address = ""
         self.business_logo_path = ""
         self.qr_code_paths = []     # NEW: list of payment QR code filenames
+        self.qr_code_links = {}     # NEW: mapping of QR code filenames to hyperlink URLs
         self.mask_business_emails = False
         self.mask_business_phone = False
         self.mask_client_emails = False
@@ -2269,6 +2404,7 @@ class FocusLogApp(QMainWindow):
                     
                     # QR codes and masking with granular preferences
                     self.qr_code_paths = data.get("qr_code_paths", [])
+                    self.qr_code_links = data.get("qr_code_links", {})
                     legacy_mask = data.get("mask_sensitive_data", False)
                     self.mask_business_emails = data.get("mask_business_emails", legacy_mask)
                     self.mask_business_phone = data.get("mask_business_phone", legacy_mask)
@@ -2300,6 +2436,7 @@ class FocusLogApp(QMainWindow):
                 "client_address": self.client_address,
                 "business_logo_path": self.business_logo_path,
                 "qr_code_paths": self.qr_code_paths,
+                "qr_code_links": self.qr_code_links,
                 "mask_business_emails": self.mask_business_emails,
                 "mask_business_phone": self.mask_business_phone,
                 "mask_client_emails": self.mask_client_emails,
@@ -2619,6 +2756,7 @@ class FocusLogApp(QMainWindow):
         
         # Track QR paths for this dialog session
         _qr_paths_local = list(self.qr_code_paths)
+        _qr_links_local = dict(getattr(self, "qr_code_links", {}))
         _qr_thumb_refs = []  # keep references to thumbnail frames
         
         def _refresh_qr_thumbnails():
@@ -2637,59 +2775,31 @@ class FocusLogApp(QMainWindow):
                 if not os.path.exists(qr_full_path):
                     continue
                     
-                thumb_frame = QFrame(qr_thumbs_widget)
-                thumb_frame.setFixedSize(72, 72)
-                thumb_frame.setStyleSheet("""
-                    QFrame {
-                        background-color: #F8FAFC;
-                        border: 1px solid #E2E8F0;
-                        border-radius: 8px;
-                    }
-                """)
-                thumb_inner = QVBoxLayout(thumb_frame)
-                thumb_inner.setContentsMargins(4, 4, 4, 4)
-                thumb_inner.setSpacing(0)
-                
-                # QR image thumbnail
-                pix = QPixmap(qr_full_path)
-                thumb_lbl = QLabel(thumb_frame)
-                if not pix.isNull():
-                    pix = pix.scaled(56, 56, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                    thumb_lbl.setPixmap(pix)
-                else:
-                    thumb_lbl.setText("⚠")
-                thumb_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                thumb_lbl.setStyleSheet("border: none; background: transparent;")
-                thumb_inner.addWidget(thumb_lbl)
-                
-                # Overlay remove button
-                remove_qr_btn = QPushButton("✕", thumb_frame)
-                remove_qr_btn.setFixedSize(18, 18)
-                remove_qr_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                remove_qr_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: rgba(239, 68, 68, 0.85);
-                        color: white;
-                        border: none;
-                        border-radius: 9px;
-                        font-size: 10px;
-                        font-weight: bold;
-                    }
-                    QPushButton:hover {
-                        background-color: #DC2626;
-                    }
-                """)
-                remove_qr_btn.move(54, 0)
+                initial_url = _qr_links_local.get(qr_filename, "")
                 
                 def _remove_qr(fname=qr_filename):
                     if fname in _qr_paths_local:
                         _qr_paths_local.remove(fname)
+                    _qr_links_local.pop(fname, None)
                     _refresh_qr_thumbnails()
+                    
+                def _link_changed(fname, new_url):
+                    if new_url:
+                        _qr_links_local[fname] = new_url
+                    else:
+                        _qr_links_local.pop(fname, None)
+                        
+                thumb_widget = QRThumbnailWidget(
+                    qr_filename=qr_filename,
+                    qr_full_path=qr_full_path,
+                    initial_url=initial_url,
+                    on_remove=lambda checked=False, fname=qr_filename: _remove_qr(fname),
+                    on_link_changed=_link_changed,
+                    parent=qr_thumbs_widget
+                )
                 
-                remove_qr_btn.clicked.connect(lambda checked, fname=qr_filename: _remove_qr(fname))
-                
-                qr_thumbs_layout.addWidget(thumb_frame)
-                _qr_thumb_refs.append(thumb_frame)
+                qr_thumbs_layout.addWidget(thumb_widget)
+                _qr_thumb_refs.append(thumb_widget)
             
             qr_thumbs_layout.addStretch()
         
@@ -2800,6 +2910,7 @@ class FocusLogApp(QMainWindow):
                 self.client_address = client_address_entry.text().strip()
                 self.business_logo_path = logo_path_entry.text().strip()
                 self.qr_code_paths = list(_qr_paths_local)
+                self.qr_code_links = dict(_qr_links_local)
                 
                 self.mask_business_emails = mask_biz_email_cb.isChecked()
                 self.mask_business_phone = mask_biz_phone_cb.isChecked()
