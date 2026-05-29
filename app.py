@@ -1245,7 +1245,7 @@ class TrueHourApp(QMainWindow):
                 border-color: #CBD5E1;
             }
         """)
-        github_btn.clicked.connect(lambda: webbrowser.open("https://mightyiest.github.io/FocusLog/"))
+        github_btn.clicked.connect(lambda: webbrowser.open("https://mightyiest.github.io/TrueHour/"))
         links_row.addWidget(github_btn)
         
         legal_btn = QPushButton("Terms && Notices", dialog)
