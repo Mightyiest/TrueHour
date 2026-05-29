@@ -1719,9 +1719,9 @@ class TrueHourApp(QMainWindow):
     def _export(self, report, fmt):
         logger.info(f"[Action] Commencing report export to format: '{fmt}'")
         if fmt == "txt": 
-            path, _ = QFileDialog.getSaveFileName(self, "Export TXT", f"focuslog_{report['date']}.txt", "Text files (*.txt)")
+            path, _ = QFileDialog.getSaveFileName(self, "Export TXT", f"truehour_{report['date']}.txt", "Text files (*.txt)")
         else: 
-            path, _ = QFileDialog.getSaveFileName(self, "Export HTML", f"focuslog_{report['date']}.html", "HTML Files (*.html)")
+            path, _ = QFileDialog.getSaveFileName(self, "Export HTML", f"truehour_{report['date']}.html", "HTML Files (*.html)")
             
         if not path: 
             return
