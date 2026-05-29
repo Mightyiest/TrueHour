@@ -1127,7 +1127,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     templates_dir = os.path.join(base_dir, "templates")
     template_path = os.path.join(templates_dir, "report_template.html")
 
-    # Define default template fallback
+    # Define default template fallback (without Timeline section)
     default_template = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1200,13 +1200,6 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         tr:hover td { background-color: var(--bg-body); }
         .tag-pill { display: inline-block; padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; background-color: var(--bg-body); color: var(--text-muted); }
         .app-icon { width: 20px; height: 20px; border-radius: 4px; vertical-align: middle; margin-right: 8px; }
-
-        /* Timeline Section */
-        .timeline-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
-        .timeline-item { display: flex; align-items: center; background: var(--bg-body); border-radius: 8px; padding: 10px 14px; border-left: 3px solid var(--accent); }
-        .timeline-time { font-size: 11px; font-weight: 700; color: var(--text-muted); min-width: 220px; white-space: nowrap; }
-        .timeline-app { font-size: 12px; font-weight: 600; color: var(--primary); flex-grow: 1; }
-        .timeline-duration { font-size: 11px; font-weight: 600; color: var(--text-muted); text-align: right; white-space: nowrap; }
 
         /* Footer copy */
         .report-footer { text-align: center; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 25px; margin-top: 40px; font-weight: 500; }
