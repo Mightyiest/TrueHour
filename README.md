@@ -253,3 +253,13 @@ See the [LICENSE](LICENSE.md) file for the full legal text.
 *   Icon extraction powered by **pywin32** and **Pillow**.
 *   Process monitoring via **psutil**.
 *   Vectors and icons by <a href="https://dribbble.com/saeedworks?ref=svgrepo.com" target="_blank">Saeedworks</a> in CC Attribution License via <a href="https://www.svgrepo.com/" target="_blank">SVG Repo</a>. We thank him very much for his amazing work!
+
+### Special Thanks
+
+We would like to express our heartfelt gratitude to the following AI assistants and teams who contributed to this project:
+
+*   **Alibaba QWEN Coder Agentic** - For exceptional coding assistance and guidance.
+*   **Google Antigravity Team** - For their innovative support and insights.
+*   **Claude AI** - For valuable contributions and problem-solving expertise.
+
+Thank you all for making True Hours possible! ❤️

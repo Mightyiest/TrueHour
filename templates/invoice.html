@@ -70,8 +70,13 @@
             .qr-codes-container { margin-top: 8px; gap: 10px; }
             .qr-code-image { width: 100px; height: 100px; }
             .invoice-logo { max-height: 50px; margin-bottom: 6px; }
+            .invoice-footer { display: block; margin-top: 20px; padding: 15px; border-top: 1px solid var(--border); }
+            .footer-link { color: var(--accent); text-decoration: underline; font-size: 11px; font-weight: 600; }
             .invoice-header-row, .billed-to-container, .dashboard-grid, table, .payment-box { page-break-inside: avoid; break-inside: avoid; }
         }
+        .invoice-footer { margin-top: 40px; text-align: center; padding: 20px; border-top: 1px solid var(--border); }
+        .footer-link { display: inline-flex; align-items: center; gap: 8px; color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.2s ease; padding: 8px 16px; border-radius: 8px; background-color: var(--bg-body); }
+        .footer-link:hover { background-color: var(--accent); color: white; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); }
     </style>
 </head>
 <body>
