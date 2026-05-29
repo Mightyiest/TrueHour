@@ -343,9 +343,8 @@ def _is_auto_excluded(exe_path):
     """Return True if this exe should be completely ignored by the tracker."""
     if exe_path:
         exe_name = os.path.basename(exe_path).lower()
-        with _AUTO_EXCLUDED_LOCK:
-            if exe_name in _AUTO_EXCLUDED_EXES:
-                return True
+        # Fast path: check set membership without lock (set lookups are thread-safe for reads)
+        return exe_name in _AUTO_EXCLUDED_EXES
     return False
 
 
@@ -983,6 +982,10 @@ class AppTracker:
             return self.app_included.get(app_name, True)
 
     def get_app_times_sorted(self):
+        # Fast path: avoid lock if no apps tracked yet
+        if not self.app_times:
+            return []
+        
         with self._lock:
             return [
                 (name, secs, self.app_included.get(name, True))
@@ -996,10 +999,16 @@ class AppTracker:
             ]
 
     def get_counted_seconds(self):
+        # Fast path: avoid lock if no apps tracked yet
+        if not self.app_times:
+            return 0
         with self._lock:
             return sum(s for a, s in self.app_times.items() if self.app_included.get(a, True))
 
     def get_total_seconds(self):
+        # Fast path: avoid lock if no apps tracked yet
+        if not self.app_times:
+            return 0
         with self._lock:
             return sum(self.app_times.values())
 
@@ -1015,14 +1024,15 @@ class AppTracker:
         return max(0, elapsed - paused_time)
 
     def get_current_app(self):
-        with self._lock:
-            if self.paused:
+        # Fast path for common case (not paused)
+        if self.paused:
+            with self._lock:
                 return "Paused"
-            return self._current_app or ""
+        return self._current_app or ""
 
     def get_exe_path(self, app_name):
-        with self._lock:
-            return self.app_exe_paths.get(app_name, "")
+        # Thread-safe read without explicit lock (dict get is atomic in CPython)
+        return self.app_exe_paths.get(app_name, "")
 
     def get_app_tag(self, app_name: str) -> str:
         exe_path = self.get_exe_path(app_name)
