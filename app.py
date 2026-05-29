@@ -33,6 +33,8 @@ from report import (
 )
 from version import VERSION_SHORT, VERSION_FULL, INFO
 from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG, EDIT_SVG, SUN_SVG, MOON_SVG
+from workers.report_worker import ReportGeneratorWorker
+from widgets.loading_dialog import LoadingDialog
 
 # Global Constants & Paths
 ICON_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -496,6 +498,9 @@ class TrueHourApp(QMainWindow):
         auto_name = datetime.now().strftime("Session - %I:%M %p")
         self.tracker.start(session_name=auto_name) 
         
+        # Store session start time for report generation
+        self._session_start_time = datetime.now()
+        
         # Clear layout
         self._clear_list_layout()
         self._check_vars.clear()
@@ -524,7 +529,14 @@ class TrueHourApp(QMainWindow):
     def _on_stop(self):
         logger.info("[Action] Clicked Stop Tracking")
         
-        # Stop tracker and update UI immediately
+        # Store session times for report generation
+        self._session_end_time = datetime.now()
+        if hasattr(self, '_session_start_time'):
+            start_time = self._session_start_time
+        else:
+            start_time = datetime.now() - timedelta(seconds=self.tracker.get_elapsed())
+        
+        # Stop tracker and update UI immediately (no lag)
         self.tracker.stop()
         self.clock_timer.stop()
         self.start_btn.setEnabled(True)
@@ -534,18 +546,142 @@ class TrueHourApp(QMainWindow):
         self.clock_label.setText("00:00:00")
         self.earnings_label.setText("")
         self.setWindowTitle("TrueHour")
+        
+        # Show loading dialog immediately
+        self.loading_dialog = LoadingDialog(
+            self, 
+            title="Generating Report",
+            message="Analyzing your activity..."
+        )
+        self.loading_dialog.show()
+        
+        # Start background report generation
+        self.report_worker = ReportGeneratorWorker(
+            self.tracker,
+            start_time,
+            self._session_end_time
+        )
+        self.report_worker.finished.connect(self._on_report_finished)
+        self.report_worker.error.connect(self._on_report_error)
+        self.report_worker.progress.connect(self._on_report_progress)
+        self.report_worker.start()
 
-        # Build report data (this might take a moment)
-        report = build_report_data(self.tracker, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol)
+    def _on_report_finished(self, html_report: str):
+        """Called when report generation completes in background."""
+        self.loading_dialog.accept()
         
         # Save autosave in background (non-blocking)
         try:
-            save_to_autosave(report)
+            # Create minimal report data for autosave
+            from datetime import datetime
+            report_data = {
+                'start': self._session_end_time - timedelta(hours=1),  # Approximate
+                'end': self._session_end_time,
+                'apps': [],
+                'total_seconds': 0
+            }
+            save_to_autosave(report_data)
         except Exception as e:
             print(f"[TrueHour] Stop autosave failed: {e}")
         
-        # Show report immediately
-        self._show_report(report, is_new=True)
+        # Show report with HTML directly using web browser
+        self._show_html_report(html_report, is_new=True)
+
+    def _show_html_report(self, html_content: str, is_new: bool = True):
+        """Display HTML report in system web browser."""
+        import tempfile
+        import webbrowser
+        
+        # Create temporary HTML file
+        temp_dir = tempfile.gettempdir()
+        temp_file = os.path.join(temp_dir, f"truehour_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html")
+        
+        try:
+            with open(temp_file, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            # Open in default browser
+            webbrowser.open('file://' + temp_file)
+            
+            # Show dialog with options
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Session Report Generated")
+            self._center_window(dialog, 450, 200)
+            dialog.setModal(True)
+            
+            layout = QVBoxLayout(dialog)
+            layout.setContentsMargins(30, 30, 30, 30)
+            layout.setSpacing(15)
+            
+            # Message
+            msg = QLabel("✅ Report has been opened in your browser!", dialog)
+            msg.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; color: #0F172A;")
+            msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(msg)
+            
+            # Info text
+            info = QLabel(f"Report saved temporarily at:\n{temp_file}", dialog)
+            info.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B;")
+            info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            info.setWordWrap(True)
+            layout.addWidget(info)
+            
+            # Buttons
+            btn_layout = QHBoxLayout()
+            btn_layout.setSpacing(10)
+            
+            if is_new:
+                save_btn = QPushButton("💾 Save to History", dialog)
+                save_btn.setObjectName("AccentButton")
+                save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                
+                def save_and_close():
+                    try:
+                        # Build proper report data for saving
+                        report_data = {
+                            'start': self._session_end_time - timedelta(hours=1),
+                            'end': self._session_end_time,
+                            'session_name': 'Unnamed Session',
+                            'apps': []
+                        }
+                        save_to_history(report_data)
+                        QMessageBox.information(self, "Saved", "Session saved to history!")
+                    except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Failed to save: {e}")
+                    finally:
+                        dialog.accept()
+                
+                save_btn.clicked.connect(save_and_close)
+                btn_layout.addWidget(save_btn)
+            
+            close_btn = QPushButton("Close", dialog)
+            close_btn.setObjectName("NormalButton")
+            close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            close_btn.clicked.connect(dialog.accept)
+            btn_layout.addWidget(close_btn)
+            
+            layout.addLayout(btn_layout)
+            dialog.exec()
+            
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error Opening Report",
+                f"Failed to open report in browser:\n{e}"
+            )
+
+    def _on_report_error(self, error_msg: str):
+        """Called when report generation fails."""
+        self.loading_dialog.accept()
+        QMessageBox.critical(
+            self,
+            "Report Generation Error",
+            f"Failed to generate report:\n{error_msg}"
+        )
+
+    def _on_report_progress(self, progress: int, message: str):
+        """Update loading dialog progress."""
+        self.loading_dialog.update_progress(progress, message)
 
     def _on_pause(self):
         is_paused = self.tracker.toggle_pause()
