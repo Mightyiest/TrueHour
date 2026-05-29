@@ -1,14 +1,28 @@
 import os
 import sys
 import subprocess
+import shutil
 from pathlib import Path
 
-def get_app_data_dir() -> str:
+def get_app_data_dir(migrate=False) -> str:
     base_env = os.environ.get("LOCALAPPDATA")
     base = Path(base_env) if base_env else Path.home()
-    path = base / "FocusLog"
-    path.mkdir(parents=True, exist_ok=True)
-    return str(path)
+    
+    # New TrueHour folder
+    new_path = base / "TrueHour"
+    old_path = base / "FocusLog"
+    
+    # Create new directory
+    new_path.mkdir(parents=True, exist_ok=True)
+    
+    # Optional: Migrate old files on first run
+    if migrate and old_path.exists():
+        for file in old_path.glob("*"):
+            dest = new_path / file.name
+            if not dest.exists():
+                shutil.copy2(file, dest)
+    
+    return str(new_path)
 
 def open_file(path: str) -> None:
     """Open a file or folder using the default system handler in a cross-platform manner."""
@@ -61,7 +75,7 @@ def send_to_trash(path: str) -> bool:
             if result == 0:
                 return True
         except Exception as e:
-            print(f"[FocusLog] Windows Recycle Bin failed: {e}")
+            print(f"[TrueHour] Windows Recycle Bin failed: {e}")
             
     elif sys.platform == "darwin":
         try:
@@ -71,7 +85,7 @@ def send_to_trash(path: str) -> bool:
             subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return True
         except Exception as e:
-            print(f"[FocusLog] macOS Trash failed: {e}")
+            print(f"[TrueHour] macOS Trash failed: {e}")
             
     # Cross-platform fallback (permanent deletion)
     try:
@@ -79,6 +93,6 @@ def send_to_trash(path: str) -> bool:
             os.remove(path)
             return True
     except Exception as e:
-        print(f"[FocusLog] Permanent deletion fallback failed: {e}")
+        print(f"[TrueHour] Permanent deletion fallback failed: {e}")
     return False
 

@@ -1,5 +1,5 @@
 """
-FocusLog — Main Application UI (PyQt6).
+TrueHour — Main Application UI (PyQt6).
 Lightweight Windows desktop time tracker with a clean Windows 11-style light theme.
 """
 import sys
@@ -173,7 +173,7 @@ class HeaderBar(QFrame):
 # QSS_STYLE moved to theme.py
 
 # ── Main Application Window ──────────────────────────────────────────
-class FocusLogApp(QMainWindow):
+class TrueHourApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.tracker = AppTracker(poll_interval=1.0, min_track_seconds=2)
@@ -193,7 +193,7 @@ class FocusLogApp(QMainWindow):
         self.signals.update_signal.connect(self._schedule_refresh)
         self.signals.icon_loaded_signal.connect(self._update_icon_for_app)
 
-        self.setWindowTitle("FocusLog")
+        self.setWindowTitle("TrueHour")
         self._center_window(self, 440, 520)
         self.setMinimumSize(440, 500)
         
@@ -477,7 +477,7 @@ class FocusLogApp(QMainWindow):
 
     def closeEvent(self, event):
         if self.confirm_on_close:
-            msg = "A tracking session is active.\nAre you sure you want to stop tracking and exit?" if self.tracker.running else "Are you sure you want to close FocusLog?"
+            msg = "A tracking session is active.\nAre you sure you want to stop tracking and exit?" if self.tracker.running else "Are you sure you want to close TrueHour?"
             reply = QMessageBox.question(self, "Confirm Exit", msg, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply != QMessageBox.StandardButton.Yes:
                 event.ignore()
@@ -488,7 +488,7 @@ class FocusLogApp(QMainWindow):
                 report = build_report_data(self.tracker, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol)
                 save_to_autosave(report)
             except Exception as e:
-                print(f"[FocusLog] Closing autosave failed: {e}")
+                print(f"[TrueHour] Closing autosave failed: {e}")
         
         # Clean up async icon loading resources
         self._icon_cache.clear()
@@ -543,13 +543,13 @@ class FocusLogApp(QMainWindow):
         self.active_label.setText("Session ended")
         self.clock_label.setText("00:00:00")
         self.earnings_label.setText("")
-        self.setWindowTitle("FocusLog")
+        self.setWindowTitle("TrueHour")
 
         report = build_report_data(self.tracker, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol)
         try:
             save_to_autosave(report)
         except Exception as e:
-            print(f"[FocusLog] Stop autosave failed: {e}")
+            print(f"[TrueHour] Stop autosave failed: {e}")
         self._show_report(report, is_new=True)
 
     def _on_pause(self):
@@ -602,7 +602,7 @@ class FocusLogApp(QMainWindow):
             self.active_label.setStyleSheet("color: #CA5010; font-size: 10px;")
             
         name = getattr(self.tracker, "session_name", "")
-        self.setWindowTitle(f"FocusLog | {name}" if name else "FocusLog")
+        self.setWindowTitle(f"TrueHour | {name}" if name else "TrueHour")
 
     def _schedule_refresh(self):
         # The background thread emits `update_signal`, which wakes this up in the main GUI thread!
@@ -921,7 +921,7 @@ class FocusLogApp(QMainWindow):
         reply = QMessageBox.question(
             self,
             "Recover Session?",
-            "FocusLog detected an interrupted tracking session. Would you like to recover it?",
+            "TrueHour detected an interrupted tracking session. Would you like to recover it?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes
         )
@@ -1031,7 +1031,7 @@ class FocusLogApp(QMainWindow):
                     self.mask_sensitive_data = legacy_mask
                     self.developer_mode = data.get("developer_mode", False)
             except Exception as e:
-                print(f"[FocusLog] Failed to load app settings: {e}")
+                print(f"[TrueHour] Failed to load app settings: {e}")
 
     def _save_app_settings(self):
         try:
@@ -1066,7 +1066,7 @@ class FocusLogApp(QMainWindow):
             with open(APP_SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
         except Exception as e:
-            print(f"[FocusLog] Failed to save app settings: {e}")
+            print(f"[TrueHour] Failed to save app settings: {e}")
 
     def _show_settings(self):
         logger.info("[Action] Opened Settings")
@@ -1163,7 +1163,7 @@ class FocusLogApp(QMainWindow):
     def _show_about_dialog(self):
         import webbrowser
         dialog = QDialog(self)
-        dialog.setWindowTitle("About FocusLog")
+        dialog.setWindowTitle("About TrueHour")
         self._center_window(dialog, 360, 310)
         dialog.setModal(True)
         
@@ -1172,7 +1172,7 @@ class FocusLogApp(QMainWindow):
         layout.setSpacing(12)
         
         # Title & Icon/Label
-        title = QLabel("FocusLog", dialog)
+        title = QLabel("TrueHour", dialog)
         title.setStyleSheet("font-family: 'Segoe UI'; font-size: 22px; font-weight: bold; color: #0F172A;")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
@@ -1230,7 +1230,7 @@ class FocusLogApp(QMainWindow):
         github_btn = QPushButton(dialog)
         github_btn.setIcon(get_svg_icon(GITHUB_SVG, QSize(20, 20)))
         github_btn.setIconSize(QSize(20, 20))
-        github_btn.setToolTip("Visit FocusLog on GitHub")
+        github_btn.setToolTip("Visit TrueHour on GitHub")
         github_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         github_btn.setFixedSize(32, 32)
         github_btn.setStyleSheet("""
@@ -1386,7 +1386,7 @@ class FocusLogApp(QMainWindow):
     def _show_report(self, report, is_new=True, is_live=False):
         logger.info(f"[Action] Displaying session report (is_new={is_new}, is_live={is_live})")
         dialog = QDialog(self)
-        dialog.setWindowTitle("FocusLog — Live Report" if is_live else "FocusLog — Session Report")
+        dialog.setWindowTitle("TrueHour — Live Report" if is_live else "TrueHour — Session Report")
         self._center_window(dialog, 720, 680)
         dialog.setMinimumSize(600, 500)
         
@@ -1765,7 +1765,7 @@ class FocusLogApp(QMainWindow):
             QMessageBox.critical(self, "Error", "Could not load any sessions.")
             return
             
-        default_name = f"FocusLog_Export_{datetime.now().strftime('%Y-%m-%d')}.csv"
+        default_name = f"TrueHour_Export_{datetime.now().strftime('%Y-%m-%d')}.csv"
         filepath, _ = QFileDialog.getSaveFileName(self, "Export History CSV", default_name, "CSV files (*.csv);;All files (*.*)")
         if not filepath: 
             return
@@ -1775,14 +1775,14 @@ class FocusLogApp(QMainWindow):
             QMessageBox.critical(self, "Error", "Failed to export CSV.")
 
     def _show_dashboard(self):
-        from dialogs.dashboard_dialog import FocusLogDashboard
-        dialog = FocusLogDashboard(self)
+        from dialogs.dashboard_dialog import TrueHourDashboard
+        dialog = TrueHourDashboard(self)
         dialog.exec()
 
     def run(self):
         self.show()
 
-# FocusLogDashboard removed - now imported from dialogs.dashboard_dialog
+# TrueHourDashboard removed - now imported from dialogs.dashboard_dialog
 
 
 
@@ -1813,14 +1813,14 @@ if __name__ == "__main__":
     
     # Single instance lock using QLockFile to prevent multiple running instances
     from PyQt6.QtCore import QLockFile
-    lock_file_path = os.path.join(get_app_data_dir(), "focuslog.lock")
+    lock_file_path = os.path.join(get_app_data_dir(), "truehour.lock")
     lock_file = QLockFile(lock_file_path)
     
     if not lock_file.tryLock(100):
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Warning)
-        msg.setWindowTitle("FocusLog Already Running")
-        msg.setText("Another instance of FocusLog is already running.\nOnly one instance of FocusLog can be active at a time.")
+        msg.setWindowTitle("TrueHour Already Running")
+        msg.setText("Another instance of TrueHour is already running.\nOnly one instance of TrueHour can be active at a time.")
         msg.setStandardButtons(QMessageBox.StandardButton.Ok)
         
         # Load style on message box to match app theme
@@ -1834,7 +1834,7 @@ if __name__ == "__main__":
         msg.exec()
         sys.exit(1)
         
-    focus_app = FocusLogApp()
+    focus_app = TrueHourApp()
     focus_app.run()
     
     # Keep reference to lock_file during execution and unlock upon exiting

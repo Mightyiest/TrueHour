@@ -234,7 +234,7 @@ class SettingsDialog(QDialog):
         btn_categories.clicked.connect(lambda: self.manage_categories_requested.emit())
         config_layout.addWidget(btn_categories)
 
-        btn_about = QPushButton("About FocusLog", scroll_general_content)
+        btn_about = QPushButton("About TrueHour", scroll_general_content)
         btn_about.setObjectName("NormalButton")
         btn_about.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_about.clicked.connect(lambda: self.about_requested.emit())
