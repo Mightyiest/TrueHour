@@ -36,6 +36,13 @@ from version import VERSION_SHORT, VERSION_FULL, INFO
 from dashboard_widgets import DonutChartWidget, BarChartWidget
 from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG, EDIT_SVG
 
+from debug_terminal import LogBufferCollector, DebugTerminalWindow
+from PyQt6.QtGui import QKeySequence, QShortcut
+
+# Start stdout/stderr log redirection immediately to catch early events
+log_collector = LogBufferCollector()
+log_collector.start_redirection()
+
 # Configure logging for the app module
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -1159,7 +1166,14 @@ class FocusLogApp(QMainWindow):
             except Exception:
                 pass
 
+        # Instantiate global debug console window
+        self.debug_window = DebugTerminalWindow(log_collector, self)
+
         self._build_ui()
+
+        # Keyboard shortcut for toggling debug console (Ctrl+`)
+        self.shortcut_debug = QShortcut(QKeySequence("Ctrl+`"), self)
+        self.shortcut_debug.activated.connect(self._toggle_debug_console)
         
         self.clock_timer = QTimer(self)
         self.clock_timer.timeout.connect(self._tick_clock)
@@ -1170,6 +1184,58 @@ class FocusLogApp(QMainWindow):
         from tracker import ACTIVE_SESSION_FILE
         if os.path.exists(ACTIVE_SESSION_FILE):
             QTimer.singleShot(100, self._handle_interrupted_session)
+
+    def _toggle_debug_console(self):
+        if self.debug_window.isVisible():
+            self.debug_window.hide()
+        else:
+            self.debug_window.show()
+            self.debug_window.raise_()
+            self.debug_window.activateWindow()
+
+    def _update_developer_ui(self):
+        self.debug_btn.setVisible(self.developer_mode)
+        self.test_btn.setVisible(self.developer_mode)
+
+    def _on_version_clicked(self, event):
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+            
+        if not hasattr(self, "_version_clicks"):
+            self._version_clicks = 0
+            
+        self._version_clicks += 1
+        
+        if self.developer_mode:
+            return
+            
+        remaining = 7 - self._version_clicks
+        if remaining > 0 and remaining <= 4:
+            self.active_label.setText(f"🛠️ You are now {remaining} steps away from being a developer.")
+            self.active_label.setStyleSheet("color: #CA5010; font-size: 10px;")
+            # Safely restore state label after 2.5 seconds
+            QTimer.singleShot(2500, lambda: self.active_label.setText(
+                f"Active: {self.tracker.get_current_app()}" if (self.tracker.running and not self.tracker.paused) else ("Ready to track" if not self.tracker.running else "⏸ Session paused")
+            ))
+        elif remaining == 0:
+            self.developer_mode = True
+            self._save_app_settings()
+            self._update_developer_ui()
+            
+            QMessageBox.information(
+                self, 
+                "Developer Options", 
+                "Congratulations! You have enabled Developer Options.\nThe Debug Console and Test Logs button are now visible."
+            )
+            self.active_label.setText("🛠️ Developer Options enabled!")
+            self.active_label.setStyleSheet("color: #0F7B0F; font-size: 10px;")
+
+    def _trigger_diagnostic_logs(self):
+        logger.debug("[DEBUG] This is a diagnostic debug message to test console colorizing.")
+        logger.info("[INFO] This is a diagnostic info message to test console colorizing.")
+        logger.warning("[WARNING] This is a diagnostic warning message to test console colorizing.")
+        logger.error("[ERROR] This is a diagnostic error message to test console colorizing.")
+        print("[STDOUT] Direct standard print triggered for verification.")
 
     def _center_window(self, win, width, height):
         win.resize(width, height)
@@ -1307,18 +1373,67 @@ class FocusLogApp(QMainWindow):
         total_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 10px; color: #616161;")
         footer_layout.addWidget(total_lbl)
         
+        footer_layout.addStretch()
+        
         self.total_label = QLabel("0h 00m 00s", self)
         self.total_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #0078D4;")
         footer_layout.addWidget(self.total_label, alignment=Qt.AlignmentFlag.AlignRight)
         body_layout.addWidget(self.footer_card)
 
-        # ── Version Bar ──────────────────────────────────────────────
+        # ── Version & Debug Bar ──────────────────────────────────────
+        bottom_bar_layout = QHBoxLayout()
+        bottom_bar_layout.setContentsMargins(4, 0, 4, 0)
+        bottom_bar_layout.setSpacing(10)
+        
+        self.debug_btn = QPushButton("🐞 Debug Console", self)
+        self.debug_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.debug_btn.setStyleSheet("""
+            QPushButton {
+                color: #ABABAB;
+                font-size: 9px;
+                font-family: 'Segoe UI';
+                background: none;
+                border: none;
+                padding: 0px;
+            }
+            QPushButton:hover {
+                color: #0078D4;
+                text-decoration: underline;
+            }
+        """)
+        self.debug_btn.clicked.connect(self._toggle_debug_console)
+        bottom_bar_layout.addWidget(self.debug_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        
+        self.test_btn = QPushButton("⚡ Test Logs", self)
+        self.test_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.test_btn.setStyleSheet("""
+            QPushButton {
+                color: #ABABAB;
+                font-size: 9px;
+                font-family: 'Segoe UI';
+                background: none;
+                border: none;
+                padding: 0px;
+            }
+            QPushButton:hover {
+                color: #F59E0B;
+                text-decoration: underline;
+            }
+        """)
+        self.test_btn.clicked.connect(self._trigger_diagnostic_logs)
+        bottom_bar_layout.addWidget(self.test_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        
+        bottom_bar_layout.addStretch()
+        
         ver_lbl = QLabel(VERSION_FULL, self)
-        ver_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ver_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 9px; color: #ABABAB;")
-        body_layout.addWidget(ver_lbl)
+        ver_lbl.mousePressEvent = self._on_version_clicked
+        bottom_bar_layout.addWidget(ver_lbl, alignment=Qt.AlignmentFlag.AlignRight)
+        
+        body_layout.addLayout(bottom_bar_layout)
 
         main_layout.addWidget(body_widget)
+        self._update_developer_ui()
 
     def closeEvent(self, event):
         if self.confirm_on_close:
@@ -1338,6 +1453,13 @@ class FocusLogApp(QMainWindow):
         # Clean up async icon loading resources
         self._icon_cache.clear()
         self._icon_load_queue.clear()
+        
+        # Safely shut down streams to avoid C++ object deleted crashes
+        try:
+            log_collector.stop_redirection()
+        except Exception:
+            pass
+            
         event.accept()
 
     def _on_start(self):
@@ -2367,6 +2489,7 @@ class FocusLogApp(QMainWindow):
         self.mask_business_phone = False
         self.mask_client_emails = False
         self.mask_sensitive_data = False  # LEGACY: default mask toggle for invoices
+        self.developer_mode = False
         
         if os.path.exists(APP_SETTINGS_FILE):
             try:
@@ -2410,6 +2533,7 @@ class FocusLogApp(QMainWindow):
                     self.mask_business_phone = data.get("mask_business_phone", legacy_mask)
                     self.mask_client_emails = data.get("mask_client_emails", legacy_mask)
                     self.mask_sensitive_data = legacy_mask
+                    self.developer_mode = data.get("developer_mode", False)
             except Exception as e:
                 print(f"[FocusLog] Failed to load app settings: {e}")
 
@@ -2441,6 +2565,7 @@ class FocusLogApp(QMainWindow):
                 "mask_business_phone": self.mask_business_phone,
                 "mask_client_emails": self.mask_client_emails,
                 "mask_sensitive_data": self.mask_business_emails or self.mask_business_phone or self.mask_client_emails,
+                "developer_mode": self.developer_mode,
             }
             with open(APP_SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
@@ -2509,6 +2634,12 @@ class FocusLogApp(QMainWindow):
         cb_confirm.setChecked(self.confirm_on_close)
         cb_confirm.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
         tg_layout.addWidget(cb_confirm)
+        
+        # Checkbox for Developer Options
+        cb_dev = QCheckBox("Enable Developer Options (Debug Console)", scroll_general_content)
+        cb_dev.setChecked(self.developer_mode)
+        cb_dev.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
+        tg_layout.addWidget(cb_dev)
         
         form_general = QFormLayout()
         form_general.setSpacing(6)
@@ -2917,6 +3048,8 @@ class FocusLogApp(QMainWindow):
                 self.mask_client_emails = mask_client_email_cb.isChecked()
                 self.mask_sensitive_data = self.mask_business_emails or self.mask_business_phone or self.mask_client_emails
                 
+                self.developer_mode = cb_dev.isChecked()
+                self._update_developer_ui()
                 self._save_app_settings()
                 
                 # Update live indicators
