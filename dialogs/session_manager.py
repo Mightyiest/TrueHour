@@ -36,6 +36,13 @@ class SessionManagerDialog(QDialog):
         self.setWindowTitle("Session Manager")
         self._center_window(520, 540)
         
+        # Apply stylesheet and palette on start
+        is_dark = self.settings.get("dark_mode", False)
+        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
+        qss = get_qss_style(is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+        self.setStyleSheet(qss)
+        self.setPalette(get_dark_palette() if is_dark else get_light_palette())
+        
         self.selected_sessions = set()
         self._build_ui()
 
@@ -54,31 +61,39 @@ class SessionManagerDialog(QDialog):
         self.tab_widget = QTabWidget(self)
         self.tab_widget.setObjectName("SessionTabs")
 
+        is_dark = self.settings.get("dark_mode", False)
+        bg_widget = "#161D30" if is_dark else "#FFFFFF"
+        border_color = "#24304F" if is_dark else "#CBD5E1"
+        text_sec = "#9CA3AF" if is_dark else "#475569"
+        bg_hover = "#1F2937" if is_dark else "#F1F5F9"
+        accent = "#38BDF8" if is_dark else "#0078D4"
+        accent_hover = "#0EA5E9" if is_dark else "#106EBE"
+
         self.edit_btn = QPushButton("Edit", self)
         self.edit_btn.setCheckable(True)
         self.edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.edit_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FFFFFF;
-                border: 1px solid #CBD5E1;
+        self.edit_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {bg_widget};
+                border: 1px solid {border_color};
                 border-radius: 4px;
                 padding: 4px 12px;
                 font-family: 'Segoe UI';
                 font-size: 12px;
                 font-weight: bold;
-                color: #475569;
-            }
-            QPushButton:checked {
-                background-color: #0078D4;
+                color: {text_sec};
+            }}
+            QPushButton:checked {{
+                background-color: {accent};
                 color: white;
-                border-color: #0078D4;
-            }
-            QPushButton:hover {
-                background-color: #F1F5F9;
-            }
-            QPushButton:checked:hover {
-                background-color: #106EBE;
-            }
+                border-color: {accent};
+            }}
+            QPushButton:hover {{
+                background-color: {bg_hover};
+            }}
+            QPushButton:checked:hover {{
+                background-color: {accent_hover};
+            }}
         """)
         self.tab_widget.setCornerWidget(self.edit_btn, Qt.Corner.TopRightCorner)
         
@@ -195,8 +210,15 @@ class SessionManagerDialog(QDialog):
             mtime = os.path.getmtime(filepath)
             rel_time = self._get_relative_time(mtime)
             
+            is_dark = self.settings.get("dark_mode", False)
+            bg_widget = "#161D30" if is_dark else "#FFFFFF"
+            border_color = "#24304F" if is_dark else "#F3F3F3"
+            bg_hover = "#1F2937" if is_dark else "#E9E9E9"
+            text_primary = "#F3F4F6" if is_dark else "#1A1A1A"
+            text_sec = "#9CA3AF" if is_dark else "#616161"
+
             row_frame = QFrame()
-            row_frame.setStyleSheet("QFrame { background-color: #FFFFFF; border-bottom: 1px solid #F3F3F3; } QFrame:hover { background-color: #E9E9E9; }")
+            row_frame.setStyleSheet(f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_color}; }} QFrame:hover {{ background-color: {bg_hover}; }}")
             row_layout = QHBoxLayout(row_frame)
             row_layout.setContentsMargins(8, 8, 8, 8)
             
@@ -225,18 +247,24 @@ class SessionManagerDialog(QDialog):
             text_layout.setSpacing(2)
             
             name_lbl = QLabel(session_name or "Unnamed", row_frame)
-            name_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: #1A1A1A;")
+            name_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_primary};")
             text_layout.addWidget(name_lbl)
             
             date_lbl = QLabel(date_str, row_frame)
-            date_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #616161;")
+            date_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: {text_sec};")
             text_layout.addWidget(date_lbl)
             
-            tag_bg = "#E1F5FE" if i == 0 else "#F5F5F5"
-            tag_fg = "#0288D1" if i == 0 else TEXT_SECONDARY
+            is_dark = self.settings.get("dark_mode", False)
+            if is_dark:
+                tag_bg = "#0C2340" if i == 0 else "#1E293B"
+                tag_fg = "#38BDF8" if i == 0 else "#9CA3AF"
+            else:
+                tag_bg = "#E1F5FE" if i == 0 else "#F1F5F9"
+                tag_fg = "#0078D4" if i == 0 else "#475569"
+
             tag_txt = "Latest" if i == 0 else rel_time
             tag_lbl = QLabel(tag_txt, row_frame)
-            tag_lbl.setStyleSheet(f"background-color: {tag_bg}; color: {tag_fg}; font-size: 9px; font-weight: bold; border-radius: 3px; padding: 2px 6px; font-family: 'Segoe UI';")
+            tag_lbl.setStyleSheet(f"background-color: {tag_bg}; color: {tag_fg}; font-size: 9px; font-weight: bold; border-radius: 3px; padding: 2px 6px; font-family: 'Segoe UI'; border: none;")
             tag_lbl.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
             text_layout.addWidget(tag_lbl)
             
@@ -350,28 +378,56 @@ class SessionManagerDialog(QDialog):
 
             is_edit_active = self.edit_btn.isChecked()
 
+            is_dark = self.settings.get("dark_mode", False)
+            if is_dark:
+                green_bg = "#064E3B"
+                green_border = "#047857"
+                green_hover = "#059669"
+                
+                red_bg = "#7F1D1D"
+                red_border = "#B91C1C"
+                red_hover = "#DC2626"
+                
+                normal_bg = "#161D30"
+                normal_border = "#24304F"
+                normal_hover = "#1F2937"
+                normal_border_hover = "#38BDF8"
+            else:
+                green_bg = "#F0FDF4"
+                green_border = "#DCFCE7"
+                green_hover = "#DCFCE7"
+                
+                red_bg = "#FFF5F5"
+                red_border = "#FEE2E2"
+                red_hover = "#FEE2E2"
+                
+                normal_bg = "#FFFFFF"
+                normal_border = "#CBD5E1"
+                normal_hover = "#F1F5F9"
+                normal_border_hover = "#94A3B8"
+
             if is_trash:
-                rest_icon = get_svg_icon(RESTORE_SVG, QSize(16, 16), "#0F7B0F")
-                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), "#FF0000")
+                rest_icon = get_svg_icon(RESTORE_SVG, QSize(16, 16), "#0F7B0F" if not is_dark else "#4ADE80")
+                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), "#FF0000" if not is_dark else "#FCA5A5")
 
                 restore_btn = QPushButton(row_frame)
                 restore_btn.setIcon(rest_icon)
                 restore_btn.setIconSize(QSize(16, 16))
                 restore_btn.setToolTip("Restore Session")
                 restore_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                restore_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #F0FDF4;
-                        border: 1px solid #DCFCE7;
+                restore_btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {green_bg};
+                        border: 1px solid {green_border};
                         border-radius: 4px;
                         padding: 4px;
                         min-width: 28px;
                         min-height: 28px;
-                    }
-                    QPushButton:hover {
-                        background-color: #DCFCE7;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {green_hover};
                         border-color: #86EFAC;
-                    }
+                    }}
                 """)
                 restore_btn.clicked.connect(lambda checked, p=filepath: _restore_session_file(p))
                 btn_layout.addWidget(restore_btn)
@@ -383,19 +439,19 @@ class SessionManagerDialog(QDialog):
                 bin_name = "Trash" if sys.platform == "darwin" else "Recycle Bin" if sys.platform == "win32" else "system Trash"
                 delete_btn.setToolTip(f"Move to {bin_name}")
                 delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                delete_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #FFF5F5;
-                        border: 1px solid #FEE2E2;
+                delete_btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {red_bg};
+                        border: 1px solid {red_border};
                         border-radius: 4px;
                         padding: 4px;
                         min-width: 28px;
                         min-height: 28px;
-                    }
-                    QPushButton:hover {
-                        background-color: #FEE2E2;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {red_hover};
                         border-color: #FCA5A5;
-                    }
+                    }}
                 """)
                 delete_btn.clicked.connect(lambda checked, p=filepath: _delete_session_file(p))
                 btn_layout.addWidget(delete_btn)
@@ -403,8 +459,8 @@ class SessionManagerDialog(QDialog):
                 restore_btn.setVisible(is_edit_active)
                 delete_btn.setVisible(is_edit_active)
             else:
-                ren_icon = get_svg_icon(RENAME_SVG, QSize(16, 16), "#0078D4")
-                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), "#FF0000")
+                ren_icon = get_svg_icon(RENAME_SVG, QSize(16, 16), "#0078D4" if not is_dark else "#38BDF8")
+                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), "#FF0000" if not is_dark else "#FCA5A5")
 
                 res_btn = QPushButton("▶ Resume", row_frame)
                 res_btn.setObjectName("AccentButton")
@@ -423,19 +479,19 @@ class SessionManagerDialog(QDialog):
                 rename_btn.setIconSize(QSize(16, 16))
                 rename_btn.setToolTip("Rename Session")
                 rename_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                rename_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #FFFFFF;
-                        border: 1px solid #CBD5E1;
+                rename_btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {normal_bg};
+                        border: 1px solid {normal_border};
                         border-radius: 4px;
                         padding: 4px;
                         min-width: 28px;
                         min-height: 28px;
-                    }
-                    QPushButton:hover {
-                        background-color: #F1F5F9;
-                        border-color: #94A3B8;
-                    }
+                    }}
+                    QPushButton:hover {{
+                        background-color: {normal_hover};
+                        border-color: {normal_border_hover};
+                    }}
                 """)
                 rename_btn.clicked.connect(lambda checked, p=filepath, n=session_name: _rename_session_file(p, n))
                 btn_layout.addWidget(rename_btn)
@@ -445,19 +501,19 @@ class SessionManagerDialog(QDialog):
                 delete_btn.setIconSize(QSize(18, 18))
                 delete_btn.setToolTip("Move to Trash")
                 delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                delete_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #FFF5F5;
-                        border: 1px solid #FEE2E2;
+                delete_btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {red_bg};
+                        border: 1px solid {red_border};
                         border-radius: 4px;
                         padding: 4px;
                         min-width: 28px;
                         min-height: 28px;
-                    }
-                    QPushButton:hover {
-                        background-color: #FEE2E2;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {red_hover};
                         border-color: #FCA5A5;
-                    }
+                    }}
                 """)
                 delete_btn.clicked.connect(lambda checked, p=filepath: _delete_session_file(p))
                 btn_layout.addWidget(delete_btn)

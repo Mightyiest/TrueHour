@@ -9,10 +9,11 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QSize
 
 from widgets.custom_widgets import EmailChipWidget, QRThumbnailWidget
-from theme import TEXT_SECONDARY, get_tag_color
+from theme import TEXT_SECONDARY, get_tag_color, get_svg_icon
 from config import get_app_data_dir, open_file
 from tracker import AUTO_EXCLUDE_FILE, create_auto_excluded_if_missing
 from appinfo import OVERRIDES_FILE
+from assets import INFO_SVG
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ class SettingsDialog(QDialog):
     about_requested = pyqtSignal()
     reload_exclusions_requested = pyqtSignal()
     settings_saved = pyqtSignal(dict)
+    theme_toggled = pyqtSignal(bool)
 
     def __init__(self, current_settings, parent=None):
         super().__init__(parent)
@@ -31,6 +33,13 @@ class SettingsDialog(QDialog):
         self._qr_paths_local = list(self.settings.get("qr_code_paths", []))
         self._qr_links_local = dict(self.settings.get("qr_code_links", {}))
         self._qr_thumb_refs = []
+        
+        # Apply stylesheet and palette on start
+        is_dark = self.settings.get("dark_mode", False)
+        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
+        qss = get_qss_style(is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+        self.setStyleSheet(qss)
+        self.setPalette(get_dark_palette() if is_dark else get_light_palette())
         
         self._build_ui()
 
@@ -56,37 +65,11 @@ class SettingsDialog(QDialog):
         layout.setSpacing(10)
         
         title = QLabel("Settings", self)
-        title.setStyleSheet("font-family: 'Segoe UI'; font-size: 15px; font-weight: bold; color: #1A1A1A;")
+        title.setStyleSheet("font-family: 'Segoe UI'; font-size: 15px; font-weight: bold;")
         layout.addWidget(title)
         
         # QTabWidget for settings categories
         settings_tabs = QTabWidget(self)
-        settings_tabs.setStyleSheet("""
-            QTabWidget::pane {
-                border: 1px solid #E2E8F0;
-                background-color: #FFFFFF;
-                border-radius: 8px;
-            }
-            QTabBar::tab {
-                background-color: #F8FAFC;
-                color: #475569;
-                padding: 6px 16px;
-                font-family: 'Segoe UI';
-                font-size: 12px;
-                border-top-left-radius: 6px;
-                border-top-right-radius: 6px;
-                border: 1px solid #E2E8F0;
-                border-bottom: none;
-                margin-right: 2px;
-            }
-            QTabBar::tab:selected {
-                background-color: #FFFFFF;
-                color: #0078D4;
-                font-weight: bold;
-                border: 1px solid #CBD5E1;
-                border-bottom: none;
-            }
-        """)
         
         # ── Tab 1: General Settings ──────────────────────────────────
         tab_general = QWidget()
@@ -114,6 +97,23 @@ class SettingsDialog(QDialog):
         self.cb_dev.setChecked(self.settings.get("developer_mode", False))
         self.cb_dev.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
         tg_layout.addWidget(self.cb_dev)
+
+        # Checkbox for Dark Mode
+        self.cb_dark = QCheckBox("Enable Dark Mode", scroll_general_content)
+        self.cb_dark.setChecked(self.settings.get("dark_mode", False))
+        self.cb_dark.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
+        tg_layout.addWidget(self.cb_dark)
+
+        def _on_theme_toggled(checked):
+            self.settings["dark_mode"] = checked
+            # Instantly apply stylesheet to SettingsDialog itself!
+            from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
+            qss = get_qss_style(checked).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+            self.setStyleSheet(qss)
+            self.setPalette(get_dark_palette() if checked else get_light_palette())
+            self.theme_toggled.emit(checked)
+
+        self.cb_dark.toggled.connect(_on_theme_toggled)
         
         form_general = QFormLayout()
         form_general.setSpacing(6)
@@ -173,7 +173,7 @@ class SettingsDialog(QDialog):
         tg_layout.addLayout(form_general)
         
         # Config Files Group
-        config_box = QGroupBox("Configuration & Categories", scroll_general_content)
+        config_box = QGroupBox("Configuration && Categories", scroll_general_content)
         config_layout = QVBoxLayout(config_box)
         config_layout.setContentsMargins(8, 8, 8, 8)
         config_layout.setSpacing(4)
@@ -234,9 +234,28 @@ class SettingsDialog(QDialog):
         btn_categories.clicked.connect(lambda: self.manage_categories_requested.emit())
         config_layout.addWidget(btn_categories)
 
-        btn_about = QPushButton("About TrueHour", scroll_general_content)
-        btn_about.setObjectName("NormalButton")
+        btn_about = QPushButton("  About TrueHour", scroll_general_content)
         btn_about.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_about.setIcon(get_svg_icon(INFO_SVG, QSize(14, 14), color_hex="#FFFFFF"))
+        btn_about.setIconSize(QSize(14, 14))
+        btn_about.setStyleSheet("""
+            QPushButton {
+                background-color: #D97706;
+                color: #FFFFFF;
+                border: none;
+                border-radius: 14px;
+                padding: 6px 16px;
+                font-weight: bold;
+                font-family: 'Segoe UI';
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #B45309;
+            }
+            QPushButton:pressed {
+                background-color: #78350F;
+            }
+        """)
         btn_about.clicked.connect(lambda: self.about_requested.emit())
         config_layout.addWidget(btn_about)
         
@@ -527,6 +546,7 @@ class SettingsDialog(QDialog):
                 self.settings["mask_client_emails"]
             )
             self.settings["developer_mode"] = self.cb_dev.isChecked()
+            self.settings["dark_mode"] = self.cb_dark.isChecked()
             
             self.settings_saved.emit(self.settings)
             self.accept()

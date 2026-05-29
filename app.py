@@ -32,7 +32,7 @@ from report import (
     aggregate_history_data, generate_session_report_html,
 )
 from version import VERSION_SHORT, VERSION_FULL, INFO
-from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG, EDIT_SVG
+from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG, EDIT_SVG, SUN_SVG, MOON_SVG
 
 # Global Constants & Paths
 ICON_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -62,7 +62,7 @@ from theme import (
     BG_WHITE, BG_SURFACE, BG_HOVER, BG_CARD, ACCENT, ACCENT_HOVER, ACCENT_LIGHT,
     GREEN_STATUS, RED_STATUS, ORANGE, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_DISABLED,
     BORDER, FONT_FAMILY, PROJECT_COLORS, get_tag_color, get_light_palette,
-    ensure_checkmark_icon, get_svg_icon, create_minimalist_icon, QSS_STYLE
+    ensure_checkmark_icon, get_svg_icon, create_minimalist_icon, get_qss_style, get_dark_palette
 )
 
 # Start stdout/stderr log redirection immediately to catch early events
@@ -97,75 +97,78 @@ class TrackerSignals(QObject):
 # create_minimalist_icon moved to theme.py
 
 class HeaderBar(QFrame):
-    def __init__(self, parent, cmd_report, cmd_sessions, cmd_settings):
+    def __init__(self, parent, cmd_report, cmd_sessions, cmd_settings, cmd_toggle_theme):
         super().__init__(parent)
         self.setObjectName("HeaderBar")
         self.setFixedHeight(44)
-        self.setStyleSheet("""
-            #HeaderBar {
-                background-color: #FFFFFF;
-                border-bottom: 1px solid #E2E8F0;
-            }
-        """)
+        
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 0, 14, 0)
         layout.setSpacing(8)
+        
+        # Theme toggle switcher (top-left)
+        self.theme_btn = QPushButton("", self)
+        self.theme_btn.setObjectName("ThemeToggleBtn")
+        self.theme_btn.setFixedSize(28, 28)
+        self.theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.theme_btn.clicked.connect(cmd_toggle_theme)
+        layout.addWidget(self.theme_btn)
+        
         layout.addStretch()
+        
         self.live_report_btn = QPushButton("Dashboard", self)
-        self.live_report_btn.setIcon(create_minimalist_icon("chart", "#0078D4"))
         self.live_report_btn.setIconSize(QSize(16, 16))
-        self.live_report_btn.setStyleSheet("""
-            QPushButton {
-                color: #0078D4;
+        self.live_report_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.live_report_btn.clicked.connect(cmd_report)
+        layout.addWidget(self.live_report_btn)
+        
+        self.sessions_btn = QPushButton("", self)
+        self.sessions_btn.setIconSize(QSize(16, 16))
+        self.sessions_btn.setToolTip("Session Manager")
+        self.sessions_btn.setFixedSize(28, 28)
+        self.sessions_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.sessions_btn.clicked.connect(cmd_sessions)
+        layout.addWidget(self.sessions_btn)
+        
+        self.settings_btn = QPushButton("", self)
+        self.settings_btn.setIconSize(QSize(16, 16))
+        self.settings_btn.setToolTip("Settings")
+        self.settings_btn.setFixedSize(28, 28)
+        self.settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.settings_btn.clicked.connect(cmd_settings)
+        layout.addWidget(self.settings_btn)
+        
+        # Initial light theme icons
+        self.update_theme(is_dark=False)
+
+    def update_theme(self, is_dark):
+        accent_color = "#38BDF8" if is_dark else "#0078D4"
+        neutral_color = "#9CA3AF" if is_dark else "#475569"
+        
+        if is_dark:
+            self.theme_btn.setIcon(get_svg_icon(SUN_SVG, QSize(16, 16), color_hex="#38BDF8"))
+            self.theme_btn.setToolTip("Switch to Light Mode")
+        else:
+            self.theme_btn.setIcon(get_svg_icon(MOON_SVG, QSize(16, 16), color_hex="#475569"))
+            self.theme_btn.setToolTip("Switch to Dark Mode")
+            
+        self.live_report_btn.setIcon(create_minimalist_icon("chart", accent_color))
+        self.sessions_btn.setIcon(create_minimalist_icon("folder", neutral_color))
+        self.settings_btn.setIcon(create_minimalist_icon("settings", neutral_color))
+        
+        self.live_report_btn.setStyleSheet(f"""
+            QPushButton {{
+                color: {accent_color};
                 font-size: 12px;
                 font-weight: bold;
                 font-family: 'Segoe UI';
                 background: none;
                 border: none;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 text-decoration: underline;
-            }
+            }}
         """)
-        self.live_report_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.live_report_btn.clicked.connect(cmd_report)
-        layout.addWidget(self.live_report_btn)
-        self.sessions_btn = QPushButton("", self)
-        self.sessions_btn.setIcon(create_minimalist_icon("folder", "#475569"))
-        self.sessions_btn.setIconSize(QSize(16, 16))
-        self.sessions_btn.setToolTip("Session Manager")
-        self.sessions_btn.setFixedSize(28, 28)
-        self.sessions_btn.setStyleSheet("""
-            QPushButton {
-                background: none;
-                border: none;
-                border-radius: 6px;
-            }
-            QPushButton:hover {
-                background-color: #F1F5F9;
-            }
-        """)
-        self.sessions_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.sessions_btn.clicked.connect(cmd_sessions)
-        layout.addWidget(self.sessions_btn)
-        self.settings_btn = QPushButton("", self)
-        self.settings_btn.setIcon(create_minimalist_icon("settings", "#475569"))
-        self.settings_btn.setIconSize(QSize(16, 16))
-        self.settings_btn.setToolTip("Settings")
-        self.settings_btn.setFixedSize(28, 28)
-        self.settings_btn.setStyleSheet("""
-            QPushButton {
-                background: none;
-                border: none;
-                border-radius: 6px;
-            }
-            QPushButton:hover {
-                background-color: #F1F5F9;
-            }
-        """)
-        self.settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.settings_btn.clicked.connect(cmd_settings)
-        layout.addWidget(self.settings_btn)
 
 # Custom paint bar and app list usage row widgets moved to widgets/custom_widgets.py
 
@@ -216,6 +219,9 @@ class TrueHourApp(QMainWindow):
 
         # Link tracker callback
         self.tracker.on_update = lambda: self.signals.update_signal.emit()
+        
+        # Apply initially loaded theme (light or dark)
+        self.apply_theme(self.dark_mode)
         
         from tracker import ACTIVE_SESSION_FILE
         if os.path.exists(ACTIVE_SESSION_FILE):
@@ -296,7 +302,8 @@ class TrueHourApp(QMainWindow):
             self, 
             cmd_report=self._show_dashboard,
             cmd_sessions=self._show_session_manager,
-            cmd_settings=self._show_settings
+            cmd_settings=self._show_settings,
+            cmd_toggle_theme=self._toggle_theme
         )
         main_layout.addWidget(self.header)
 
@@ -358,24 +365,6 @@ class TrueHourApp(QMainWindow):
         app_sec_lbl = QLabel("Application usage", self)
         app_sec_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 10px; color: #616161;")
         app_sec_hdr.addWidget(app_sec_lbl)
-        
-        exclude_btn = QPushButton("+ Exclude App", self)
-        exclude_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        exclude_btn.setStyleSheet("""
-            QPushButton {
-                color: #0078D4;
-                font-size: 10px;
-                font-family: 'Segoe UI';
-                background: none;
-                border: none;
-                text-decoration: underline;
-            }
-            QPushButton:hover {
-                color: #106EBE;
-            }
-        """)
-        exclude_btn.clicked.connect(self._on_exclude_app)
-        app_sec_hdr.addWidget(exclude_btn, alignment=Qt.AlignmentFlag.AlignRight)
         body_layout.addLayout(app_sec_hdr)
 
         self.list_card = QFrame(self)
@@ -742,108 +731,6 @@ class TrueHourApp(QMainWindow):
         self._last_app_state_hash = None
         self._refresh_app_list()
 
-    def _on_exclude_app(self):
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Exclude Application")
-        self._center_window(dialog, 380, 440)
-        
-        layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(14, 12, 14, 12)
-        
-        lbl = QLabel("Select a running application to exclude:", dialog)
-        lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #616161;")
-        layout.addWidget(lbl)
-        
-        scroll = QScrollArea(dialog)
-        scroll.setWidgetResizable(True)
-        scroll.setObjectName("AppListCard")
-        scroll_content = QWidget()
-        scroll_content.setObjectName("scroll_content")
-        scroll_layout = QVBoxLayout(scroll_content)
-        scroll_layout.setContentsMargins(4, 4, 4, 4)
-        scroll_layout.setSpacing(2)
-        
-        from appinfo import get_running_applications
-        running_apps = get_running_applications()
-        
-        def _exclude_and_close(friendly, exe_path):
-            self.tracker.set_included(friendly, False)
-            if exe_path: 
-                self.tracker.app_exe_paths[friendly] = exe_path
-            if friendly not in self.tracker.app_times: 
-                self.tracker.app_times[friendly] = 0
-            self._refresh_app_list()
-            dialog.accept()
-
-        for i, (friendly, exe_path) in enumerate(running_apps):
-            row_frame = QFrame(scroll_content)
-            row_frame.setFixedHeight(30)
-            row_frame.setStyleSheet("QFrame:hover { background-color: #E9E9E9; border-radius: 4px; }")
-            row_layout = QHBoxLayout(row_frame)
-            row_layout.setContentsMargins(6, 0, 6, 0)
-            row_layout.setSpacing(6)
-            
-            icon_lbl = QLabel(row_frame)
-            icon_lbl.setFixedSize(16, 16)
-            
-            # Load icon directly if possible
-            if exe_path:
-                pil_icon = get_icon_image(exe_path, size=16)
-                px = pil_to_pixmap(pil_icon)
-                if px:
-                    icon_lbl.setPixmap(px.scaled(16, 16, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-            row_layout.addWidget(icon_lbl)
-            
-            btn = QPushButton(friendly, row_frame)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background: none;
-                    border: none;
-                    text-align: left;
-                    font-family: 'Segoe UI';
-                    font-size: 13px;
-                    color: #1A1A1A;
-                }
-            """)
-            btn.clicked.connect(lambda checked, f=friendly, p=exe_path: _exclude_and_close(f, p))
-            row_layout.addWidget(btn, 1)
-            
-            scroll_layout.addWidget(row_frame)
-            
-        scroll_layout.addStretch()
-        scroll.setWidget(scroll_content)
-        layout.addWidget(scroll)
-
-        def _browse_file():
-            path, _ = QFileDialog.getOpenFileName(dialog, "Browse for .exe", "", "Executable files (*.exe);;All files (*.*)")
-            if path:
-                base = os.path.basename(path)
-                if base.lower().endswith(".exe"): 
-                    base = base[:-4]
-                from appinfo import resolve_name
-                friendly = resolve_name(path, base)
-                _exclude_and_close(friendly, path)
-
-        browse_btn = QPushButton("Browse for .exe...", dialog)
-        browse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        browse_btn.setStyleSheet("""
-            QPushButton {
-                color: #0078D4;
-                font-size: 12px;
-                font-family: 'Segoe UI';
-                background: none;
-                border: none;
-                text-decoration: underline;
-            }
-            QPushButton:hover {
-                color: #106EBE;
-            }
-        """)
-        browse_btn.clicked.connect(_browse_file)
-        layout.addWidget(browse_btn, alignment=Qt.AlignmentFlag.AlignCenter)
-        dialog.exec()
-
     def _show_session_manager(self):
         logger.info("[Action] Opened Session Manager")
         from dialogs.session_manager import SessionManagerDialog
@@ -870,6 +757,7 @@ class TrueHourApp(QMainWindow):
             "mask_business_phone": self.mask_business_phone,
             "mask_client_emails": self.mask_client_emails,
             "developer_mode": self.developer_mode,
+            "dark_mode": self.dark_mode,
         }
         
         dialog = SessionManagerDialog(current_settings, self.tracker, self)
@@ -995,6 +883,7 @@ class TrueHourApp(QMainWindow):
         self.mask_client_emails = False
         self.mask_sensitive_data = False  # LEGACY: default mask toggle for invoices
         self.developer_mode = False
+        self.dark_mode = False
         
         if os.path.exists(APP_SETTINGS_FILE):
             try:
@@ -1039,6 +928,7 @@ class TrueHourApp(QMainWindow):
                     self.mask_client_emails = data.get("mask_client_emails", legacy_mask)
                     self.mask_sensitive_data = legacy_mask
                     self.developer_mode = data.get("developer_mode", False)
+                    self.dark_mode = data.get("dark_mode", False)
             except Exception as e:
                 print(f"[TrueHour] Failed to load app settings: {e}")
 
@@ -1071,11 +961,42 @@ class TrueHourApp(QMainWindow):
                 "mask_client_emails": self.mask_client_emails,
                 "mask_sensitive_data": self.mask_business_emails or self.mask_business_phone or self.mask_client_emails,
                 "developer_mode": self.developer_mode,
+                "dark_mode": self.dark_mode,
             }
             with open(APP_SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
         except Exception as e:
             print(f"[TrueHour] Failed to save app settings: {e}")
+
+    def apply_theme(self, is_dark):
+        self.dark_mode = is_dark
+        
+        # Set stylesheet and system palette of the main application!
+        app = QApplication.instance()
+        if app:
+            checkmark_path = ensure_checkmark_icon()
+            qss = get_qss_style(is_dark).replace("CHECKMARK_PATH", checkmark_path)
+            app.setStyleSheet(qss)
+            app.setPalette(get_dark_palette() if is_dark else get_light_palette())
+            
+        # Update header bar button styles and icons!
+        if hasattr(self, 'header'):
+            self.header.update_theme(is_dark)
+            
+        # Update clock label colors to fit the theme
+        if hasattr(self, 'clock_label'):
+            if is_dark:
+                self.clock_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 36px; font-weight: bold; color: #F3F4F6;")
+            else:
+                self.clock_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 36px; font-weight: bold; color: #0F172A;")
+                
+        # Trigger dynamic QSS style changes on custom list row widgets
+        self._refresh_app_list()
+
+    def _toggle_theme(self):
+        new_mode = not self.dark_mode
+        self.apply_theme(new_mode)
+        self._save_app_settings()
 
     def _show_settings(self):
         logger.info("[Action] Opened Settings")
@@ -1104,6 +1025,7 @@ class TrueHourApp(QMainWindow):
             "mask_business_phone": self.mask_business_phone,
             "mask_client_emails": self.mask_client_emails,
             "developer_mode": self.developer_mode,
+            "dark_mode": self.dark_mode,
         }
         
         dialog = SettingsDialog(current_settings, self)
@@ -1111,6 +1033,7 @@ class TrueHourApp(QMainWindow):
         # Connect signals
         dialog.manage_categories_requested.connect(self._show_categories_dialog)
         dialog.about_requested.connect(self._show_about_dialog)
+        dialog.theme_toggled.connect(self.apply_theme)
         
         def handle_reload():
             from tracker import reload_auto_excluded
@@ -1155,6 +1078,8 @@ class TrueHourApp(QMainWindow):
                 self.mask_client_emails
             )
             self.developer_mode = new_settings["developer_mode"]
+            self.dark_mode = new_settings["dark_mode"]
+            self.apply_theme(self.dark_mode)
             self._update_developer_ui()
             self._save_app_settings()
             
@@ -1165,6 +1090,11 @@ class TrueHourApp(QMainWindow):
                 state_text = " (paused)" if self.tracker.paused else ""
                 self.earnings_label.setText(f"💰 {self.currency_symbol}{earned:,.2f} earned{state_text}")
                 
+        # Handle settings rejection/cancel to restore original theme
+        def handle_rejected():
+            self.apply_theme(self.dark_mode)
+            
+        dialog.rejected.connect(handle_rejected)
         dialog.settings_saved.connect(handle_settings_saved)
         dialog.exec()
 
@@ -1399,19 +1329,33 @@ class TrueHourApp(QMainWindow):
         self._center_window(dialog, 720, 680)
         dialog.setMinimumSize(600, 500)
         
+        # Apply stylesheet and palette on start
+        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
+        qss = get_qss_style(self.dark_mode).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+        dialog.setStyleSheet(qss)
+        dialog.setPalette(get_dark_palette() if self.dark_mode else get_light_palette())
+        
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
+        # Dynamic color tokens
+        bg_widget = "#161D30" if self.dark_mode else "#FFFFFF"
+        border_color = "#24304F" if self.dark_mode else "#E0E0E0"
+        border_f3 = "#24304F" if self.dark_mode else "#F3F3F3"
+        text_primary = "#F3F4F6" if self.dark_mode else "#1A1A1A"
+        text_sec = "#9CA3AF" if self.dark_mode else "#616161"
+        accent_lbl_color = "#38BDF8" if self.dark_mode else "#0078D4"
+        
         # Header bar
         hdr = QFrame(dialog)
         hdr.setFixedHeight(44)
-        hdr.setStyleSheet("QFrame { background-color: #FFFFFF; border-bottom: 1px solid #E0E0E0; }")
+        hdr.setStyleSheet(f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_color}; }}")
         hdr_layout = QHBoxLayout(hdr)
         hdr_layout.setContentsMargins(14, 0, 14, 0)
         
         title_lbl = QLabel("📊 Live Report (Preview)" if is_live else "📊 Session Report", hdr)
-        title_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 15px; font-weight: bold; color: #1A1A1A; border: none;")
+        title_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 15px; font-weight: bold; color: {text_primary}; border: none;")
         hdr_layout.addWidget(title_lbl)
         hdr_layout.addStretch()
         
@@ -1432,7 +1376,7 @@ class TrueHourApp(QMainWindow):
         # Name Entry bar
         name_bar = QFrame(dialog)
         name_bar.setFixedHeight(40)
-        name_bar.setStyleSheet("QFrame { background-color: #FFFFFF; border-bottom: 1px solid #F3F3F3; }")
+        name_bar.setStyleSheet(f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_f3}; }}")
         nb_layout = QHBoxLayout(name_bar)
         nb_layout.setContentsMargins(14, 0, 14, 0)
         
@@ -1466,33 +1410,33 @@ class TrueHourApp(QMainWindow):
         c1_layout.setSpacing(4)
         
         date_lbl = QLabel(f"{report['date_display']}  ·  {report['start_display']} -> {report['end_display']}", card1)
-        date_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; color: #616161;")
+        date_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_sec};")
         c1_layout.addWidget(date_lbl)
         
         total_lbl = QLabel(f"Total session:  {report['total_formatted']}", card1)
-        total_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; color: #1A1A1A;")
+        total_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; color: {text_primary};")
         c1_layout.addWidget(total_lbl)
         
         counted_lbl = QLabel(f"Counted work:  {report['counted_formatted']}", card1)
-        counted_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #0078D4;")
+        counted_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: {accent_lbl_color};")
         c1_layout.addWidget(counted_lbl)
         
         if report.get("total_earned", 0) > 0:
             earned_f = QFrame(card1)
-            earned_f.setStyleSheet("QFrame { background-color: #E8F1FB; border-radius: 4px; }")
+            earned_f.setStyleSheet(f"QFrame {{ background-color: {'#1F2937' if self.dark_mode else '#E8F1FB'}; border-radius: 4px; }}")
             ef_layout = QHBoxLayout(earned_f)
             ef_layout.setContentsMargins(10, 6, 10, 6)
             
             lbl_title = QLabel("💰 Total Earned: ", earned_f)
-            lbl_title.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; color: #616161;")
+            lbl_title.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_sec};")
             ef_layout.addWidget(lbl_title)
             
             lbl_val = QLabel(report["total_earned_display"], earned_f)
-            lbl_val.setStyleSheet("font-family: 'Segoe UI'; font-size: 18px; font-weight: bold; color: #0F7B0F;")
+            lbl_val.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 18px; font-weight: bold; color: {'#4ADE80' if self.dark_mode else '#0F7B0F'};")
             ef_layout.addWidget(lbl_val)
             
             lbl_rate = QLabel(f"@ {report['currency_symbol']}{report['hourly_rate']:.2f}/hr", earned_f)
-            lbl_rate.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #616161;")
+            lbl_rate.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: {text_sec};")
             ef_layout.addWidget(lbl_rate)
             
             ef_layout.addStretch()
@@ -1504,7 +1448,7 @@ class TrueHourApp(QMainWindow):
         project_breakdown = report.get("project_breakdown", [])
         if project_breakdown:
             title_p = QLabel("Project & Category Allocation", scroll_widget)
-            title_p.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: #616161;")
+            title_p.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_sec};")
             scroll_layout.addWidget(title_p)
             
             alloc_card = QFrame(scroll_widget)
@@ -1528,22 +1472,22 @@ class TrueHourApp(QMainWindow):
                 row_layout.addWidget(swatch)
                 
                 lbl = QLabel(pb["project"], row_f)
-                lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: #1A1A1A;")
+                lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {text_primary};")
                 row_layout.addWidget(lbl)
                 
                 pct_lbl = QLabel(f"{pb['percent']:.1f}%", row_f)
-                pct_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; color: #616161;")
+                pct_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_sec};")
                 row_layout.addWidget(pct_lbl)
                 
                 row_layout.addStretch()
                 
                 if pb.get("earned_display"):
                     earned_lbl = QLabel(f"({pb['earned_display']})", row_f)
-                    earned_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: #0F7B0F;")
+                    earned_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {'#4ADE80' if self.dark_mode else '#0F7B0F'};")
                     row_layout.addWidget(earned_lbl)
                     
                 time_lbl = QLabel(pb["formatted"], row_f)
-                time_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; color: #1A1A1A;")
+                time_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_primary};")
                 row_layout.addWidget(time_lbl)
                 
                 ac_layout.addWidget(row_f)
@@ -1554,7 +1498,7 @@ class TrueHourApp(QMainWindow):
         apps_data = report.get("apps", [])
         if apps_data:
             title_b = QLabel("App Breakdown", scroll_widget)
-            title_b.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: #616161;")
+            title_b.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_sec};")
             scroll_layout.addWidget(title_b)
             
             tbl_card = QFrame(scroll_widget)
@@ -1588,7 +1532,7 @@ class TrueHourApp(QMainWindow):
                 table.setItem(i, 3, QTableWidgetItem(f"{app['percent']:.0f}%"))
                 
                 st_text = "✓ Counted" if not app["excluded"] else "✗ Excluded"
-                st_color = "#0F7B0F" if not app["excluded"] else "#C42B1C"
+                st_color = ("#4ADE80" if self.dark_mode else "#0F7B0F") if not app["excluded"] else ("#F87171" if self.dark_mode else "#C42B1C")
                 st_item = QTableWidgetItem(st_text)
                 st_item.setForeground(QColor(st_color))
                 table.setItem(i, 4, st_item)
@@ -1602,7 +1546,7 @@ class TrueHourApp(QMainWindow):
         timeline_data = report.get("timeline", [])
         if timeline_data:
             title_t = QLabel("Timeline", scroll_widget)
-            title_t.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: #616161;")
+            title_t.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_sec};")
             scroll_layout.addWidget(title_t)
             
             tl_card = QFrame(scroll_widget)
@@ -1678,7 +1622,7 @@ class TrueHourApp(QMainWindow):
         # Export Actions Footer
         footer_f = QFrame(dialog)
         footer_f.setFixedHeight(50)
-        footer_f.setStyleSheet("QFrame { background-color: #FFFFFF; border-top: 1px solid #E0E0E0; }")
+        footer_f.setStyleSheet(f"QFrame {{ background-color: {bg_widget}; border-top: 1px solid {border_color}; }}")
         footer_layout = QHBoxLayout(footer_f)
         footer_layout.setContentsMargins(14, 0, 14, 0)
         
@@ -1806,13 +1750,13 @@ if __name__ == "__main__":
     
     # Check for standalone Debug Console argument first to bypass single instance lock
     if "--debug-console" in sys.argv:
-        app.setStyleSheet(QSS_STYLE.replace("CHECKMARK_PATH", checkmark_path))
+        app.setStyleSheet(get_qss_style(False).replace("CHECKMARK_PATH", checkmark_path))
         from debug_terminal import DebugTerminalWindow
         window = DebugTerminalWindow()
         window.show()
         sys.exit(app.exec())
         
-    app.setStyleSheet(QSS_STYLE.replace("CHECKMARK_PATH", checkmark_path))
+    app.setStyleSheet(get_qss_style(False).replace("CHECKMARK_PATH", checkmark_path))
     
     # Set default fonts globally
     font = app.font()
@@ -1834,7 +1778,7 @@ if __name__ == "__main__":
         
         # Load style on message box to match app theme
         msg.setStyle(app.style())
-        msg.setStyleSheet(QSS_STYLE.replace("CHECKMARK_PATH", checkmark_path))
+        msg.setStyleSheet(get_qss_style(False).replace("CHECKMARK_PATH", checkmark_path))
         msg_font = msg.font()
         msg_font.setFamily(FONT_FAMILY)
         msg_font.setPointSize(10)

@@ -111,7 +111,7 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
 
     timeline = []
     for entry in timeline_snapshot:
-        if entry["app"] == "[Idle]":
+        if entry["app"] == "[Idle]" or not tracker.app_included.get(entry["app"], True):
             continue
         timeline.append({
             "app": entry["app"],
@@ -341,10 +341,13 @@ def load_session_json(filepath):
         })
     breakdown.sort(key=lambda x: x["seconds"], reverse=True)
 
+    excluded_apps = {a['name'] for a in data.get('apps', []) if a.get('excluded', False)}
     timeline = []
     day_offset = timedelta(days=0)  # Track accumulated midnight crossovers
     prev_end_time = None
     for t in data['timeline']:
+        if t['app'] in excluded_apps:
+            continue
         t_start = datetime.strptime(data['date'] + " " + t['start'], "%Y-%m-%d %H:%M:%S") + day_offset
         t_end = datetime.strptime(data['date'] + " " + t['end'], "%Y-%m-%d %H:%M:%S") + day_offset
         

@@ -26,4 +26,19 @@ EDIT_SVG = b"""<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns
 <path d="M12 20h9M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4L16.5 3.5z" stroke="#0078D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>"""
 
+INFO_SVG = b"""<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#0078D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12 16V12" stroke="#0078D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12 8H12.01" stroke="#0078D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>"""
+
+SUN_SVG = b"""<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="12" cy="12" r="4" stroke="#0078D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" stroke="#0078D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>"""
+
+MOON_SVG = b"""<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" stroke="#0078D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>"""
+
 

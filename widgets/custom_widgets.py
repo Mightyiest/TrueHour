@@ -150,22 +150,44 @@ class EmailChipWidget(QWidget):
         # Text input line
         self._input = QLineEdit(self)
         self._input.setPlaceholderText("Type email and press Enter or comma...")
-        self._input.setStyleSheet("""
-            QLineEdit {
-                border: 1px solid #E2E8F0;
+        self._outer_layout.addWidget(self._input)
+
+        self._input.returnPressed.connect(self._on_commit)
+        self._input.textChanged.connect(self._on_text_changed)
+        
+        self.update_theme()
+
+    def update_theme(self):
+        is_dark = False
+        win = self.window()
+        if win:
+            is_dark = win.palette().color(win.backgroundRole()).value() < 128
+        bg_widget = "#161D30" if is_dark else "#FFFFFF"
+        border_color = "#24304F" if is_dark else "#E2E8F0"
+        text_color = "#F3F4F6" if is_dark else "#0F172A"
+        accent = "#38BDF8" if is_dark else "#0078D4"
+        
+        self._input.setStyleSheet(f"""
+            QLineEdit {{
+                border: 1px solid {border_color};
                 border-radius: 6px;
                 padding: 5px 8px;
                 font-family: 'Segoe UI';
                 font-size: 12px;
-                background-color: #FFFFFF;
-            }
-            QLineEdit:focus {
-                border-color: #0078D4;
-            }
+                background-color: {bg_widget};
+                color: {text_color};
+            }}
+            QLineEdit:focus {{
+                border-color: {accent};
+            }}
         """)
-        self._input.returnPressed.connect(self._on_commit)
-        self._input.textChanged.connect(self._on_text_changed)
-        self._outer_layout.addWidget(self._input)
+
+    def changeEvent(self, event):
+        if event.type() == event.Type.PaletteChange or event.type() == event.Type.StyleChange:
+            self.update_theme()
+            # Also refresh existing chips to match the new theme state
+            self.set_emails(list(self._emails))
+        super().changeEvent(event)
 
     def _on_text_changed(self, text):
         """Detect comma or semicolon separator to commit chip."""
@@ -189,38 +211,47 @@ class EmailChipWidget(QWidget):
 
     def _add_chip_widget(self, email):
         """Create a visual chip pill for an email."""
+        is_dark = False
+        win = self.window()
+        if win:
+            is_dark = win.palette().color(win.backgroundRole()).value() < 128
+        chip_bg = "#1E293B" if is_dark else "#EEF2FF"
+        chip_border = "#334155" if is_dark else "#C7D2FE"
+        chip_text = "#38BDF8" if is_dark else "#3730A3"
+        chip_close = "#94A3B8" if is_dark else "#6366F1"
+
         chip = QFrame(self._chip_container)
-        chip.setStyleSheet("""
-            QFrame {
-                background-color: #EEF2FF;
-                border: 1px solid #C7D2FE;
+        chip.setStyleSheet(f"""
+            QFrame {{
+                background-color: {chip_bg};
+                border: 1px solid {chip_border};
                 border-radius: 12px;
                 padding: 2px 4px;
-            }
+            }}
         """)
         chip_layout = QHBoxLayout(chip)
         chip_layout.setContentsMargins(8, 2, 4, 2)
         chip_layout.setSpacing(4)
 
         label = QLabel(email, chip)
-        label.setStyleSheet("color: #3730A3; font-size: 11px; font-family: 'Segoe UI'; font-weight: 500; border: none; background: transparent;")
+        label.setStyleSheet(f"color: {chip_text}; font-size: 11px; font-family: 'Segoe UI'; font-weight: 500; border: none; background: transparent;")
         chip_layout.addWidget(label)
 
         remove_btn = QPushButton("✕", chip)
         remove_btn.setFixedSize(16, 16)
         remove_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        remove_btn.setStyleSheet("""
-            QPushButton {
+        remove_btn.setStyleSheet(f"""
+            QPushButton {{
                 background: transparent;
                 border: none;
-                color: #6366F1;
+                color: {chip_close};
                 font-size: 11px;
                 font-weight: bold;
                 padding: 0;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 color: #DC2626;
-            }
+            }}
         """)
         remove_btn.clicked.connect(lambda checked, e=email, c=chip: self._remove_chip(e, c))
         chip_layout.addWidget(remove_btn)
@@ -538,7 +569,20 @@ class AppUsageRow(QFrame):
             }}
         """)
 
+    def changeEvent(self, event):
+        if event.type() in (event.Type.PaletteChange, event.Type.StyleChange):
+            self._apply_row_style()
+        super().changeEvent(event)
+
     def _apply_row_style(self):
-        text_color = "#1A1A1A" if self.included else "#ABABAB"
+        is_dark = False
+        win = self.window()
+        if win:
+            is_dark = win.palette().color(win.backgroundRole()).value() < 128
+        if is_dark:
+            text_color = "#F3F4F6" if self.included else "#64748B"
+        else:
+            text_color = "#1A1A1A" if self.included else "#ABABAB"
+            
         self.name_lbl.setStyleSheet(f"color: {text_color}; font-family: 'Segoe UI'; font-size: 13px;")
-        self.time_lbl.setStyleSheet(f"color: {text_color if self.included else '#ABABAB'}; font-family: 'Segoe UI'; font-size: 13px; font-weight: 500;")
+        self.time_lbl.setStyleSheet(f"color: {text_color}; font-family: 'Segoe UI'; font-size: 13px; font-weight: 500;")

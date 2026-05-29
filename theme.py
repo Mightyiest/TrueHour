@@ -92,6 +92,56 @@ def get_light_palette() -> QPalette:
     
     return palette
 
+def get_dark_palette() -> QPalette:
+    palette = QPalette()
+    
+    # Active Colors (Premium Deep Dark Space Slate)
+    palette.setColor(QPalette.ColorRole.Window, QColor("#0B0F19"))
+    palette.setColor(QPalette.ColorRole.WindowText, QColor("#F3F4F6"))
+    palette.setColor(QPalette.ColorRole.Base, QColor("#161D30"))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#0B0F19"))
+    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor("#161D30"))
+    palette.setColor(QPalette.ColorRole.ToolTipText, QColor("#F3F4F6"))
+    palette.setColor(QPalette.ColorRole.Text, QColor("#F3F4F6"))
+    palette.setColor(QPalette.ColorRole.Button, QColor("#161D30"))
+    palette.setColor(QPalette.ColorRole.ButtonText, QColor("#F3F4F6"))
+    palette.setColor(QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
+    palette.setColor(QPalette.ColorRole.Link, QColor("#38BDF8"))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor("#1F2937"))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#38BDF8"))
+    
+    # Inactive Colors (match Active)
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, QColor("#0B0F19"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.WindowText, QColor("#F3F4F6"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Base, QColor("#161D30"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.AlternateBase, QColor("#0B0F19"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipBase, QColor("#161D30"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipText, QColor("#F3F4F6"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Text, QColor("#F3F4F6"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Button, QColor("#161D30"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ButtonText, QColor("#F3F4F6"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Link, QColor("#38BDF8"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Highlight, QColor("#1F2937"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.HighlightedText, QColor("#38BDF8"))
+    
+    # Disabled Colors (grayed out dark theme)
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, QColor("#0B0F19"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#64748B"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Base, QColor("#0B0F19"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.AlternateBase, QColor("#0B0F19"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipBase, QColor("#161D30"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipText, QColor("#64748B"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor("#64748B"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Button, QColor("#0B0F19"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#64748B"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Link, QColor("#38BDF8"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Highlight, QColor("#1F2937"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.HighlightedText, QColor("#64748B"))
+    
+    return palette
+
 # ── Dynamic Checkmark Icon Generator ─────────────────────────────────
 def ensure_checkmark_icon() -> str:
     from config import get_app_data_dir
@@ -178,283 +228,294 @@ def create_minimalist_icon(icon_type, color_hex, size=16) -> QIcon:
     return QIcon(pixmap)
 
 # ── Unified Styled Window Palette (QSS) ──────────────────────────────
-QSS_STYLE = """
-QWidget {
-    color: #0F172A;
+def get_qss_style(is_dark: bool) -> str:
+    # Color tokens based on theme
+    bg_window = "#0B0F19" if is_dark else "#F8FAFC"
+    bg_widget = "#161D30" if is_dark else "#FFFFFF"
+    text_primary = "#F3F4F6" if is_dark else "#0F172A"
+    text_secondary = "#9CA3AF" if is_dark else "#475569"
+    border_color = "#24304F" if is_dark else "#E2E8F0"
+    accent = "#38BDF8" if is_dark else "#0078D4"
+    accent_hover = "#0EA5E9" if is_dark else "#106EBE"
+    bg_hover = "#1F2937" if is_dark else "#F1F5F9"
+    
+    return f"""
+QWidget {{
+    color: {text_primary};
     background-color: transparent;
-}
-QMainWindow {
-    background-color: #F8FAFC;
-}
-QDialog {
-    background-color: #F8FAFC;
-}
+}}
+QMainWindow {{
+    background-color: {bg_window};
+}}
+QDialog {{
+    background-color: {bg_window};
+}}
 QWidget#scroll_widget, 
 QWidget#sessions_widget, 
 QWidget#recoveries_widget, 
 QWidget#scroll_content,
-QWidget#report_scroll_widget {
-    background-color: #FFFFFF;
-}
-QLabel {
-    color: #0F172A;
-}
-QFrame#MainCard {
-    background-color: #FFFFFF;
+QWidget#report_scroll_widget {{
+    background-color: {bg_widget};
+}}
+QLabel {{
+    color: {text_primary};
+}}
+QFrame#MainCard {{
+    background-color: {bg_widget};
     border-radius: 12px;
-    border: 1px solid #E2E8F0;
-}
-QFrame#AppListCard {
-    background-color: #FFFFFF;
+    border: 1px solid {border_color};
+}}
+QFrame#AppListCard {{
+    background-color: {bg_widget};
     border-radius: 12px;
-    border: 1px solid #E2E8F0;
-}
-QScrollArea {
+    border: 1px solid {border_color};
+}}
+QScrollArea {{
     border: none;
     background-color: transparent;
-}
-QScrollBar:vertical {
-    background: #FFFFFF;
+}}
+QScrollBar:vertical {{
+    background: {bg_widget};
     width: 6px;
     margin: 0px;
-}
-QScrollBar::handle:vertical {
-    background: #E2E8F0;
+}}
+QScrollBar::handle:vertical {{
+    background: {border_color};
     min-height: 20px;
     border-radius: 3px;
-}
-QScrollBar::handle:vertical:hover {
-    background: #CBD5E1;
-}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+}}
+QScrollBar::handle:vertical:hover {{
+    background: {text_secondary};
+}}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
     height: 0px;
-}
-QScrollBar:horizontal {
-    background: #FFFFFF;
+}}
+QScrollBar:horizontal {{
+    background: {bg_widget};
     height: 6px;
     margin: 0px;
-}
-QScrollBar::handle:horizontal {
-    background: #E2E8F0;
+}}
+QScrollBar::handle:horizontal {{
+    background: {border_color};
     min-width: 20px;
     border-radius: 3px;
-}
-QScrollBar::handle:horizontal:hover {
-    background: #CBD5E1;
-}
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+}}
+QScrollBar::handle:horizontal:hover {{
+    background: {text_secondary};
+}}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
     width: 0px;
-}
-QPushButton {
-    font-family: 'Segoe UI';
+}}
+QPushButton {{
+    font-family: '{FONT_FAMILY}';
     font-size: 13px;
-}
-QPushButton#AccentButton {
-    background-color: #0F172A;
+}}
+QPushButton#AccentButton {{
+    background-color: {accent};
     color: #FFFFFF;
     border: none;
     border-radius: 14px;
     padding: 6px 16px;
     font-weight: bold;
-}
-QPushButton#AccentButton:hover {
-    background-color: #1E293B;
-}
-QPushButton#AccentButton:disabled {
-    background-color: #F1F5F9;
-    color: #94A3B8;
-}
-QPushButton#NormalButton {
-    background-color: #FFFFFF;
-    color: #0F172A;
-    border: 1px solid #E2E8F0;
+}}
+QPushButton#AccentButton:hover {{
+    background-color: {accent_hover};
+}}
+QPushButton#AccentButton:disabled {{
+    background-color: {bg_hover};
+    color: {text_secondary};
+}}
+QPushButton#NormalButton {{
+    background-color: {bg_widget};
+    color: {text_primary};
+    border: 1px solid {border_color};
     border-radius: 14px;
     padding: 6px 16px;
     font-weight: 500;
-}
-QPushButton#NormalButton:hover {
-    background-color: #F1F5F9;
-    border-color: #CBD5E1;
-}
-QPushButton#NormalButton:disabled {
-    background-color: #F8FAFC;
-    color: #94A3B8;
-    border: 1px solid #E2E8F0;
-}
-QPushButton#RedButton {
+}}
+QPushButton#NormalButton:hover {{
+    background-color: {bg_hover};
+    border-color: {border_color};
+}}
+QPushButton#NormalButton:disabled {{
+    background-color: {bg_window};
+    color: {text_secondary};
+    border: 1px solid {border_color};
+}}
+QPushButton#RedButton {{
     background-color: #EF4444;
     color: #FFFFFF;
     border: none;
     border-radius: 14px;
     padding: 6px 16px;
     font-weight: bold;
-}
-QPushButton#RedButton:hover {
+}}
+QPushButton#RedButton:hover {{
     background-color: #DC2626;
-}
-QPushButton#RedButton:disabled {
-    background-color: #F8FAFC;
-    color: #94A3B8;
-}
-QLineEdit {
-    background-color: #FFFFFF;
-    border: 1px solid #E2E8F0;
+}}
+QPushButton#RedButton:disabled {{
+    background-color: {bg_window};
+    color: {text_secondary};
+}}
+QLineEdit {{
+    background-color: {bg_widget};
+    border: 1px solid {border_color};
     border-radius: 6px;
     padding: 4px 8px;
-    color: #0F172A;
-    font-family: 'Segoe UI';
+    color: {text_primary};
+    font-family: '{FONT_FAMILY}';
     font-size: 13px;
-}
-QLineEdit:focus {
-    border: 1px solid #0078D4;
-}
-QComboBox {
-    background-color: #FFFFFF;
-    border: 1px solid #E2E8F0;
+}}
+QLineEdit:focus {{
+    border: 1px solid {accent};
+}}
+QComboBox {{
+    background-color: {bg_widget};
+    border: 1px solid {border_color};
     border-radius: 6px;
     padding: 4px 8px;
-    color: #0F172A;
-    font-family: 'Segoe UI';
+    color: {text_primary};
+    font-family: '{FONT_FAMILY}';
     font-size: 13px;
-}
-QComboBox:focus {
-    border: 1px solid #0078D4;
-}
-QComboBox QAbstractItemView {
-    background-color: #FFFFFF;
-    color: #0F172A;
-    border: 1px solid #E2E8F0;
-    selection-background-color: #F1F5F9;
-    selection-color: #0078D4;
-}
-QTabWidget::pane {
-    border: 1px solid #E2E8F0;
-    background-color: #FFFFFF;
+}}
+QComboBox:focus {{
+    border: 1px solid {accent};
+}}
+QComboBox QAbstractItemView {{
+    background-color: {bg_widget};
+    color: {text_primary};
+    border: 1px solid {border_color};
+    selection-background-color: {bg_hover};
+    selection-color: {accent};
+}}
+QTabWidget::pane {{
+    border: 1px solid {border_color};
+    background-color: {bg_widget};
     border-radius: 8px;
-}
-QTabBar::tab {
-    background-color: #F8FAFC;
-    color: #475569;
+}}
+QTabBar::tab {{
+    background-color: {bg_window};
+    color: {text_secondary};
     padding: 6px 16px;
-    font-family: 'Segoe UI';
+    font-family: '{FONT_FAMILY}';
     font-size: 13px;
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid {border_color};
     border-bottom: none;
     margin-right: 2px;
-}
-QTabBar::tab:selected {
-    background-color: #FFFFFF;
-    color: #0078D4;
+}}
+QTabBar::tab:selected {{
+    background-color: {bg_widget};
+    color: {accent};
     font-weight: bold;
-    border: 1px solid #CBD5E1;
+    border: 1px solid {border_color};
     border-bottom: none;
-}
-QTableWidget {
-    background-color: #FFFFFF;
-    color: #0F172A;
-    border: 1px solid #E2E8F0;
-    gridline-color: #F8FAFC;
-    font-family: 'Segoe UI';
+}}
+QTableWidget {{
+    background-color: {bg_widget};
+    color: {text_primary};
+    border: 1px solid {border_color};
+    gridline-color: {bg_window};
+    font-family: '{FONT_FAMILY}';
     font-size: 13px;
-}
-QTableWidget::item {
-    color: #0F172A;
-    background-color: #FFFFFF;
-}
-QTableWidget::item:selected {
-    background-color: #F1F5F9;
-    color: #0078D4;
-}
-QHeaderView::section {
-    background-color: #F8FAFC;
-    color: #475569;
+}}
+QTableWidget::item {{
+    color: {text_primary};
+    background-color: {bg_widget};
+}}
+QTableWidget::item:selected {{
+    background-color: {bg_hover};
+    color: {accent};
+}}
+QHeaderView::section {{
+    background-color: {bg_window};
+    color: {text_secondary};
     padding: 6px;
-    border: 1px solid #E2E8F0;
-    font-family: 'Segoe UI';
+    border: 1px solid {border_color};
+    font-family: '{FONT_FAMILY}';
     font-size: 12px;
     font-weight: bold;
-}
-QTableCornerButton::section {
-    background-color: #F8FAFC;
-    border: 1px solid #E2E8F0;
-}
-QCheckBox {
-    color: #0F172A;
-    font-family: 'Segoe UI';
+}}
+QTableCornerButton::section {{
+    background-color: {bg_window};
+    border: 1px solid {border_color};
+}}
+QCheckBox {{
+    color: {text_primary};
+    font-family: '{FONT_FAMILY}';
     font-size: 13px;
-}
-QCheckBox::indicator {
+}}
+QCheckBox::indicator {{
     width: 14px;
     height: 14px;
-    border: 1.5px solid #94A3B8;
+    border: 1.5px solid {text_secondary};
     border-radius: 3px;
-    background-color: #FFFFFF;
-}
-QCheckBox::indicator:hover {
-    border-color: #0078D4;
-    background-color: #F1F5F9;
-}
-QCheckBox::indicator:checked {
-    border-color: #0078D4;
-    background-color: #0078D4;
+    background-color: {bg_widget};
+}}
+QCheckBox::indicator:hover {{
+    border-color: {accent};
+    background-color: {bg_hover};
+}}
+QCheckBox::indicator:checked {{
+    border-color: {accent};
+    background-color: {accent};
     image: url(CHECKMARK_PATH);
-}
-QCheckBox::indicator:checked:hover {
-    border-color: #106EBE;
-    background-color: #106EBE;
-}
-QCheckBox::indicator:disabled {
-    border-color: #E2E8F0;
-    background-color: #F8FAFC;
-}
-QGroupBox {
-    font-family: 'Segoe UI';
+}}
+QCheckBox::indicator:checked:hover {{
+    border-color: {accent_hover};
+    background-color: {accent_hover};
+}}
+QCheckBox::indicator:disabled {{
+    border-color: {border_color};
+    background-color: {bg_window};
+}}
+QGroupBox {{
+    font-family: '{FONT_FAMILY}';
     font-weight: bold;
     font-size: 12px;
-    color: #475569;
-    border: 1px solid #E2E8F0;
+    color: {text_secondary};
+    border: 1px solid {border_color};
     border-radius: 8px;
     margin-top: 12px;
     padding-top: 12px;
-}
-QGroupBox::title {
+}}
+QGroupBox::title {{
     subcontrol-origin: margin;
     subcontrol-position: top left;
     left: 10px;
     padding-left: 3px;
     padding-right: 3px;
-}
-QMenu {
-    background-color: #FFFFFF;
-    color: #0F172A;
-    border: 1px solid #E2E8F0;
-}
-QMenu::item {
+}}
+QMenu {{
+    background-color: {bg_widget};
+    color: {text_primary};
+    border: 1px solid {border_color};
+}}
+QMenu::item {{
     padding: 6px 20px;
     background-color: transparent;
-}
-QMenu::item:selected {
-    background-color: #F1F5F9;
-    color: #0078D4;
-}
-QMenu::separator {
+}}
+QMenu::item:selected {{
+    background-color: {bg_hover};
+    color: {accent};
+}}
+QMenu::separator {{
     height: 1px;
-    background-color: #E2E8F0;
+    background-color: {border_color};
     margin: 4px 0px;
-}
-QMessageBox {
-    background-color: #F8FAFC;
-}
-QMessageBox QLabel {
-    color: #0F172A;
-}
-QMessageBox QPushButton {
-    background-color: #FFFFFF;
-    color: #0F172A;
-    border: 1px solid #E2E8F0;
+}}
+QMessageBox {{
+    background-color: {bg_window};
+}}
+QMessageBox QLabel {{
+    color: {text_primary};
+}}
+QMessageBox QPushButton {{
+    background-color: {bg_widget};
+    color: {text_primary};
+    border: 1px solid {border_color};
     border-radius: 14px;
     padding: 4px 12px;
-}
+}}
 """

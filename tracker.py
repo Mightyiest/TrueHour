@@ -786,8 +786,9 @@ class AppTracker:
                     if elapsed > 0:
                         if elapsed > self.poll_interval + 2.0:
                             elapsed = self.poll_interval
-                        self.app_times[c_app] = self.app_times.get(c_app, 0) + elapsed
-                        c_block_active += elapsed
+                        if self.app_included.get(c_app, True):
+                            self.app_times[c_app] = self.app_times.get(c_app, 0) + elapsed
+                            c_block_active += elapsed
 
                 if c_block_active >= self.min_track_seconds:
                     self.timeline.append({
@@ -932,8 +933,9 @@ class AppTracker:
                     if elapsed > 0:
                         if elapsed > self.poll_interval + 2.0:
                             elapsed = self.poll_interval
-                        self.app_times[c_app] = self.app_times.get(c_app, 0) + elapsed
-                        c_block_active += elapsed
+                        if self.app_included.get(c_app, True):
+                            self.app_times[c_app] = self.app_times.get(c_app, 0) + elapsed
+                            c_block_active += elapsed
                 
                 if c_block_active >= self.min_track_seconds:
                     self.timeline.append({
@@ -1003,14 +1005,21 @@ class AppTracker:
         if not self.app_times:
             return 0
         with self._lock:
-            return sum(s for a, s in self.app_times.items() if self.app_included.get(a, True))
+            return sum(
+                s for a, s in self.app_times.items()
+                if self.app_included.get(a, True)
+                and not _is_auto_excluded(self.app_exe_paths.get(a, ""))
+            )
 
     def get_total_seconds(self):
         # Fast path: avoid lock if no apps tracked yet
         if not self.app_times:
             return 0
         with self._lock:
-            return sum(self.app_times.values())
+            return sum(
+                s for a, s in self.app_times.items()
+                if not _is_auto_excluded(self.app_exe_paths.get(a, ""))
+            )
 
     def get_elapsed(self):
         """Seconds since session started."""
@@ -1062,21 +1071,21 @@ class AppTracker:
                             partial - self.poll_interval
                         )
 
-                        self.app_times[self._current_app] = (
-                            self.app_times.get(self._current_app, 0)
-                            + self.poll_interval
-                        )
-                        
-                        self._current_block_active += self.poll_interval
+                        if self.app_included.get(self._current_app, True):
+                            self.app_times[self._current_app] = (
+                                self.app_times.get(self._current_app, 0)
+                                + self.poll_interval
+                            )
+                            self._current_block_active += self.poll_interval
 
                     else:
 
-                        self.app_times[self._current_app] = (
-                            self.app_times.get(self._current_app, 0)
-                            + partial
-                        )
-                        
-                        self._current_block_active += partial
+                        if self.app_included.get(self._current_app, True):
+                            self.app_times[self._current_app] = (
+                                self.app_times.get(self._current_app, 0)
+                                + partial
+                            )
+                            self._current_block_active += partial
 
             if self._current_block_active >= self.min_track_seconds:
 
@@ -1160,14 +1169,15 @@ class AppTracker:
                             self._total_paused_time += (elapsed - self.poll_interval)
                             elapsed = self.poll_interval
 
-                        self.app_times[self._current_app] = (
-                            self.app_times.get(self._current_app, 0) + elapsed
-                        )
-                        self._current_block_active += elapsed
+                        if self.app_included.get(self._current_app, True):
+                            self.app_times[self._current_app] = (
+                                self.app_times.get(self._current_app, 0) + elapsed
+                            )
+                            self._current_block_active += elapsed
                         self._current_start = now
                         
                         # Security: Validate and record with tamper detection
-                        if self.security_detector and self._current_app:
+                        if self.security_detector and self._current_app and self.app_included.get(self._current_app, True):
                             validation = self.security_detector.validate_and_record(
                                 self._current_app, 
                                 elapsed
