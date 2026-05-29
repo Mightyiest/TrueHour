@@ -70,18 +70,30 @@ class ReportGeneratorWorker(QThread):
         """
         total_seconds = int((self.end_time - self.start_time).total_seconds())
         
-        # Get apps from tracker (thread-safe read)
-        with self.tracker.lock:
-            apps_data = dict(self.tracker.apps)
+        # Get apps from tracker (thread-safe read using public methods)
+        with self.tracker._lock:
+            app_times = dict(self.tracker.app_times)
+            app_exe_paths = dict(self.tracker.app_exe_paths)
+            app_included = dict(self.tracker.app_included)
         
         # Single pass aggregation
         app_list = []
         category_stats = {}
         
-        for app_name, (app_path, seconds, category) in apps_data.items():
+        for app_name, seconds in app_times.items():
             if seconds <= 0:
                 continue
+            
+            # Get category from tag manager
+            exe_path = app_exe_paths.get(app_name, "")
+            included = app_included.get(app_name, True)
+            
+            # Skip auto-excluded apps
+            if not included:
+                continue
                 
+            category = self.tracker.tag_manager.get_tag(app_name, exe_path)
+            
             # Category stats
             if category not in category_stats:
                 category_stats[category] = {'time': 0, 'count': 0}
@@ -91,7 +103,7 @@ class ReportGeneratorWorker(QThread):
             # App list
             app_list.append({
                 'name': app_name,
-                'path': app_path,
+                'path': exe_path,
                 'seconds': seconds,
                 'category': category,
                 'initial': app_name[0].upper() if app_name else '?',
