@@ -33,7 +33,6 @@ from report import (
 )
 from version import VERSION_SHORT, VERSION_FULL, INFO
 from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG, EDIT_SVG, SUN_SVG, MOON_SVG
-from widgets.custom_widgets import ConfettiWidget
 
 # Global Constants & Paths
 ICON_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -218,10 +217,6 @@ class TrueHourApp(QMainWindow):
         self.clock_timer = QTimer(self)
         self.clock_timer.timeout.connect(self._tick_clock)
         
-        # Confetti widget for celebration when stopping timer
-        self.confetti_widget = ConfettiWidget(self)
-        self.confetti_widget.setGeometry(0, 0, self.width(), self.height())
-
         # Link tracker callback
         self.tracker.on_update = lambda: self.signals.update_signal.emit()
         
@@ -529,16 +524,7 @@ class TrueHourApp(QMainWindow):
     def _on_stop(self):
         logger.info("[Action] Clicked Stop Tracking")
         
-        # Show confetti IMMEDIATELY before any heavy operations to avoid lag
-        parent_geo = self.geometry()
-        confetti_width = 800
-        confetti_height = 600
-        x_pos = parent_geo.x() + (parent_geo.width() - confetti_width) // 2
-        y_pos = parent_geo.y() + (parent_geo.height() - confetti_height) // 2
-        self.confetti_widget.setGeometry(x_pos, y_pos, confetti_width, confetti_height)
-        self.confetti_widget.start_confetti(duration_ms=2500)
-        
-        # Now stop tracker and update UI (these are fast operations)
+        # Stop tracker and update UI immediately
         self.tracker.stop()
         self.clock_timer.stop()
         self.start_btn.setEnabled(True)
@@ -558,8 +544,8 @@ class TrueHourApp(QMainWindow):
         except Exception as e:
             print(f"[TrueHour] Stop autosave failed: {e}")
         
-        # Delay report slightly so confetti is visible first
-        QTimer.singleShot(300, lambda: self._show_report(report, is_new=True))
+        # Show report immediately
+        self._show_report(report, is_new=True)
 
     def _on_pause(self):
         is_paused = self.tracker.toggle_pause()
@@ -1346,12 +1332,12 @@ class TrueHourApp(QMainWindow):
         logger.info(f"[Action] Displaying session report (is_new={is_new}, is_live={is_live})")
         dialog = QDialog(self)
         dialog.setWindowTitle("TrueHour — Live Report" if is_live else "TrueHour — Session Report")
-        # Position report dialog to the right side of screen to avoid covering confetti
+        # Position report dialog centered on screen
         screen = QApplication.primaryScreen().geometry()
         dialog_width = 720
         dialog_height = 680
-        # Position on the right side of screen, vertically centered
-        x_pos = screen.width() - dialog_width - 50  # 50px from right edge
+        # Center the dialog on screen
+        x_pos = (screen.width() - dialog_width) // 2
         y_pos = (screen.height() - dialog_height) // 2
         dialog.setGeometry(x_pos, y_pos, dialog_width, dialog_height)
         dialog.setMinimumSize(600, 500)
