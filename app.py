@@ -531,8 +531,14 @@ class TrueHourApp(QMainWindow):
         self.tracker.stop()
         self.clock_timer.stop()
         
-        # Trigger confetti celebration
-        self.confetti_widget.setGeometry(0, 0, self.width(), self.height())
+        # Trigger confetti celebration - position centered and outside app window
+        parent_geo = self.geometry()
+        confetti_width = 800
+        confetti_height = 600
+        # Center the confetti widget relative to the app window
+        x_pos = parent_geo.x() + (parent_geo.width() - confetti_width) // 2
+        y_pos = parent_geo.y() + (parent_geo.height() - confetti_height) // 2
+        self.confetti_widget.setGeometry(x_pos, y_pos, confetti_width, confetti_height)
         self.confetti_widget.start_confetti(duration_ms=2500)
         
         self.start_btn.setEnabled(True)
@@ -548,7 +554,8 @@ class TrueHourApp(QMainWindow):
             save_to_autosave(report)
         except Exception as e:
             print(f"[TrueHour] Stop autosave failed: {e}")
-        self._show_report(report, is_new=True)
+        # Delay report slightly so confetti is visible first
+        QTimer.singleShot(300, lambda: self._show_report(report, is_new=True))
 
     def _on_pause(self):
         is_paused = self.tracker.toggle_pause()
@@ -1335,7 +1342,14 @@ class TrueHourApp(QMainWindow):
         logger.info(f"[Action] Displaying session report (is_new={is_new}, is_live={is_live})")
         dialog = QDialog(self)
         dialog.setWindowTitle("TrueHour — Live Report" if is_live else "TrueHour — Session Report")
-        self._center_window(dialog, 720, 680)
+        # Position report dialog to the right side of screen to avoid covering confetti
+        screen = QApplication.primaryScreen().geometry()
+        dialog_width = 720
+        dialog_height = 680
+        # Position on the right side of screen, vertically centered
+        x_pos = screen.width() - dialog_width - 50  # 50px from right edge
+        y_pos = (screen.height() - dialog_height) // 2
+        dialog.setGeometry(x_pos, y_pos, dialog_width, dialog_height)
         dialog.setMinimumSize(600, 500)
         
         # Apply stylesheet and palette on start

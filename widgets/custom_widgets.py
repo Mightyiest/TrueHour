@@ -24,8 +24,11 @@ class ConfettiWidget(QWidget):
         self.confetti_pieces = []
         self.animation_timer = QTimer(self)
         self.animation_timer.timeout.connect(self._update_confetti)
-        self.setFixedSize(300, 200)
+        # Set larger fixed size to allow confetti to spread beyond app window
+        self.setFixedSize(800, 600)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
         self.hide()
         
         # Confetti colors
@@ -40,15 +43,15 @@ class ConfettiWidget(QWidget):
         width = self.width()
         height = self.height()
         
-        # Create confetti pieces
-        for _ in range(100):
+        # Create confetti pieces - start from center top for better visual effect
+        for _ in range(150):
             piece = {
-                'x': random.randint(0, width),
-                'y': random.randint(-height, 0),
+                'x': random.randint(width // 4, 3 * width // 4),  # Start from center region
+                'y': random.randint(-height // 2, 0),
                 'size': random.randint(6, 12),
                 'color': random.choice(self.colors),
-                'speed_y': random.uniform(2, 5),
-                'speed_x': random.uniform(-1, 1),
+                'speed_y': random.uniform(3, 6),
+                'speed_x': random.uniform(-2, 2),
                 'rotation': random.randint(0, 360),
                 'rotation_speed': random.uniform(-5, 5),
                 'shape': random.choice(['rect', 'ellipse'])
@@ -56,6 +59,7 @@ class ConfettiWidget(QWidget):
             self.confetti_pieces.append(piece)
         
         self.show()
+        self.raise_()
         self.animation_timer.start(16)  # ~60 FPS
         
         # Stop after duration
