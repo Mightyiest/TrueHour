@@ -527,13 +527,6 @@ class TrueHourApp(QMainWindow):
     def _on_stop(self):
         logger.info("[Action] Clicked Stop Tracking")
         
-        # Store session times for report generation
-        self._session_end_time = datetime.now()
-        if hasattr(self, '_session_start_time'):
-            start_time = self._session_start_time
-        else:
-            start_time = datetime.now() - timedelta(seconds=self.tracker.get_elapsed())
-        
         # Stop tracker and update UI
         self.tracker.stop()
         self.clock_timer.stop()
@@ -551,8 +544,8 @@ class TrueHourApp(QMainWindow):
             from report import build_report_data
             report = build_report_data(
                 self.tracker,
-                start_time,
-                self._session_end_time
+                hourly_rate=self.hourly_rate,
+                currency_symbol=self.currency_symbol
             )
             
             # Generate HTML using template
@@ -623,12 +616,12 @@ class TrueHourApp(QMainWindow):
                 
                 def save_and_close():
                     try:
-                        # Build proper report data for saving
+                        # Build proper report data for saving (rebuild from tracker)
                         from report import build_report_data
                         report = build_report_data(
                             self.tracker,
-                            self._session_end_time - timedelta(hours=1),
-                            self._session_end_time
+                            hourly_rate=self.hourly_rate,
+                            currency_symbol=self.currency_symbol
                         )
                         save_to_history(report)
                         QMessageBox.information(self, "Saved", "Session saved to history!")
