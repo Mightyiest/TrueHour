@@ -1,1 +1,1 @@
-# FocusLog widgets package
+# FocusLog widgets package → TrueHour widgets package

@@ -1,5 +1,5 @@
 """
-FocusLog — Version Information.
+TrueHour — Version Information.
 Single source of truth for version and build metadata.
 """
 

@@ -1,5 +1,5 @@
 """
-FocusLog — Custom Interactive QPainter Chart Widgets.
+TrueHour — Custom Interactive QPainter Chart Widgets.
 Provides a premium, dependency-free visual experience with animations and hover states.
 """
 from PyQt6.QtWidgets import QWidget

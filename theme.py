@@ -1,5 +1,5 @@
 """
-FocusLog — Unified Theme & Design System
+TrueHour — Unified Theme & Design System
 Houses colors, global stylesheets, palette configurations, and SVG paint utilities.
 """
 import os
