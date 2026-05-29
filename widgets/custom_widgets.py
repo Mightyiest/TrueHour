@@ -2,16 +2,115 @@
 TrueHour — Custom Reusable UI Widgets & Dialog Component Leaf Nodes
 """
 import os
+import random
 from PyQt6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QCheckBox, QDialog, QLayout, QInputDialog
 )
-from PyQt6.QtCore import Qt, QSize, QPoint, QRect, QRectF
+from PyQt6.QtCore import Qt, QSize, QPoint, QRect, QRectF, QTimer, QPointF
 from PyQt6.QtGui import QPixmap, QPainter, QBrush, QColor, QPen, QPainterPath
 
 from theme import get_svg_icon, get_tag_color
 from assets import EDIT_SVG
 from report import format_duration
+
+
+# ── Confetti Animation Widget ─────────────────────────────────
+class ConfettiWidget(QWidget):
+    """A full-screen overlay widget that displays a confetti celebration animation."""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.confetti_pieces = []
+        self.animation_timer = QTimer(self)
+        self.animation_timer.timeout.connect(self._update_confetti)
+        self.setFixedSize(300, 200)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.hide()
+        
+        # Confetti colors
+        self.colors = [
+            "#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", 
+            "#98D8C8", "#F7DC6F", "#BB8FCE", "#F1948A"
+        ]
+        
+    def start_confetti(self, duration_ms=2000):
+        """Start the confetti animation for the specified duration."""
+        self.confetti_pieces = []
+        width = self.width()
+        height = self.height()
+        
+        # Create confetti pieces
+        for _ in range(100):
+            piece = {
+                'x': random.randint(0, width),
+                'y': random.randint(-height, 0),
+                'size': random.randint(6, 12),
+                'color': random.choice(self.colors),
+                'speed_y': random.uniform(2, 5),
+                'speed_x': random.uniform(-1, 1),
+                'rotation': random.randint(0, 360),
+                'rotation_speed': random.uniform(-5, 5),
+                'shape': random.choice(['rect', 'ellipse'])
+            }
+            self.confetti_pieces.append(piece)
+        
+        self.show()
+        self.animation_timer.start(16)  # ~60 FPS
+        
+        # Stop after duration
+        QTimer.singleShot(duration_ms, self.stop_confetti)
+    
+    def stop_confetti(self):
+        """Stop the confetti animation."""
+        self.animation_timer.stop()
+        self.confetti_pieces = []
+        self.hide()
+    
+    def _update_confetti(self):
+        """Update confetti positions and trigger repaint."""
+        width = self.width()
+        height = self.height()
+        
+        for piece in self.confetti_pieces:
+            piece['y'] += piece['speed_y']
+            piece['x'] += piece['speed_x']
+            piece['rotation'] += piece['rotation_speed']
+            
+            # Reset if falls below screen
+            if piece['y'] > height:
+                piece['y'] = -piece['size']
+                piece['x'] = random.randint(0, width)
+        
+        self.update()
+    
+    def paintEvent(self, event):
+        """Paint the confetti pieces."""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        for piece in self.confetti_pieces:
+            painter.save()
+            
+            # Translate to piece position and rotate
+            center_x = piece['x'] + piece['size'] / 2
+            center_y = piece['y'] + piece['size'] / 2
+            painter.translate(center_x, center_y)
+            painter.rotate(piece['rotation'])
+            painter.translate(-center_x, -center_y)
+            
+            # Set color
+            painter.setBrush(QBrush(QColor(piece['color'])))
+            painter.setPen(Qt.PenStyle.NoPen)
+            
+            # Draw shape
+            rect = QRect(int(piece['x']), int(piece['y']), piece['size'], piece['size'])
+            if piece['shape'] == 'ellipse':
+                painter.drawEllipse(rect)
+            else:
+                painter.drawRect(rect)
+            
+            painter.restore()
 
 # ── QR Code Thumbnail Widget with Hover Edit ──────────────────────────
 class QRThumbnailWidget(QFrame):

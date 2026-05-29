@@ -33,6 +33,7 @@ from report import (
 )
 from version import VERSION_SHORT, VERSION_FULL, INFO
 from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG, EDIT_SVG, SUN_SVG, MOON_SVG
+from widgets.custom_widgets import ConfettiWidget
 
 # Global Constants & Paths
 ICON_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -216,6 +217,10 @@ class TrueHourApp(QMainWindow):
         
         self.clock_timer = QTimer(self)
         self.clock_timer.timeout.connect(self._tick_clock)
+        
+        # Confetti widget for celebration when stopping timer
+        self.confetti_widget = ConfettiWidget(self)
+        self.confetti_widget.setGeometry(0, 0, self.width(), self.height())
 
         # Link tracker callback
         self.tracker.on_update = lambda: self.signals.update_signal.emit()
@@ -525,6 +530,10 @@ class TrueHourApp(QMainWindow):
         logger.info("[Action] Clicked Stop Tracking")
         self.tracker.stop()
         self.clock_timer.stop()
+        
+        # Trigger confetti celebration
+        self.confetti_widget.setGeometry(0, 0, self.width(), self.height())
+        self.confetti_widget.start_confetti(duration_ms=2500)
         
         self.start_btn.setEnabled(True)
         self.pause_btn.setEnabled(False)
