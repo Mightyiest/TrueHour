@@ -1,4 +1,4 @@
-# FocusLog - Anti-Tamper Time Tracking
+# TrueHour - Anti-Tamper Time Tracking
 
 ## 🔒 Security Features Implemented
 
@@ -50,8 +50,8 @@ This module adds **tamper-resistant time tracking** to prevent users from manipu
 ### Files Created
 
 - `secure_time.py` - Core security module
-- `/AppData/FocusLog/time_chain.json` - Cryptographic hash chain
-- `/AppData/FocusLog/security_log.json` - Tamper event log
+- `/AppData/TrueHour/time_chain.json` - Cryptographic hash chain
+- `/AppData/TrueHour/security_log.json` - Tamper event log
 
 ### API Usage
 

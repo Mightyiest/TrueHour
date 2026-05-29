@@ -125,7 +125,7 @@ TrueHours/
 ## ⚙️ Configuration & Customization
 
 True Hours stores user data in the local app data directory:
-`%LOCALAPPDATA%\FocusLog` (or `~\FocusLog` if env var is missing).
+`%LOCALAPPDATA%\TrueHour` (or `~\TrueHour` if env var is missing).
 
 ### 1. Auto-Excluded Apps
 True Hours comes with a default list of system apps to ignore (e.g., `explorer.exe`, `svchost.exe`). You can customize this list.
@@ -223,7 +223,7 @@ A: Click the **📂 (Folder)** icon in the top right header to open the Session 
 
 **Q: Does this send data online?**
 
-A: **No.** True Hours is 100% offline. All data is stored locally in your `%LOCALAPPDATA%\FocusLog` folder.
+A: **No.** True Hours is 100% offline. All data is stored locally in your `%LOCALAPPDATA%\TrueHour` folder.
 
 **Q: Was AI Used in this Project?**
 

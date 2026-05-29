@@ -488,7 +488,7 @@ class SessionManagerDialog(QDialog):
         logger.info(f"[Action] Generating HTML invoice for {len(self.selected_sessions)} selected sessions")
         
         # Show save path dialog
-        default_html_name = f"FocusLog_Invoice_{datetime.now().strftime('%Y-%m-%d')}.html"
+        default_html_name = f"TrueHour_Invoice_{datetime.now().strftime('%Y-%m-%d')}.html"
         html_filepath, _ = QFileDialog.getSaveFileName(self, "Save Invoice HTML", default_html_name, "HTML Files (*.html)")
         if not html_filepath:
             return

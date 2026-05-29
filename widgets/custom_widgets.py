@@ -1,5 +1,5 @@
 """
-FocusLog — Custom Reusable UI Widgets & Dialog Component Leaf Nodes
+TrueHour — Custom Reusable UI Widgets & Dialog Component Leaf Nodes
 """
 import os
 from PyQt6.QtWidgets import (

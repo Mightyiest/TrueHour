@@ -1,5 +1,5 @@
 """
-FocusLog — Report generation and export utilities.
+TrueHour — Report generation and export utilities.
 """
 import json
 import os
@@ -903,7 +903,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
                             </div>
                         """)
                 except Exception as ex:
-                    print(f"[FocusLog] Error base64 encoding QR code {qr_fname}: {ex}")
+                    print(f"[TrueHour] Error base64 encoding QR code {qr_fname}: {ex}")
         if qr_items:
             has_any_link = any(qr_code_links.get(fn, "") for fn in qr_code_paths)
             hint_html = ""
@@ -1067,7 +1067,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
             with open(template_path, "w", encoding="utf-8") as f:
                 f.write(default_template.strip())
         except Exception as e:
-            print(f"[FocusLog] Recreating template file failed: {e}")
+            print(f"[TrueHour] Recreating template file failed: {e}")
 
     try:
         with open(template_path, "r", encoding="utf-8") as f:
@@ -1078,7 +1078,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     # Replace all placeholders in HTML template
     html = template_html
     html = html.replace("{{LOGO_HTML}}", logo_html)
-    html = html.replace("{{BUSINESS_NAME}}", _esc(settings_data.get("business_name", "FocusLog Invoice")))
+    html = html.replace("{{BUSINESS_NAME}}", _esc(settings_data.get("business_name", "TrueHour Invoice")))
     html = html.replace("{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", "")))
     html = html.replace("{{BUSINESS_CONTACT}}", biz_contact_html)
     html = html.replace("{{INVOICE_NO}}", f"INV-{datetime.now().strftime('%Y%m%d%H%M')}")
@@ -1139,7 +1139,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>FocusLog Session Report - {{SESSION_NAME}}</title>
+    <title>TrueHour Session Report - {{SESSION_NAME}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -1241,7 +1241,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
                 <div class="report-date">{{DATE}}</div>
             </div>
             <div class="meta-column">
-                <div class="app-badge">FocusLog</div>
+                <div class="app-badge">TrueHour</div>
                 <div class="meta-item"><strong>Start:</strong> {{START_TIME}}</div>
                 <div class="meta-item"><strong>End:</strong> {{END_TIME}}</div>
             </div>
@@ -1298,7 +1298,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         </div>
 
         <div class="report-footer">
-            Generated with FocusLog — Automated Time Tracking and Productivity Dashboard.
+            Generated with TrueHour — Automated Time Tracking and Productivity Dashboard.
         </div>
     </div>
 </body>
@@ -1310,7 +1310,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             with open(template_path, "w", encoding="utf-8") as f:
                 f.write(default_template.strip())
         except Exception as e:
-            print(f"[FocusLog] Recreating report template file failed: {e}")
+            print(f"[TrueHour] Recreating report template file failed: {e}")
 
     try:
         with open(template_path, "r", encoding="utf-8") as f:

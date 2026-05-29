@@ -1,5 +1,5 @@
 """
-FocusLog — Debug Terminal Module
+TrueHour — Debug Terminal Module
 Manages thread-safe stdout/stderr, active file logging, and UDP loopback streaming to a standalone debug console.
 """
 import sys
@@ -35,11 +35,11 @@ class LogBufferCollector:
         try:
             from config import get_app_data_dir
             import os
-            log_file = os.path.join(get_app_data_dir(), "FocusLog_active.log")
+            log_file = os.path.join(get_app_data_dir(), "TrueHour_active.log")
             if os.path.exists(log_file):
                 os.remove(log_file)
             with open(log_file, "w", encoding="utf-8") as f:
-                f.write(f"--- FocusLog Debug Session Started at {datetime.now()} ---\n")
+                f.write(f"--- TrueHour Debug Session Started at {datetime.now()} ---\n")
         except Exception:
             pass
 
@@ -54,7 +54,7 @@ class LogBufferCollector:
             try:
                 from config import get_app_data_dir
                 import os
-                log_file = os.path.join(get_app_data_dir(), "FocusLog_active.log")
+                log_file = os.path.join(get_app_data_dir(), "TrueHour_active.log")
                 with open(log_file, "a", encoding="utf-8") as f:
                     f.write(text)
             except Exception:
@@ -116,7 +116,7 @@ class DebugTerminalWindow(QDialog):
         self.listener_active = False
         self.udp_sock = None
         
-        self.setWindowTitle("FocusLog Debug Console")
+        self.setWindowTitle("TrueHour Debug Console")
         self.resize(620, 420)
         self.setMinimumSize(450, 300)
         
@@ -245,7 +245,7 @@ class DebugTerminalWindow(QDialog):
         try:
             from config import get_app_data_dir
             import os
-            log_file = os.path.join(get_app_data_dir(), "FocusLog_active.log")
+            log_file = os.path.join(get_app_data_dir(), "TrueHour_active.log")
             if os.path.exists(log_file):
                 with open(log_file, "r", encoding="utf-8") as f:
                     lines = f.readlines()
@@ -268,7 +268,7 @@ class DebugTerminalWindow(QDialog):
             self.udp_sock.bind(("127.0.0.1", 50099))
         except Exception:
             # Address already in use: another console is running, so exit gracefully
-            QMessageBox.warning(self, "Console Already Open", "FocusLog Debug Console is already running.")
+            QMessageBox.warning(self, "Console Already Open", "TrueHour Debug Console is already running.")
             sys.exit(0)
             
         self.listener_active = True
@@ -354,7 +354,7 @@ class DebugTerminalWindow(QDialog):
             try:
                 from config import get_app_data_dir
                 import os
-                log_file = os.path.join(get_app_data_dir(), "FocusLog_active.log")
+                log_file = os.path.join(get_app_data_dir(), "TrueHour_active.log")
                 if os.path.exists(log_file):
                     with open(log_file, "w", encoding="utf-8") as f:
                         f.write(f"--- Log Cleared at {datetime.now()} ---\n")
@@ -378,7 +378,7 @@ class DebugTerminalWindow(QDialog):
                 else:
                     from config import get_app_data_dir
                     import shutil
-                    log_file = os.path.join(get_app_data_dir(), "FocusLog_active.log")
+                    log_file = os.path.join(get_app_data_dir(), "TrueHour_active.log")
                     if os.path.exists(log_file):
                         shutil.copy(log_file, path)
                     else:

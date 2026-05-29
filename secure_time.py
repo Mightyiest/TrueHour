@@ -1,5 +1,5 @@
 """
-FocusLog — Secure Time Module
+TrueHour — Secure Time Module
 Provides tamper-resistant time tracking using monotonic clocks,
 network time verification, and cryptographic hash chaining.
 """
@@ -132,7 +132,7 @@ class TimeTamperDetector:
                 
                 req = urllib.request.Request(
                     url,
-                    headers={"User-Agent": "FocusLog/1.0"},
+                    headers={"User-Agent": "TrueHour/1.0"},
                     method=method
                 )
                 with urllib.request.urlopen(req, timeout=timeout, context=ssl_context) as response:

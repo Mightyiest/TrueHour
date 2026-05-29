@@ -1,5 +1,5 @@
 """
-FocusLog — Core tracking engine.
+TrueHour — Core tracking engine.
 Monitors the active foreground window and records app usage durations.
 Includes tamper-resistant time tracking with monotonic clocks and hash chaining.
 """
@@ -79,9 +79,9 @@ _SYSTEM = _platform.system()
 if _SYSTEM == "Darwin":
     _DEFAULT_AUTO_EXCLUDED = """\
 # ══════════════════════════════════════════════════════════════════
-# FocusLog — Auto-Excluded Apps (macOS)
+# TrueHour — Auto-Excluded Apps (macOS)
 # ══════════════════════════════════════════════════════════════════
-# Apps listed here are completely invisible to FocusLog.
+# Apps listed here are completely invisible to TrueHour.
 # They will not appear in the app list, report, timeline, or CSV.
 #
 # Rules:
@@ -120,9 +120,9 @@ screencapture
 else:
     _DEFAULT_AUTO_EXCLUDED = """\
 # ══════════════════════════════════════════════════════════════════
-# FocusLog — Auto-Excluded Apps
+# TrueHour — Auto-Excluded Apps
 # ══════════════════════════════════════════════════════════════════
-# Apps listed here are completely invisible to FocusLog.
+# Apps listed here are completely invisible to TrueHour.
 # They will not appear in the app list, report, timeline, or CSV.
 #
 # Rules:
@@ -506,7 +506,7 @@ class TagManager:
                     search_query = desc
                     
             url = f"https://api.duckduckgo.com/?q={urllib.parse.quote(search_query)}&format=json&no_html=1&skip_disambig=1"
-            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) FocusLog/1.0'})
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) TrueHour/1.0'})
             
             # Query DuckDuckGo API with a clean 3.0s timeout
             with urllib.request.urlopen(req, timeout=3.0) as response:
