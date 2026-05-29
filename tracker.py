@@ -6,20 +6,48 @@ Includes tamper-resistant time tracking with monotonic clocks and hash chaining.
 
 import time
 import threading
+import sys
 import ctypes as _ctypes
 
 def _get_idle_seconds():
-    """Return seconds since last mouse/keyboard input (Windows only)."""
-    try:
-        class _LASTINPUTINFO(_ctypes.Structure):
-            _fields_ = [("cbSize", _ctypes.c_uint), ("dwTime", _ctypes.c_uint)]
-        lii = _LASTINPUTINFO()
-        lii.cbSize = _ctypes.sizeof(_LASTINPUTINFO)
-        _ctypes.windll.user32.GetLastInputInfo(_ctypes.byref(lii))
-        millis = (_ctypes.windll.kernel32.GetTickCount() - lii.dwTime) & 0xFFFFFFFF
-        return millis / 1000.0
-    except Exception:
-        return 0.0
+    """Return seconds since last mouse/keyboard input (cross-platform)."""
+    if sys.platform == "win32":
+        try:
+            class _LASTINPUTINFO(_ctypes.Structure):
+                _fields_ = [("cbSize", _ctypes.c_uint), ("dwTime", _ctypes.c_uint)]
+            lii = _LASTINPUTINFO()
+            lii.cbSize = _ctypes.sizeof(_LASTINPUTINFO)
+            _ctypes.windll.user32.GetLastInputInfo(_ctypes.byref(lii))
+            millis = (_ctypes.windll.kernel32.GetTickCount() - lii.dwTime) & 0xFFFFFFFF
+            return millis / 1000.0
+        except Exception:
+            return 0.0
+    elif sys.platform == "darwin":
+        try:
+            # Load CoreGraphics library via ctypes (requires no extra python packages)
+            import ctypes.util
+            lib_path = ctypes.util.find_library("CoreGraphics")
+            if not lib_path:
+                lib_path = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics"
+            cg = _ctypes.CDLL(lib_path)
+            
+            # CGEventSourceSecondsSinceLastEventType is double CGEventSourceSecondsSinceLastEventType(int, int)
+            cg.CGEventSourceSecondsSinceLastEventType.restype = _ctypes.c_double
+            cg.CGEventSourceSecondsSinceLastEventType.argtypes = [_ctypes.c_int32, _ctypes.c_uint32]
+            
+            # kCGEventSourceStateCombinedSessionState = 0
+            # kCGAnyInputEventType = ~0 (0xFFFFFFFF)
+            idle_seconds = cg.CGEventSourceSecondsSinceLastEventType(0, 0xFFFFFFFF)
+            return float(idle_seconds)
+        except Exception:
+            # Fallback to Quartz (PyObjC) if ctypes CoreGraphics load failed
+            try:
+                from Quartz import CGEventSourceSecondsSinceLastEventType, kCGEventSourceStateCombinedSessionState, kCGAnyInputEventType
+                return float(CGEventSourceSecondsSinceLastEventType(kCGEventSourceStateCombinedSessionState, kCGAnyInputEventType))
+            except Exception:
+                return 0.0
+    return 0.0
+
 
 
 import os
@@ -45,7 +73,52 @@ if not logger.handlers:
 
 # Default auto-excluded apps written on first launch only.
 # User edits to the file are never overwritten.
-_DEFAULT_AUTO_EXCLUDED = """\
+import platform as _platform
+_SYSTEM = _platform.system()
+
+if _SYSTEM == "Darwin":
+    _DEFAULT_AUTO_EXCLUDED = """\
+# ══════════════════════════════════════════════════════════════════
+# FocusLog — Auto-Excluded Apps (macOS)
+# ══════════════════════════════════════════════════════════════════
+# Apps listed here are completely invisible to FocusLog.
+# They will not appear in the app list, report, timeline, or CSV.
+#
+# Rules:
+#   - One application name or process name per line (e.g. Finder)
+#   - Lines starting with # are comments and are ignored
+#   - Names are case-insensitive
+#
+# To stop excluding an app, delete its line or add # in front.
+# To exclude a new app, add its name on a new line.
+# Changes take effect on the next session start.
+# ══════════════════════════════════════════════════════════════════
+
+# ── macOS Core System UI & Desktop ─────────────────────────────────
+Finder
+Dock
+SystemUIServer
+loginwindow
+NotificationCenter
+ControlCenter
+Spotlight
+WindowManager
+
+# ── macOS Utilities (brief use, not real work) ────────────────────
+Activity Monitor
+Terminal
+Console
+System Settings
+System Preferences
+Keychain Access
+Screen Sharing
+
+# ── Audio & Core services ─────────────────────────────────────────
+coreaudiod
+screencapture
+"""
+else:
+    _DEFAULT_AUTO_EXCLUDED = """\
 # ══════════════════════════════════════════════════════════════════
 # FocusLog — Auto-Excluded Apps
 # ══════════════════════════════════════════════════════════════════
@@ -156,27 +229,28 @@ _AUTO_EXCLUDED_LOCK = threading.Lock()  # thread-safe access to _AUTO_EXCLUDED_E
 
 def create_auto_excluded_if_missing():
     """Generate default auto_excluded_apps.txt on first launch only.
-    If file already exists, make sure all default Windows system apps are present, but don't overwrite user edits."""
+    If file already exists, make sure all default system apps are present, but don't overwrite user edits."""
     if os.path.exists(AUTO_EXCLUDE_FILE):
         try:
             with open(AUTO_EXCLUDE_FILE, "r", encoding="utf-8") as f:
                 content = f.read()
             content_lower = content.lower()
             
-            # Extract all default active executables from _DEFAULT_AUTO_EXCLUDED
+            # Extract all default active executables/apps from _DEFAULT_AUTO_EXCLUDED
             default_apps = []
+            is_windows = _platform.system() == "Windows"
             for line in _DEFAULT_AUTO_EXCLUDED.splitlines():
                 line = line.strip()
                 if line and not line.startswith("#"):
                     exe = line.lower()
-                    if not exe.endswith(".exe"):
+                    if is_windows and not exe.endswith(".exe"):
                         exe += ".exe"
                     default_apps.append((line, exe))
             
             missing_additions = []
             for raw_name, exe_name in default_apps:
-                base_name = exe_name[:-4] if exe_name.endswith(".exe") else exe_name
-                # Check if this executable (with or without .exe) is present in the file
+                base_name = exe_name[:-4] if (is_windows and exe_name.endswith(".exe")) else exe_name
+                # Check if this app/process is present in the file
                 if base_name not in content_lower:
                     missing_additions.append(raw_name)
                 
