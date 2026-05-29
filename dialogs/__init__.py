@@ -1,1 +1,1 @@
-# FocusLog dialogs package → TrueHour dialogs package
+# TrueHour dialogs package
