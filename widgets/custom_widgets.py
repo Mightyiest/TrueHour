@@ -5,7 +5,7 @@ import os
 import random
 from PyQt6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QLineEdit, QCheckBox, QDialog, QLayout, QInputDialog
+    QLineEdit, QCheckBox, QDialog, QLayout, QInputDialog, QApplication
 )
 from PyQt6.QtCore import Qt, QSize, QPoint, QRect, QRectF, QTimer, QPointF
 from PyQt6.QtGui import QPixmap, QPainter, QBrush, QColor, QPen, QPainterPath
@@ -16,6 +16,71 @@ from report import format_duration
 
 
 # ── Confetti Animation Widget ─────────────────────────────────
+class ConfettiPiece:
+    """Individual confetti piece with physics properties."""
+    def __init__(self, width, height, layer_type='normal'):
+        self.x = random.randint(0, width)
+        self.y = -random.randint(10, 100)  # Start above screen
+        
+        # Physics based on layer type (mimicking the JS confetti script)
+        if layer_type == 'fast_tight':
+            # fire(0.25, { spread: 26, startVelocity: 55 })
+            self.vx = random.uniform(-3, 3)  # Low spread
+            self.vy = random.uniform(-12, -8)  # High upward velocity (negative = up)
+            self.size = random.randint(8, 12)
+            self.decay = 0.96
+        elif layer_type == 'medium':
+            # fire(0.2, { spread: 60 })
+            self.vx = random.uniform(-6, 6)  # Medium spread
+            self.vy = random.uniform(-10, -6)
+            self.size = random.randint(6, 10)
+            self.decay = 0.95
+        elif layer_type == 'wide_slow':
+            # fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 })
+            self.vx = random.uniform(-10, 10)  # Wide spread
+            self.vy = random.uniform(-7, -4)
+            self.size = random.randint(4, 8)  # Smaller scalar
+            self.decay = 0.91
+        elif layer_type == 'wide_fast':
+            # fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 })
+            self.vx = random.uniform(-12, 12)  # Very wide
+            self.vy = random.uniform(-10, -7)
+            self.size = random.randint(10, 14)  # Larger scalar
+            self.decay = 0.92
+        else:  # wide_varied
+            # fire(0.1, { spread: 120, startVelocity: 45 })
+            self.vx = random.uniform(-10, 10)
+            self.vy = random.uniform(-9, -5)
+            self.size = random.randint(6, 10)
+            self.decay = 0.94
+
+        self.gravity = 0.25
+        self.rotation = random.randint(0, 360)
+        self.rotation_speed = random.uniform(-10, 10)
+        self.color = random.choice([
+            QColor("#FFD700"), QColor("#FF6B6B"), QColor("#4ECDC4"), 
+            QColor("#45B7D1"), QColor("#96CEB4"), QColor("#FFEEAD"),
+            QColor("#D4A5A5"), QColor("#9B59B6"), QColor("#3498DB")
+        ])
+
+    def update(self):
+        self.x += self.vx
+        self.y += self.vy
+        self.vy += self.gravity  # Apply gravity
+        self.vx *= self.decay    # Apply air resistance/decay
+        self.rotation += self.rotation_speed
+
+    def draw(self, painter):
+        painter.save()
+        painter.translate(self.x, self.y)
+        painter.rotate(self.rotation)
+        painter.setBrush(self.color)
+        painter.setPen(Qt.PenStyle.NoPen)
+        # Draw a small rectangle for confetti
+        painter.drawRect(-self.size // 2, -self.size // 2, self.size, self.size)
+        painter.restore()
+
+
 class ConfettiWidget(QWidget):
     """A full-screen overlay widget that displays a confetti celebration animation."""
     
@@ -24,41 +89,49 @@ class ConfettiWidget(QWidget):
         self.confetti_pieces = []
         self.animation_timer = QTimer(self)
         self.animation_timer.timeout.connect(self._update_confetti)
-        # Set larger fixed size to allow confetti to spread beyond app window
-        self.setFixedSize(800, 600)
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        
+        # Set up transparent background
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
-        self.hide()
         
-        # Confetti colors
-        self.colors = [
-            "#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", 
-            "#98D8C8", "#F7DC6F", "#BB8FCE", "#F1948A"
-        ]
+        # Geometry: Full screen to allow confetti to spread everywhere
+        screen_geo = QApplication.primaryScreen().geometry()
+        self.setGeometry(screen_geo)
+        self.show()
         
-    def start_confetti(self, duration_ms=2000):
+    def start_confetti(self, duration_ms=2500):
         """Start the confetti animation for the specified duration."""
         self.confetti_pieces = []
         width = self.width()
         height = self.height()
         
-        # Create confetti pieces - start from center top for better visual effect
-        for _ in range(150):
-            piece = {
-                'x': random.randint(width // 4, 3 * width // 4),  # Start from center region
-                'y': random.randint(-height // 2, 0),
-                'size': random.randint(6, 12),
-                'color': random.choice(self.colors),
-                'speed_y': random.uniform(3, 6),
-                'speed_x': random.uniform(-2, 2),
-                'rotation': random.randint(0, 360),
-                'rotation_speed': random.uniform(-5, 5),
-                'shape': random.choice(['rect', 'ellipse'])
-            }
-            self.confetti_pieces.append(piece)
+        # Mimicking the JS script layers with 200 total pieces:
         
-        self.show()
+        # 1. fire(0.25, { spread: 26, startVelocity: 55 }) -> Fast & Tight
+        count_fast_tight = int(200 * 0.25)
+        for _ in range(count_fast_tight):
+            self.confetti_pieces.append(ConfettiPiece(width, height, 'fast_tight'))
+
+        # 2. fire(0.2, { spread: 60 }) -> Medium
+        count_medium = int(200 * 0.2)
+        for _ in range(count_medium):
+            self.confetti_pieces.append(ConfettiPiece(width, height, 'medium'))
+
+        # 3. fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 }) -> Wide & Slow (Small)
+        count_wide_slow = int(200 * 0.35)
+        for _ in range(count_wide_slow):
+            self.confetti_pieces.append(ConfettiPiece(width, height, 'wide_slow'))
+
+        # 4. fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 }) -> Wide & Fast (Large)
+        count_wide_large = int(200 * 0.1)
+        for _ in range(count_wide_large):
+            self.confetti_pieces.append(ConfettiPiece(width, height, 'wide_fast'))
+
+        # 5. fire(0.1, { spread: 120, startVelocity: 45 }) -> Wide & Varied
+        count_wide_varied = int(200 * 0.1)
+        for _ in range(count_wide_varied):
+            self.confetti_pieces.append(ConfettiPiece(width, height, 'wide_varied'))
+
         self.raise_()
         self.animation_timer.start(16)  # ~60 FPS
         
@@ -73,48 +146,24 @@ class ConfettiWidget(QWidget):
     
     def _update_confetti(self):
         """Update confetti positions and trigger repaint."""
-        width = self.width()
-        height = self.height()
-        
         for piece in self.confetti_pieces:
-            piece['y'] += piece['speed_y']
-            piece['x'] += piece['speed_x']
-            piece['rotation'] += piece['rotation_speed']
-            
-            # Reset if falls below screen
-            if piece['y'] > height:
-                piece['y'] = -piece['size']
-                piece['x'] = random.randint(0, width)
+            piece.update()
         
-        self.update()
+        # Remove pieces that fall off screen
+        self.confetti_pieces = [p for p in self.confetti_pieces if p.y < self.height() + 50]
+        
+        self.update()  # Trigger repaint
+        
+        if not self.confetti_pieces:
+            self.animation_timer.stop()
+            self.hide()
     
     def paintEvent(self, event):
         """Paint the confetti pieces."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
         for piece in self.confetti_pieces:
-            painter.save()
-            
-            # Translate to piece position and rotate
-            center_x = piece['x'] + piece['size'] / 2
-            center_y = piece['y'] + piece['size'] / 2
-            painter.translate(center_x, center_y)
-            painter.rotate(piece['rotation'])
-            painter.translate(-center_x, -center_y)
-            
-            # Set color
-            painter.setBrush(QBrush(QColor(piece['color'])))
-            painter.setPen(Qt.PenStyle.NoPen)
-            
-            # Draw shape
-            rect = QRect(int(piece['x']), int(piece['y']), piece['size'], piece['size'])
-            if piece['shape'] == 'ellipse':
-                painter.drawEllipse(rect)
-            else:
-                painter.drawRect(rect)
-            
-            painter.restore()
+            piece.draw(painter)
 
 # ── QR Code Thumbnail Widget with Hover Edit ──────────────────────────
 class QRThumbnailWidget(QFrame):
