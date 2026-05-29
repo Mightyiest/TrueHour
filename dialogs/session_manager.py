@@ -2,6 +2,7 @@ import os
 import time
 import json
 import glob
+import logging
 from datetime import datetime
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QTabWidget,
@@ -12,6 +13,8 @@ from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRectF
 from PyQt6.QtGui import QIcon, QPixmap, QColor, QPainter, QPen
 
 from config import get_app_data_dir, open_file, send_to_trash
+
+logger = logging.getLogger(__name__)
 from report import (
     load_session_json, merge_sessions_for_invoice, generate_invoice_html
 )
@@ -245,12 +248,14 @@ class SessionManagerDialog(QDialog):
             
             def _open_report_local(path):
                 try:
+                    logger.info(f"[Action] Viewing local report for session: {os.path.basename(path)}")
                     rep = load_session_json(path)
                     self.view_report_requested.emit(rep)
                 except Exception as e:
                     QMessageBox.critical(self, "Error", f"Could not load session:\n{e}")
                     
             def _resume_from_file(path):
+                logger.info(f"[Action] Resuming session from: {os.path.basename(path)}")
                 if self.tracker.running:
                     reply = QMessageBox.question(self, "Active Session", "A session is currently running.\nStop it and resume this one?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
                     if reply != QMessageBox.StandardButton.Yes:
@@ -269,6 +274,7 @@ class SessionManagerDialog(QDialog):
                         QMessageBox.StandardButton.No
                     )
                     if confirm == QMessageBox.StandardButton.Yes:
+                        logger.info(f"[Action] Renaming session file {os.path.basename(path)} from '{current_name}' to '{new_name.strip()}'")
                         try:
                             with open(path, "r", encoding="utf-8") as f:
                                 data = json.load(f)
@@ -292,6 +298,7 @@ class SessionManagerDialog(QDialog):
                         QMessageBox.StandardButton.No
                     )
                     if reply == QMessageBox.StandardButton.Yes:
+                        logger.info(f"[Action] Permanently deleting session: {os.path.basename(path)}")
                         try:
                             self.selected_sessions.discard(path)
                             if not self._send_to_recycle_bin(path):
@@ -309,6 +316,7 @@ class SessionManagerDialog(QDialog):
                         QMessageBox.StandardButton.No
                     )
                     if reply == QMessageBox.StandardButton.Yes:
+                        logger.info(f"[Action] Trashing session: {os.path.basename(path)}")
                         try:
                             filename = os.path.basename(path)
                             dest_path = os.path.join(self.trash_folder, filename)
@@ -323,6 +331,7 @@ class SessionManagerDialog(QDialog):
                             QMessageBox.critical(self, "Error", f"Could not move session to Trash:\n{e}")
 
             def _restore_session_file(path):
+                logger.info(f"[Action] Restoring session from trash: {os.path.basename(path)}")
                 try:
                     filename = os.path.basename(path)
                     if "auto_" in filename or "recovery_" in filename:
@@ -475,6 +484,8 @@ class SessionManagerDialog(QDialog):
         if not self.selected_sessions:
             QMessageBox.warning(self, "No Sessions Selected", "Please select at least one session using the checkbox on the left of the item.")
             return
+        
+        logger.info(f"[Action] Generating HTML invoice for {len(self.selected_sessions)} selected sessions")
         
         # Show save path dialog
         default_html_name = f"FocusLog_Invoice_{datetime.now().strftime('%Y-%m-%d')}.html"

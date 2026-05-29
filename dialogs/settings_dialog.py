@@ -1,5 +1,6 @@
 import os
 import shutil
+import logging
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTabWidget, QWidget,
     QScrollArea, QCheckBox, QFormLayout, QLineEdit, QComboBox, QGroupBox,
@@ -12,6 +13,8 @@ from theme import TEXT_SECONDARY, get_tag_color
 from config import get_app_data_dir, open_file
 from tracker import AUTO_EXCLUDE_FILE, create_auto_excluded_if_missing
 from appinfo import OVERRIDES_FILE
+
+logger = logging.getLogger(__name__)
 
 class SettingsDialog(QDialog):
     manage_categories_requested = pyqtSignal()
@@ -176,6 +179,7 @@ class SettingsDialog(QDialog):
         config_layout.setSpacing(4)
         
         def _open_file(filepath):
+            logger.info(f"[Action] Opened config file: {os.path.basename(filepath)}")
             if filepath == AUTO_EXCLUDE_FILE:
                 try:
                     create_auto_excluded_if_missing()
@@ -318,6 +322,7 @@ class SettingsDialog(QDialog):
         logo_row.addWidget(self.logo_path_entry, 1)
         
         def _browse_logo():
+            logger.info("[Action] Browsing for business logo image")
             path, _ = QFileDialog.getOpenFileName(self, "Select Business Logo Image", "", "Image files (*.png *.jpg *.jpeg)")
             if path:
                 self.logo_path_entry.setText(path)
@@ -362,6 +367,7 @@ class SettingsDialog(QDialog):
             dest = os.path.join(qr_dir, fname)
             try:
                 shutil.copy2(path, dest)
+                logger.info(f"[Action] Added payment QR code: {fname}")
                 self._qr_paths_local.append(fname)
                 self._refresh_qr_thumbnails()
             except Exception as ex:
@@ -451,6 +457,7 @@ class SettingsDialog(QDialog):
             initial_url = self._qr_links_local.get(qr_filename, "")
             
             def _remove_qr(fname=qr_filename):
+                logger.info(f"[Action] Removed payment QR code: {fname}")
                 if fname in self._qr_paths_local:
                     self._qr_paths_local.remove(fname)
                 self._qr_links_local.pop(fname, None)
@@ -478,6 +485,13 @@ class SettingsDialog(QDialog):
 
     def _save_and_close(self):
         try:
+            logger.info(f"[Action] Adjusted Settings:")
+            logger.info(f"  - Confirm close: {self.cb_confirm.isChecked()}")
+            logger.info(f"  - Min track seconds: {self.min_sec_entry.text()}")
+            logger.info(f"  - Auto-save seconds: {self.auto_save_entry.text()}")
+            logger.info(f"  - Hourly rate: {self.rate_entry.text()}")
+            logger.info(f"  - Developer mode: {self.cb_dev.isChecked()}")
+
             self.settings["confirm_on_close"] = self.cb_confirm.isChecked()
             self.settings["min_track_seconds"] = int(self.min_sec_entry.text())
             self.settings["auto_save_seconds"] = int(self.auto_save_entry.text())

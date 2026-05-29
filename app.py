@@ -203,8 +203,7 @@ class FocusLogApp(QMainWindow):
             except Exception:
                 pass
 
-        # Instantiate global debug console window
-        self.debug_window = DebugTerminalWindow(log_collector, self)
+        # Standalone debug console is launched as an independent process on demand.
 
         self._build_ui()
 
@@ -223,12 +222,16 @@ class FocusLogApp(QMainWindow):
             QTimer.singleShot(100, self._handle_interrupted_session)
 
     def _toggle_debug_console(self):
-        if self.debug_window.isVisible():
-            self.debug_window.hide()
-        else:
-            self.debug_window.show()
-            self.debug_window.raise_()
-            self.debug_window.activateWindow()
+        import subprocess
+        import sys
+        logger.info("[Action] Toggled Debug Console")
+        try:
+            if getattr(sys, 'frozen', False):
+                subprocess.Popen([sys.executable, "--debug-console"])
+            else:
+                subprocess.Popen([sys.executable, sys.argv[0], "--debug-console"])
+        except Exception as e:
+            logger.error(f"Failed to launch standalone debug console: {e}")
 
     def _update_developer_ui(self):
         self.debug_btn.setVisible(self.developer_mode)
@@ -500,6 +503,7 @@ class FocusLogApp(QMainWindow):
         event.accept()
 
     def _on_start(self):
+        logger.info("[Action] Clicked Start Tracking")
         auto_name = datetime.now().strftime("Session - %I:%M %p")
         self.tracker.start(session_name=auto_name) 
         
@@ -529,6 +533,7 @@ class FocusLogApp(QMainWindow):
         self.clock_timer.start(250)
 
     def _on_stop(self):
+        logger.info("[Action] Clicked Stop Tracking")
         self.tracker.stop()
         self.clock_timer.stop()
         
@@ -549,6 +554,7 @@ class FocusLogApp(QMainWindow):
 
     def _on_pause(self):
         is_paused = self.tracker.toggle_pause()
+        logger.info(f"[Action] Clicked {'Pause' if is_paused else 'Resume'}")
         if is_paused:
             self.pause_btn.setText("▶ Resume")
             self.pause_btn.setStyleSheet("color: #0078D4; background-color: #E8F1FB; font-weight: bold;")
@@ -562,6 +568,7 @@ class FocusLogApp(QMainWindow):
             self.active_label.setStyleSheet("color: #616161; font-size: 10px;")
 
     def _show_live_report(self):
+        logger.info("[Action] Opened Live Dashboard")
         if not self.tracker.running:
             QMessageBox.information(self, "No Active Session", "Start tracking first to view a live report.")
             return
@@ -722,6 +729,7 @@ class FocusLogApp(QMainWindow):
         menu.exec(button.mapToGlobal(button.rect().bottomLeft()))
 
     def _set_app_tag_and_refresh(self, app_name, tag):
+        logger.info(f"[Action] Categorized app '{app_name}' as '{tag}'")
         self.tracker.set_app_tag(app_name, tag)
         self._last_app_state_hash = None
         self._refresh_app_list()
@@ -828,6 +836,7 @@ class FocusLogApp(QMainWindow):
         layout.addWidget(browse_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
     def _show_session_manager(self):
+        logger.info("[Action] Opened Session Manager")
         from dialogs.session_manager import SessionManagerDialog
         
         current_settings = {
@@ -1059,6 +1068,7 @@ class FocusLogApp(QMainWindow):
             print(f"[FocusLog] Failed to save app settings: {e}")
 
     def _show_settings(self):
+        logger.info("[Action] Opened Settings")
         from dialogs.settings_dialog import SettingsDialog
         
         # Prepare the current settings dictionary
@@ -1101,6 +1111,7 @@ class FocusLogApp(QMainWindow):
         dialog.reload_exclusions_requested.connect(handle_reload)
         
         def handle_settings_saved(new_settings):
+            logger.info("[Action] Applied & Saved Settings")
             self.confirm_on_close = new_settings["confirm_on_close"]
             self.min_track_seconds = new_settings["min_track_seconds"]
             self.auto_save_seconds = new_settings["auto_save_seconds"]
@@ -1278,6 +1289,7 @@ class FocusLogApp(QMainWindow):
         dialog.exec()
 
     def _show_categories_dialog(self):
+        logger.info("[Action] Opened Categories Manager")
         dialog = QDialog(self)
         dialog.setWindowTitle("Manage Categories")
         self._center_window(dialog, 360, 440)
@@ -1371,6 +1383,7 @@ class FocusLogApp(QMainWindow):
         dialog.exec()
 
     def _show_report(self, report, is_new=True, is_live=False):
+        logger.info(f"[Action] Displaying session report (is_new={is_new}, is_live={is_live})")
         dialog = QDialog(self)
         dialog.setWindowTitle("FocusLog — Live Report" if is_live else "FocusLog — Session Report")
         self._center_window(dialog, 720, 680)
@@ -1690,6 +1703,7 @@ class FocusLogApp(QMainWindow):
             def _save_and_close():
                 try:
                     new_name = report_name_entry.text().strip()
+                    logger.info(f"[Action] Saving session to history with name: '{new_name}'")
                     report["session_name"] = new_name if new_name else "Unnamed"
                     save_to_history(report)
                     QMessageBox.information(dialog, "Saved", "Session saved to History.")
@@ -1702,6 +1716,7 @@ class FocusLogApp(QMainWindow):
         dialog.exec()
 
     def _export(self, report, fmt):
+        logger.info(f"[Action] Commencing report export to format: '{fmt}'")
         if fmt == "txt": 
             path, _ = QFileDialog.getSaveFileName(self, "Export TXT", f"focuslog_{report['date']}.txt", "Text files (*.txt)")
         else: 
@@ -1730,6 +1745,7 @@ class FocusLogApp(QMainWindow):
             QMessageBox.critical(self, "Export Error", str(e))
 
     def _export_csv_history(self):
+        logger.info("[Action] Commencing CSV history export")
         sessions_dir = os.path.join(get_app_data_dir(), "sessions")
         if not os.path.exists(sessions_dir):
             QMessageBox.warning(self, "No Sessions", "No saved sessions found.")
@@ -1776,8 +1792,14 @@ if __name__ == "__main__":
     app.setStyle("Fusion")
     app.setPalette(get_light_palette())
     
-    checkmark_path = ensure_checkmark_icon()
-    app.setStyleSheet(QSS_STYLE.replace("CHECKMARK_PATH", checkmark_path))
+    # Check for standalone Debug Console argument first to bypass single instance lock
+    if "--debug-console" in sys.argv:
+        checkmark_path = ensure_checkmark_icon()
+        app.setStyleSheet(QSS_STYLE.replace("CHECKMARK_PATH", checkmark_path))
+        from debug_terminal import DebugTerminalWindow
+        window = DebugTerminalWindow()
+        window.show()
+        sys.exit(app.exec())
     
     # Set default fonts globally
     font = app.font()
