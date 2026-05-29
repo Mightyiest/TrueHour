@@ -49,6 +49,8 @@ class TimeTamperDetector:
     def __init__(self):
         self.monotonic_start = None
         self.system_start = None
+        self.last_monotonic = None
+        self.last_system = None
         self.last_network_sync = None
         self.network_time_offset = 0.0
         self.trust_score = 100  # 0-100, higher = more trustworthy
@@ -210,6 +212,8 @@ class TimeTamperDetector:
         with self._lock:
             self.monotonic_start = time.monotonic()
             self.system_start = time.time()
+            self.last_monotonic = self.monotonic_start
+            self.last_system = self.system_start
             
             # Perform initial network sync (non-blocking)
             def sync_thread():
@@ -276,6 +280,24 @@ class TimeTamperDetector:
             current_monotonic = time.monotonic()
             current_system = time.time()
             
+            # Initialize tick tracking if not already set
+            if self.last_monotonic is None:
+                self.last_monotonic = current_monotonic
+            if self.last_system is None:
+                self.last_system = current_system
+                
+            # Tick-to-tick check: Monotonic and system clocks should advance by the same amount between polls
+            monotonic_tick_elapsed = current_monotonic - self.last_monotonic
+            system_tick_elapsed = current_system - self.last_system
+            
+            # If system clock jumped ahead of monotonic clock (e.g. during sleep/suspend), adjust base system start time
+            if system_tick_elapsed - monotonic_tick_elapsed > 5:
+                sleep_time = system_tick_elapsed - monotonic_tick_elapsed
+                self.system_start += sleep_time
+                
+            self.last_monotonic = current_monotonic
+            self.last_system = current_system
+
             # Calculate expected vs actual durations
             expected_monotonic_elapsed = current_monotonic - self.monotonic_start
             expected_system_elapsed = current_system - self.system_start

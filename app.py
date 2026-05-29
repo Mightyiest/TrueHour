@@ -46,7 +46,7 @@ def pil_to_pixmap(pil_img):
     try:
         im = pil_img.convert("RGBA")
         data = im.tobytes("raw", "RGBA")
-        qim = QImage(data, im.size[0], im.size[1], QImage.Format.Format_RGBA8888)
+        qim = QImage(data, im.size[0], im.size[1], QImage.Format.Format_RGBA8888).copy()
         return QPixmap.fromImage(qim)
     except Exception as e:
         logger.debug(f"pil_to_pixmap failed: {e}")
@@ -632,6 +632,8 @@ class TrueHourApp(QMainWindow):
             self._last_app_state_hash = app_state_key
             
             if not apps:
+                if self._showing_placeholder:
+                    return
                 self._clear_list_layout()
                 self._row_widgets.clear()
                 self.placeholder_lbl = QLabel("Waiting for app activity...", self)
@@ -895,6 +897,7 @@ class TrueHourApp(QMainWindow):
 
             if not self.tracker.load_from_report(filepath):
                 QMessageBox.critical(self, "Error", "Failed to resume session. The file may be corrupted.")
+                self._on_stop()
                 return
 
             self.start_btn.setEnabled(False)
