@@ -14,11 +14,11 @@ from theme import (
 )
 from dashboard_widgets import DonutChartWidget, BarChartWidget
 
-class FocusLogDashboard(QDialog):
+class TrueHourDashboard(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.main_app = parent  # Reference to FocusLogApp
-        self.setWindowTitle("FocusLog — Analytics Dashboard")
+        self.main_app = parent  # Reference to TrueHourApp
+        self.setWindowTitle("TrueHour — Analytics Dashboard")
         self.resize(800, 680)
         self.setMinimumSize(740, 600)
         
