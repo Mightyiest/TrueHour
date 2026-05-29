@@ -528,19 +528,19 @@ class TrueHourApp(QMainWindow):
 
     def _on_stop(self):
         logger.info("[Action] Clicked Stop Tracking")
-        self.tracker.stop()
-        self.clock_timer.stop()
         
-        # Trigger confetti celebration - position centered and outside app window
+        # Show confetti IMMEDIATELY before any heavy operations to avoid lag
         parent_geo = self.geometry()
         confetti_width = 800
         confetti_height = 600
-        # Center the confetti widget relative to the app window
         x_pos = parent_geo.x() + (parent_geo.width() - confetti_width) // 2
         y_pos = parent_geo.y() + (parent_geo.height() - confetti_height) // 2
         self.confetti_widget.setGeometry(x_pos, y_pos, confetti_width, confetti_height)
         self.confetti_widget.start_confetti(duration_ms=2500)
         
+        # Now stop tracker and update UI (these are fast operations)
+        self.tracker.stop()
+        self.clock_timer.stop()
         self.start_btn.setEnabled(True)
         self.pause_btn.setEnabled(False)
         self.stop_btn.setEnabled(False)
@@ -549,11 +549,15 @@ class TrueHourApp(QMainWindow):
         self.earnings_label.setText("")
         self.setWindowTitle("TrueHour")
 
+        # Build report data (this might take a moment)
         report = build_report_data(self.tracker, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol)
+        
+        # Save autosave in background (non-blocking)
         try:
             save_to_autosave(report)
         except Exception as e:
             print(f"[TrueHour] Stop autosave failed: {e}")
+        
         # Delay report slightly so confetti is visible first
         QTimer.singleShot(300, lambda: self._show_report(report, is_new=True))
 

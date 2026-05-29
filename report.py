@@ -106,18 +106,8 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
             project_times[tag] = project_times.get(tag, 0) + secs
 
     # Snapshot timeline under the lock to prevent concurrent modification
-    with tracker._lock:
-        timeline_snapshot = list(tracker.timeline)
-
+    # SKIPPED: Timeline removed for performance optimization
     timeline = []
-    for entry in timeline_snapshot:
-        if entry["app"] == "[Idle]" or not tracker.app_included.get(entry["app"], True):
-            continue
-        timeline.append({
-            "app": entry["app"],
-            "start": entry["start"].strftime("%H:%M:%S"),
-            "end": entry["end"].strftime("%H:%M:%S"),
-        })
 
     total_counted = sum(project_times.values())
     breakdown = []
@@ -1293,13 +1283,6 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             </tbody>
         </table>
 
-        <div class="section-header">
-            <div class="section-title">Detailed Timeline Activity</div>
-        </div>
-        <div class="timeline-list">
-            {{TIMELINE_ITEMS}}
-        </div>
-
         <div class="report-footer">
             Generated with TrueHour — Automated Time Tracking and Productivity Dashboard.
         </div>
@@ -1317,9 +1300,9 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
 
     try:
         with open(template_path, "r", encoding="utf-8") as f:
-            template_html = f.read()
+            html = f.read()
     except Exception:
-        template_html = default_template
+        html = default_template
 
     total_secs = report.get("total_seconds", 0)
     counted_secs = report.get("counted_seconds", 0)
@@ -1409,9 +1392,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         </div>
         """
 
-    # Applications rows
+    # Applications rows - optimized path without icon extraction
     apps_rows = ""
-    app_exe_paths = report.get("app_exe_paths", {})
     for app in report.get("apps", []):
         if app.get("excluded", False):
             continue
@@ -1422,98 +1404,19 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         escaped_app_name = _esc(app['name'])
         escaped_tag = _esc(raw_tag)
         
-        # Extract app icon as base64 PNG
+        # Extract app icon as base64 PNG - SKIPPED for performance optimization
         local_b64 = ""
-        exe_path = app_exe_paths.get(app['name'], app.get("exe_path", ""))
-        if exe_path:
-            try:
-                import base64
-                import io
-                from appinfo import get_icon_image
-                pil_icon = get_icon_image(exe_path, 20)
-                if pil_icon:
-                    buf = io.BytesIO()
-                    pil_icon.save(buf, format="PNG")
-                    local_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-            except Exception:
-                pass
         
-        # Mappings for premium online SVG icons via Simple Icons CDN
-        app_name_lower = app['name'].lower().strip()
-        simple_icons = {
-            "vs code": "visualstudiocode",
-            "vscode": "visualstudiocode",
-            "visual studio": "visualstudio",
-            "figma": "figma",
-            "notion": "notion",
-            "chrome": "googlechrome",
-            "google chrome": "googlechrome",
-            "edge": "microsoftedge",
-            "microsoft edge": "microsoftedge",
-            "firefox": "mozillafirefox",
-            "safari": "safari",
-            "slack": "slack",
-            "discord": "discord",
-            "spotify": "spotify",
-            "photoshop": "adobephotoshop",
-            "illustrator": "adobeillustrator",
-            "premiere": "adobepremierepro",
-            "blender": "blender",
-            "word": "microsoftword",
-            "excel": "microsoftexcel",
-            "powerpoint": "microsoftpowerpoint",
-            "teams": "microsoftteams",
-            "zoom": "zoom",
-            "github": "github",
-            "python": "python",
-            "node": "nodedotjs",
-            "trello": "trello",
-            "jira": "jira",
-            "asana": "asana",
-            "clickup": "clickup",
-            "whatsapp": "whatsapp",
-            "telegram": "telegram",
-            "outlook": "microsoftoutlook",
-            "sublime": "sublimetext",
-            "docker": "docker",
-            "postman": "postman",
-            "canva": "canva",
-        }
-        
-        slug = None
-        for key, value in simple_icons.items():
-            if key in app_name_lower:
-                slug = value
-                break
+        # Mappings for premium online SVG icons via Simple Icons CDN - REMOVED for performance optimization
+        # Now using optimized local SVG generation only
                 
         icon_html = ""
-        if slug:
-            # Multi-layered fallback sources if a service is blocked or down:
-            # 1. cdn.simpleicons.org (customizable colors)
-            # 2. jsDelivr NPM CDN (Enterprise Cloudflare/Fastly backed)
-            # 3. Unpkg CDN
-            # 4. Local extracted base64 or Category-colored letter SVG
-            
-            if local_b64:
-                fallback_src = f"data:image/png;base64,{local_b64}"
-            else:
-                initial = _esc(app['name'][0].upper()) if app['name'] else "?"
-                fallback_src = f"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><rect width='24' height='24' rx='6' fill='{tag_color.replace('#', '%23')}1a'/><text x='12' y='16' fill='{tag_color.replace('#', '%23')}' font-size='12' font-weight='800' font-family='sans-serif' text-anchor='middle'>{initial}</text></svg>"
-            
-            # Escape quotes safely for HTML attributes
-            escaped_fallback = fallback_src.replace("'", "\\'")
-            
-            icon_html = f"""<img src="https://cdn.simpleicons.org/{slug}" class="app-icon" onerror="this.onerror=function(){{ this.onerror=function(){{ this.onerror=null; this.src='{escaped_fallback}'; }}; this.src='https://unpkg.com/simple-icons@11.13.0/icons/{slug}.svg'; }}; this.src='https://cdn.jsdelivr.net/npm/simple-icons@11.13.0/icons/{slug}.svg';" />"""
-        elif local_b64:
-            # Use local base64 extracted exe icon
-            icon_html = f'<img src="data:image/png;base64,{local_b64}" class="app-icon" />'
-        else:
-            # High-fidelity category-colored letter-initial SVG vector (completely offline & local)
-            initial = _esc(app['name'][0].upper()) if app['name'] else "?"
-            icon_html = f"""<svg class="app-icon" style="vertical-align: middle; margin-right: 8px;" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="24" height="24" rx="6" fill="{tag_color}1a"/>
-                <text x="12" y="16" fill="{tag_color}" font-size="12" font-weight="800" font-family="Inter, system-ui, sans-serif" text-anchor="middle">{initial}</text>
-            </svg>"""
+        # Always use high-fidelity category-colored letter-initial SVG vector (completely offline & local) - optimized path
+        initial = _esc(app['name'][0].upper()) if app['name'] else "?"
+        icon_html = f"""<svg class="app-icon" style="vertical-align: middle; margin-right: 8px;" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="24" height="24" rx="6" fill="{tag_color}1a"/>
+            <text x="12" y="16" fill="{tag_color}" font-size="12" font-weight="800" font-family="Inter, system-ui, sans-serif" text-anchor="middle">{initial}</text>
+        </svg>"""
         
         apps_rows += f"""
         <tr>
@@ -1524,51 +1427,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         </tr>
         """
 
-    # Timeline list
-    timeline_items = ""
-    timeline_entries = report.get("timeline", [])
-    capped_timeline = timeline_entries[:15]
-    for t in capped_timeline:
-        t_start = t["start"]
-        t_end = t["end"]
-        
-        start_str = t_start.strftime("%I:%M:%S %p") if hasattr(t_start, "strftime") else str(t_start)
-        end_str = t_end.strftime("%I:%M:%S %p") if hasattr(t_end, "strftime") else str(t_end)
-        
-        app_name = t.get("app", "Active Session")
-        
-        app_tag = "Unassigned"
-        for app in report.get("apps", []):
-            if app["name"] == app_name:
-                app_tag = app.get("tag", "Unassigned")
-                break
-                
-        tag_color = get_project_color(app_tag)
-        
-        duration_secs = 0
-        if hasattr(t_start, "timestamp") and hasattr(t_end, "timestamp"):
-            duration_secs = int(t_end.timestamp() - t_start.timestamp())
-        duration_str = format_duration(duration_secs) if duration_secs > 0 else ""
-        
-        escaped_app_name = _esc(app_name)
-        escaped_app_tag = _esc(app_tag)
-        timeline_items += f"""
-        <div class="timeline-item" style="border-left-color: {tag_color};">
-            <span class="timeline-time">{start_str} - {end_str}</span>
-            <span class="timeline-app">{escaped_app_name} <span style="font-weight: normal; color: var(--text-muted); font-size: 11px;">({escaped_app_tag})</span></span>
-            <span class="timeline-duration">{duration_str}</span>
-        </div>
-        """
-
-    if len(timeline_entries) > 15:
-        timeline_items += f"""
-        <div style="text-align: center; font-size: 12px; color: var(--text-muted); font-weight: 600; padding: 12px; border: 1px dashed var(--border); border-radius: 8px; margin-top: 10px; background-color: var(--bg-body);">
-            ... and {len(timeline_entries) - 15} more activity segments in this session.
-        </div>
-        """
-
     # Replacements
-    html = template_html
     html = html.replace("{{SESSION_NAME}}", _esc(report.get("session_name", "Unnamed Session")))
     html = html.replace("{{DATE}}", _esc(report.get("date_display", report.get("date", ""))))
     html = html.replace("{{START_TIME}}", _esc(report.get("start_display", report.get("start", ""))))
@@ -1580,7 +1439,6 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     html = html.replace("{{NEW_ACTIVITY_HTML}}", new_activity_html)
     html = html.replace("{{PROJECTS_VISUAL}}", projects_visual)
     html = html.replace("{{APPS_TABLE_ROWS}}", apps_rows)
-    html = html.replace("{{TIMELINE_ITEMS}}", timeline_items)
 
     return html
 
