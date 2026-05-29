@@ -834,6 +834,7 @@ class FocusLogApp(QMainWindow):
         """)
         browse_btn.clicked.connect(_browse_file)
         layout.addWidget(browse_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        dialog.exec()
 
     def _show_session_manager(self):
         logger.info("[Action] Opened Session Manager")
@@ -1792,14 +1793,17 @@ if __name__ == "__main__":
     app.setStyle("Fusion")
     app.setPalette(get_light_palette())
     
+    checkmark_path = ensure_checkmark_icon()
+    
     # Check for standalone Debug Console argument first to bypass single instance lock
     if "--debug-console" in sys.argv:
-        checkmark_path = ensure_checkmark_icon()
         app.setStyleSheet(QSS_STYLE.replace("CHECKMARK_PATH", checkmark_path))
         from debug_terminal import DebugTerminalWindow
         window = DebugTerminalWindow()
         window.show()
         sys.exit(app.exec())
+        
+    app.setStyleSheet(QSS_STYLE.replace("CHECKMARK_PATH", checkmark_path))
     
     # Set default fonts globally
     font = app.font()
