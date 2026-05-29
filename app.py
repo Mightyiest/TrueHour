@@ -606,16 +606,22 @@ class TrueHourApp(QMainWindow):
 
     def _schedule_refresh(self):
         # The background thread emits `update_signal`, which wakes this up in the main GUI thread!
+        # Rate limit UI updates to max 2 Hz for better performance
+        now = time.time()
+        if now - getattr(self, '_last_refresh_time', 0) < 0.5:
+            return
+        self._last_refresh_time = now
         self._refresh_app_list()
 
     def _refresh_app_list(self):
         try:
             apps = self.tracker.get_app_times_sorted()
-            app_state_key = tuple((name, included, int(secs) // 5) for name, secs, included in apps)
+            # Use a coarser hash (10-second buckets) to reduce UI rebuilds
+            app_state_key = tuple((name, included, int(secs) // 10) for name, secs, included in apps)
 
             # Skip full rebuild if nothing meaningful changed
             if app_state_key == self._last_app_state_hash and not self._showing_placeholder:
-                # Fast path: update times
+                # Fast path: update times only for visible rows
                 for app_name, secs, included in apps:
                     if app_name in self._row_widgets:
                         self._row_widgets[app_name].update_time(secs)
