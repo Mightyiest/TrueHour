@@ -529,6 +529,11 @@ class SessionManagerDialog(QDialog):
         layout_container.addStretch()
 
     def _refresh_all_lists(self):
+        from core.reporting.aggregator import rebuild_all_summaries
+        try:
+            rebuild_all_summaries()
+        except Exception as e:
+            print(f"[TrueHour] Failed to rebuild summaries on list refresh: {e}")
         self._render_list(self.sessions_layout, self.history_folder, False)
         self._render_list(self.recoveries_layout, self.autosave_folder, True)
         self._render_list(self.trash_layout, self.trash_folder, False)

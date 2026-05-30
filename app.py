@@ -203,6 +203,15 @@ class HeaderBar(QFrame):
 class TrueHourApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        # Initialize SQLite database and build initial daily summaries
+        try:
+            from database.schema import init_db
+            from core.reporting.aggregator import rebuild_all_summaries
+            init_db()
+            rebuild_all_summaries()
+        except Exception as e:
+            print(f"[TrueHour] Failed database/summary bootstrap: {e}")
+            
         self.tracker = AppTracker(poll_interval=1.0, min_track_seconds=2)
         self._load_app_settings()
 

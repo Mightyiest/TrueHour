@@ -297,6 +297,11 @@ def save_to_autosave(report):
     filename = f"{prefix}_{start_dt.strftime('%Y-%m-%d_%H-%M-%S')}.json"
     filepath = os.path.join(folder, filename)
     export_json(report, filepath, is_internal=True)
+    try:
+        from core.reporting.aggregator import update_daily_summary
+        update_daily_summary(report)
+    except Exception as e:
+        print(f"[TrueHour] Failed to update daily summary: {e}")
     return filepath
 
 def save_to_history(report):
@@ -307,6 +312,11 @@ def save_to_history(report):
     filename = f"session_{start_dt.strftime('%Y-%m-%d_%H-%M-%S')}.json"
     filepath = os.path.join(folder, filename)
     export_json(report, filepath, is_internal=True)
+    try:
+        from core.reporting.aggregator import update_daily_summary
+        update_daily_summary(report)
+    except Exception as e:
+        print(f"[TrueHour] Failed to update daily summary: {e}")
     return filepath
 
 def load_session_json(filepath):
