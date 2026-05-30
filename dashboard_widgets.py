@@ -1,5 +1,5 @@
 """
-FocusLog — Custom Interactive QPainter Chart Widgets.
+TrueHour — Custom Interactive QPainter Chart Widgets.
 Provides a premium, dependency-free visual experience with animations and hover states.
 """
 from PyQt6.QtWidgets import QWidget
@@ -119,7 +119,11 @@ class DonutChartWidget(QWidget):
             current_angle -= span
 
         # 2. Draw Center Text Label
-        painter.setPen(QColor("#0F172A"))
+        is_dark = False
+        win = self.window()
+        if win:
+            is_dark = win.palette().color(win.backgroundRole()).value() < 128
+        painter.setPen(QColor("#F3F4F6") if is_dark else QColor("#0F172A"))
         painter.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
         
         # Format total time
@@ -134,7 +138,7 @@ class DonutChartWidget(QWidget):
         painter.drawText(QRectF(cx - r_inner, cy - 18, 2.0 * r_inner, 20), 
                          Qt.AlignmentFlag.AlignCenter, time_str)
         
-        painter.setPen(QColor("#64748B"))
+        painter.setPen(QColor("#9CA3AF") if is_dark else QColor("#64748B"))
         painter.setFont(QFont("Segoe UI", 9, QFont.Weight.Medium))
         painter.drawText(QRectF(cx - r_inner, cy + 4, 2.0 * r_inner, 15), 
                          Qt.AlignmentFlag.AlignCenter, "Tracked")
@@ -287,6 +291,10 @@ class BarChartWidget(QWidget):
             y_max = 1.0
 
         # 1. Draw horizontal gridlines
+        is_dark = False
+        win = self.window()
+        if win:
+            is_dark = win.palette().color(win.backgroundRole()).value() < 128
         grid_lines = 4
         painter.setFont(QFont("Segoe UI", 8))
         for i in range(grid_lines + 1):
@@ -295,14 +303,14 @@ class BarChartWidget(QWidget):
             
             # Gridline
             if i > 0:
-                pen = QPen(QColor("#E2E8F0"))
+                pen = QPen(QColor("#24304F") if is_dark else QColor("#E2E8F0"))
                 pen.setStyle(Qt.PenStyle.DashLine)
                 pen.setWidth(1)
                 painter.setPen(pen)
                 painter.drawLine(QPointF(padding_left, gy), QPointF(w - padding_right, gy))
             
             # Y Axis Labels
-            painter.setPen(QColor("#64748B"))
+            painter.setPen(QColor("#9CA3AF") if is_dark else QColor("#64748B"))
             if y_max >= 1:
                 label = f"{int(val)}h"
             else:
@@ -330,11 +338,19 @@ class BarChartWidget(QWidget):
                 # Set gradient fill color
                 gradient = QLinearGradient(QPointF(bx, by), QPointF(bx, by + bar_h))
                 if idx == self.hovered_index:
-                    gradient.setColorAt(0.0, QColor("#1E3A8A"))  # Darker Blue
-                    gradient.setColorAt(1.0, QColor("#3B82F6"))  # Brighter Blue
+                    if is_dark:
+                        gradient.setColorAt(0.0, QColor("#0284C7"))  # Darker Sky Blue
+                        gradient.setColorAt(1.0, QColor("#38BDF8"))  # Brighter Sky Blue
+                    else:
+                        gradient.setColorAt(0.0, QColor("#1E3A8A"))  # Darker Blue
+                        gradient.setColorAt(1.0, QColor("#3B82F6"))  # Brighter Blue
                 else:
-                    gradient.setColorAt(0.0, QColor("#0078D4"))  # Fluent Primary Accent
-                    gradient.setColorAt(1.0, QColor("#60A5FA"))  # Fluent Secondary Accent
+                    if is_dark:
+                        gradient.setColorAt(0.0, QColor("#38BDF8"))  # Sky Blue Accent
+                        gradient.setColorAt(1.0, QColor("#0EA5E9"))  # Sky Blue Hover Accent
+                    else:
+                        gradient.setColorAt(0.0, QColor("#0078D4"))  # Fluent Primary Accent
+                        gradient.setColorAt(1.0, QColor("#60A5FA"))  # Fluent Secondary Accent
                     
                 painter.setBrush(QBrush(gradient))
                 painter.setPen(Qt.PenStyle.NoPen)
@@ -347,14 +363,14 @@ class BarChartWidget(QWidget):
                 painter.drawPath(path)
             
             # Draw X Axis labels
-            painter.setPen(QColor("#64748B"))
+            painter.setPen(QColor("#9CA3AF") if is_dark else QColor("#64748B"))
             painter.setFont(QFont("Segoe UI", 8))
             x_lbl_rect = QRectF(padding_left + (idx * bar_outer_width), h - padding_bottom + 4, 
                                 bar_outer_width, 20)
             painter.drawText(x_lbl_rect, Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignTop, d["label"])
 
         # 3. Draw Bottom Axis Line
-        pen_axis = QPen(QColor("#CBD5E1"))
+        pen_axis = QPen(QColor("#24304F") if is_dark else QColor("#CBD5E1"))
         pen_axis.setWidth(1)
         painter.setPen(pen_axis)
         painter.drawLine(QPointF(padding_left, h - padding_bottom), QPointF(w - padding_right, h - padding_bottom))

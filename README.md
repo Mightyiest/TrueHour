@@ -1,8 +1,8 @@
-# FocusLog v2.1.0
+# True Hours v3.0.0
 
 > **A lightweight, privacy-first desktop time tracker with a modern Fluent Design UI, supporting Windows & macOS.**
 
-FocusLog automatically monitors your active window to track productivity, calculate earnings based on hourly rates, and generate detailed session reports. It features crash recovery, auto-exclusion of system apps, customizable external HTML templates, offline app icon extraction, and flexible export options (CSV, JSON, TXT, HTML).
+True Hours automatically monitors your active window to track productivity, calculate earnings based on hourly rates, and generate detailed session reports. It features crash recovery, auto-exclusion of system apps, customizable external HTML templates, offline app icon extraction, and flexible export options (TXT, HTML).
 
 ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-0078D4.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078D4?logo=windows)
@@ -23,21 +23,21 @@ FocusLog automatically monitors your active window to track productivity, calcul
 | 🛡️ | **Smart Exclusions** | Auto-ignores system processes; manually exclude apps (e.g. Spotify) from work time. |
 | 🔒 | **Anti-Tamper Security** | Monotonic clock protection, NTP validation, and SHA-256 hash chaining with real-time integrity scoring. |
 | 💾 | **Crash Recovery** | Unexpected closures are auto-saved to an `autosave` folder for later recovery. |
-| 📤 | **Export Options** | Export to TXT, JSON, CSV, HTML Invoice, or HTML Session Report; bulk-export full history to CSV. |
+| 📤 | **Export Options** | Export to TXT, HTML Invoice, or HTML Session Report. |
 | 🎨 | **Modern UI** | Clean, light-themed interface inspired by Windows 11 Fluent Design, built with PyQt6. |
 ---
 
 ## 📸 Screenshots
 <div align="center">
-  <strong>FocusLog Interface</strong><br>
-  <em>Main Tracker, Session Report, and Dashhboard</em><br><br>
-<img width="2559" height="1397" alt="FocusLog Full Window Interface" src="https://github.com/user-attachments/assets/dd4390b7-031a-46a8-84fa-39dd6ea11053"/>
+  <strong>True Hours Interface</strong><br>
+  <em>Main Tracker, Session Report, and Dashboard</em><br><br>
+<img width="2559" height="1397" alt="True Hours Full Window Interface" src="https://github.com/user-attachments/assets/dd4390b7-031a-46a8-84fa-39dd6ea11053"/>
   
   <br><br><br>
 
   <strong>Generated Invoice</strong><br>
   <em>Professional HTML invoice output</em><br><br>
-<img width="2559" height="1347" alt="FocusLog HTML Invoice" src="https://github.com/user-attachments/assets/48288caf-6ab9-43eb-bd36-e303ab229450" />
+<img width="2559" height="1347" alt="True Hours HTML Invoice" src="https://github.com/user-attachments/assets/48288caf-6ab9-43eb-bd36-e303ab229450" />
 </div>
 
 ---
@@ -48,8 +48,8 @@ FocusLog automatically monitors your active window to track productivity, calcul
 
 1.  **Clone the Repository:**
     ```bash
-    git clone https://github.com/yourusername/FocusLog.git
-    cd FocusLog
+    git clone https://github.com/yourusername/TrueHours.git
+    cd TrueHours
     ```
 
 2.  **Install Dependencies:**
@@ -86,7 +86,7 @@ If you want to package a standalone binary that runs without requiring Python to
     *   **Windows:**
         Double-click `build.bat` or run:
         ```bash
-        pyinstaller --noconsole --onefile --windowed --name="FocusLog" --icon="icon.ico" app.py
+        pyinstaller --noconsole --onefile --windowed --name="TrueHours" --icon="icon.ico" app.py
         ```
     *   **macOS:**
         Run the build script `./build.sh` (or manually run `pyinstaller`):
@@ -94,18 +94,18 @@ If you want to package a standalone binary that runs without requiring Python to
         chmod +x build.sh
         ./build.sh
         ```
-        *(This automatically installs dependencies, runs PyInstaller, cleans up temp files, and places a standard double-clickable `FocusLog.app` bundle in your root directory!)*
+        *(This automatically installs dependencies, runs PyInstaller, cleans up temp files, and places a standard double-clickable `TrueHours.app` bundle in your root directory!)*
 
 ---
 
 ## 📂 Project Structure
 
 ```text
-FocusLog/
+TrueHours/
 ├── icon.ico            # Application Icon
 ├── app.py              # Main UI Entry Point (PyQt6)
 ├── tracker.py          # Core Logic: Polling loop, state management, crash recovery
-├── report.py           # Data formatting, export utilities (CSV/JSON/TXT/HTML)
+├── report.py           # Data formatting, export utilities (TXT/HTML)
 ├── appinfo.py          # Windows API wrappers: Get foreground window, extract icons/names
 ├── config.py           # Configuration helpers: Data directory management
 ├── secure_time.py      # Anti-tamper security: Monotonic clocks, hash chaining, NTP sync
@@ -116,20 +116,19 @@ FocusLog/
 ├── requirements.txt    # Python dependencies
 ├── README.md           # This file
 ├── SECURITY_FEATURES.md # Detailed documentation of anti-tamper protections
-└── templates/          # A4 HTML templates (invoices, session reports)
-    ├── invoice.html          # Client invoice HTML template (customizable)
-    └── report_template.html  # Session report HTML template (customizable)
+├── templates/          # A4 HTML templates (invoices, session reports)
+...
 ```
 
 ---
 
 ## ⚙️ Configuration & Customization
 
-FocusLog stores user data in the local app data directory:
-`%LOCALAPPDATA%\FocusLog` (or `~\FocusLog` if env var is missing).
+True Hours stores user data in the local app data directory:
+`%LOCALAPPDATA%\TrueHour` (or `~\TrueHour` if env var is missing).
 
 ### 1. Auto-Excluded Apps
-FocusLog comes with a default list of system apps to ignore (e.g., `explorer.exe`, `svchost.exe`). You can customize this list.
+True Hours comes with a default list of system apps to ignore (e.g., `explorer.exe`, `svchost.exe`). You can customize this list.
 
 1.  Open **Settings** in the app.
 2.  Click **"Edit Auto-Exclusions"**.
@@ -155,12 +154,12 @@ Set your currency and hourly rate in the **Settings** menu.
 *   *Note:* Earnings are calculated based on **Counted Work Time** only (excluded apps do not earn money).
 
 ### 4. Custom HTML Templates (A4 Layouts)
-FocusLog allows you to fully customize how client invoices and session reports look when printed to PDF or exported.
-1.  Open the `templates/` folder in the FocusLog root directory.
+True Hours allows you to fully customize how client invoices and session reports look when printed to PDF or exported.
+1.  Open the `templates/` folder in the True Hours root directory.
 2.  Open **`invoice.html`** or **`report_template.html`** in a code/text editor (e.g., VS Code).
 3.  Modify the styling (CSS), fonts, layout structures, and text as you like.
 4.  Keep placeholders in place (e.g., `{{BUSINESS_NAME}}`, `{{ITEMS}}`, `{{TIMELINE_ITEMS}}`) so the application can dynamically populate your tracking details.
-5.  *Self-Healing:* If you ever make a mistake or break a file, simply delete the file or the `templates/` directory, and FocusLog will instantly recreate a fresh default copy at runtime.
+5.  *Self-Healing:* If you ever make a mistake or break a file, simply delete the file or the `templates/` directory, and True Hours will instantly recreate a fresh default copy at runtime.
 
 ---
 
@@ -174,8 +173,8 @@ FocusLog allows you to fully customize how client invoices and session reports l
 ### File Storage
 *   **`sessions/`**: Contains manually saved session reports (`.json`).
 *   **`autosave/`**: Contains automatic backups every 10 seconds (configurable) and crash recoveries.
-    *   Files prefixed with `auto_`: Regular backups.
-    *   Files prefixed with `recovery_`: Sessions recovered after a crash.
+*   *Files prefixed with `auto_`: Regular backups.
+*   *Files prefixed with `recovery_`: Sessions recovered after a crash.
 
 ---
 
@@ -198,7 +197,7 @@ Handles Windows-specific interactions.
 #### `report.py`
 Handles data serialization.
 *   **`build_report_data()`:** Aggregates raw tracker data into a structured dictionary.
-*   **`export_csv()`:** Generates a flat CSV suitable for Excel analysis.
+*   **`export_txt()`:** Generates a clean text file summary of the session.
 *   **`save_to_autosave()`:** Atomic write to prevent corruption during crashes.
 
 ### Adding New Features
@@ -224,12 +223,21 @@ A: Click the **📂 (Folder)** icon in the top right header to open the Session 
 
 **Q: Does this send data online?**
 
-A: **No.** FocusLog is 100% offline. All data is stored locally in your `%LOCALAPPDATA%` folder.
+A: **No.** True Hours is 100% offline. All data is stored locally in your `%LOCALAPPDATA%\TrueHour` folder.
 
 **Q: Was AI Used in this Project?**
 
 A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+
+---
+
+## 📅 Changelog
+
+### v3.0.0 (2026.05.30)
+- **Asynchronous Batch Report Generation with Pre-Aggregation**: Refactored the report processing pipeline to run fully asynchronously in background worker threads, complete with optimized SQLite database pre-aggregation.
+- **Extreme Performance & Resource Optimization**: Converted the cryptographic time integrity chain to a high-performance, line-delimited JSONL format with incremental append operations and fast O(1) binary-seek loading on startup, completely eliminating disk write spikes and reducing RAM usage.
+- **Streamlined Exports**: Removed legacy CSV and JSON export options in favor of clean TXT summaries and premium interactive HTML A4 invoices/reports.
 
 ---
 
@@ -253,3 +261,14 @@ See the [LICENSE](LICENSE.md) file for the full legal text.
 *   Built with **Python** and **PyQt6**.
 *   Icon extraction powered by **pywin32** and **Pillow**.
 *   Process monitoring via **psutil**.
+*   Vectors and icons by <a href="https://dribbble.com/saeedworks?ref=svgrepo.com" target="_blank">Saeedworks</a> in CC Attribution License via <a href="https://www.svgrepo.com/" target="_blank">SVG Repo</a>. We thank him very much for his amazing work!
+
+### Special Thanks
+
+We would like to express our heartfelt gratitude to the following AI assistants and teams who contributed to this project:
+
+*   **Alibaba QWEN Coder Agentic** - For exceptional coding assistance and guidance.
+*   **Google Antigravity Team** - For their innovative support and insights.
+*   **Claude AI** - For valuable contributions and problem-solving expertise.
+
+Thank you all for making True Hours possible! ❤️

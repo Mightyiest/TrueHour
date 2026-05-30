@@ -36,8 +36,8 @@
         .client-name { font-size: 15px; font-weight: 700; color: var(--text-main); }
         .client-address { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
         .client-email { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
-        .qr-codes-container { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; justify-content: flex-start; }
-        .qr-code-item { display: flex; flex-direction: column; align-items: center; background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .qr-codes-container { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; justify-content: flex-start; page-break-inside: avoid; break-inside: avoid; }
+        .qr-code-item { display: flex; flex-direction: column; align-items: center; background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); page-break-inside: avoid; break-inside: avoid; }
         .qr-code-image { width: 140px; height: 140px; object-fit: contain; border-radius: 4px; }
         .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
         .kpi-card { background-color: var(--bg-body); border: 1px solid transparent; border-radius: 12px; padding: 20px 24px; transition: all 0.25s ease; }
@@ -52,10 +52,31 @@
         .subtotal-row td { border-bottom: none; padding-top: 24px; }
         .subtotal-label { font-size: 14px; font-weight: 700; text-align: right; color: var(--text-muted); }
         .subtotal-value { font-size: 18px; font-weight: 800; color: var(--success); text-align: right; padding-right: 16px; }
-        .payment-box { background-color: #F8FAFC; border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+        .payment-box { background-color: #F8FAFC; border: 1px solid var(--border); border-radius: 12px; padding: 24px; page-break-inside: avoid; break-inside: avoid; }
         .payment-box-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--primary); margin-bottom: 10px; }
         .payment-content { font-size: 13px; color: var(--text-muted); line-height: 1.5; white-space: pre-wrap; }
-        @media print { body { background-color: white; padding: 0; } .print-actions-bar { display: none; } .invoice-container { border: none; box-shadow: none; padding: 0; } }
+        @media print { 
+            body { background-color: white; padding: 0; margin: 0; font-size: 12px; } 
+            .print-actions-bar { display: none; } 
+            .invoice-container { border: none; box-shadow: none; padding: 10px 0; width: 100%; max-width: 100%; } 
+            .invoice-header-row { padding-bottom: 12px; margin-bottom: 12px; }
+            .billed-to-container { margin-bottom: 12px; }
+            .dashboard-grid { gap: 10px; margin-bottom: 15px; }
+            .kpi-card { padding: 10px 14px; }
+            table { margin-bottom: 15px; }
+            th { padding: 6px 8px; }
+            td { padding: 8px; }
+            .payment-box { padding: 12px; margin-top: 10px; page-break-inside: avoid; break-inside: avoid; }
+            .qr-codes-container { margin-top: 8px; gap: 10px; }
+            .qr-code-image { width: 100px; height: 100px; }
+            .invoice-logo { max-height: 50px; margin-bottom: 6px; }
+            .invoice-footer { display: block; margin-top: 20px; padding: 15px; border-top: 1px solid var(--border); }
+            .footer-link { color: var(--accent); text-decoration: underline; font-size: 11px; font-weight: 600; }
+            .invoice-header-row, .billed-to-container, .dashboard-grid, table, .payment-box { page-break-inside: avoid; break-inside: avoid; }
+        }
+        .invoice-footer { margin-top: 40px; text-align: center; padding: 20px; border-top: 1px solid var(--border); }
+        .footer-link { display: inline-flex; align-items: center; gap: 8px; color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.2s ease; padding: 8px 16px; border-radius: 8px; background-color: var(--bg-body); }
+        .footer-link:hover { background-color: var(--accent); color: white; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); }
     </style>
 </head>
 <body>
@@ -111,6 +132,14 @@
             <div class="payment-box-title">Payment Terms & Instructions</div>
             <div class="payment-content">{{PAYMENT_INSTRUCTIONS}}</div>
             {{QR_HTML}}
+        </div>
+        <div class="invoice-footer">
+            <a href="https://mightyiest.github.io/TrueHour/" target="_blank" class="footer-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+                </svg>
+                Powered by TrueHour - View on GitHub
+            </a>
         </div>
     </div>
 </body>

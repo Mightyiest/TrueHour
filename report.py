@@ -1,5 +1,5 @@
 """
-FocusLog — Report generation and export utilities.
+TrueHour — Report generation and export utilities.
 """
 import json
 import os
@@ -81,8 +81,10 @@ class ReportData(TypedDict):
     total_earned_display: str
     project_breakdown: List[ProjectBreakdownEntry]
 
-def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportData:
+def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$", progress_cb=None) -> ReportData:
     """Build a structured dict from the tracker's session data."""
+    if progress_cb:
+        progress_cb(20, "Analyzing tracked session metrics...")
     session_start = tracker.session_start
     session_end = tracker.session_end or datetime.now()
     total_session = tracker.get_elapsed()
@@ -105,19 +107,25 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
         if included:
             project_times[tag] = project_times.get(tag, 0) + secs
 
+    if progress_cb:
+        progress_cb(40, "Compiling category allocations...")
+
     # Snapshot timeline under the lock to prevent concurrent modification
     with tracker._lock:
         timeline_snapshot = list(tracker.timeline)
 
     timeline = []
     for entry in timeline_snapshot:
-        if entry["app"] == "[Idle]":
+        if entry["app"] == "[Idle]" or not tracker.app_included.get(entry["app"], True):
             continue
         timeline.append({
             "app": entry["app"],
             "start": entry["start"].strftime("%H:%M:%S"),
             "end": entry["end"].strftime("%H:%M:%S"),
         })
+
+    if progress_cb:
+        progress_cb(60, "Constructing timeline log visualizers...")
 
     total_counted = sum(project_times.values())
     breakdown = []
@@ -165,6 +173,9 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
         # Only keep the list if at least one app has new time
         if not any(a["new_seconds"] > 0 for a in new_activity):
             new_activity = []
+
+    if progress_cb:
+        progress_cb(75, "Aggregating new activities & diff snapshots...")
 
     return {
         "date": session_start.strftime("%Y-%m-%d"),
@@ -286,6 +297,11 @@ def save_to_autosave(report):
     filename = f"{prefix}_{start_dt.strftime('%Y-%m-%d_%H-%M-%S')}.json"
     filepath = os.path.join(folder, filename)
     export_json(report, filepath, is_internal=True)
+    try:
+        from core.reporting.aggregator import update_daily_summary
+        update_daily_summary(report)
+    except Exception as e:
+        print(f"[TrueHour] Failed to update daily summary: {e}")
     return filepath
 
 def save_to_history(report):
@@ -296,6 +312,11 @@ def save_to_history(report):
     filename = f"session_{start_dt.strftime('%Y-%m-%d_%H-%M-%S')}.json"
     filepath = os.path.join(folder, filename)
     export_json(report, filepath, is_internal=True)
+    try:
+        from core.reporting.aggregator import update_daily_summary
+        update_daily_summary(report)
+    except Exception as e:
+        print(f"[TrueHour] Failed to update daily summary: {e}")
     return filepath
 
 def load_session_json(filepath):
@@ -341,10 +362,13 @@ def load_session_json(filepath):
         })
     breakdown.sort(key=lambda x: x["seconds"], reverse=True)
 
+    excluded_apps = {a['name'] for a in data.get('apps', []) if a.get('excluded', False)}
     timeline = []
     day_offset = timedelta(days=0)  # Track accumulated midnight crossovers
     prev_end_time = None
     for t in data['timeline']:
+        if t['app'] in excluded_apps:
+            continue
         t_start = datetime.strptime(data['date'] + " " + t['start'], "%Y-%m-%d %H:%M:%S") + day_offset
         t_end = datetime.strptime(data['date'] + " " + t['end'], "%Y-%m-%d %H:%M:%S") + day_offset
         
@@ -791,6 +815,30 @@ def mask_phone(phone: str) -> str:
     except Exception:
         return phone
 
+_TEMPLATE_CACHE = {}
+
+def get_cached_template(template_path: str, default_content: str) -> str:
+    """Return cached HTML template content to prevent redundant disk read operations."""
+    if template_path in _TEMPLATE_CACHE:
+        return _TEMPLATE_CACHE[template_path]
+    
+    if not os.path.exists(template_path):
+        os.makedirs(os.path.dirname(template_path), exist_ok=True)
+        try:
+            with open(template_path, "w", encoding="utf-8") as f:
+                f.write(default_content.strip())
+        except Exception:
+            pass
+
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception:
+        content = default_content
+        
+    _TEMPLATE_CACHE[template_path] = content
+    return content
+
 def generate_invoice_html(billing_data, settings_data) -> str:
     """
     Generates a stunning, premium, modern A4 HTML invoice.
@@ -903,7 +951,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
                             </div>
                         """)
                 except Exception as ex:
-                    print(f"[FocusLog] Error base64 encoding QR code {qr_fname}: {ex}")
+                    print(f"[TrueHour] Error base64 encoding QR code {qr_fname}: {ex}")
         if qr_items:
             has_any_link = any(qr_code_links.get(fn, "") for fn in qr_code_paths)
             hint_html = ""
@@ -966,8 +1014,8 @@ def generate_invoice_html(billing_data, settings_data) -> str:
         .client-name { font-size: 15px; font-weight: 700; color: var(--text-main); }
         .client-address { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
         .client-email { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
-        .qr-codes-container { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; justify-content: flex-start; }
-        .qr-code-item { display: flex; flex-direction: column; align-items: center; background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .qr-codes-container { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; justify-content: flex-start; page-break-inside: avoid; break-inside: avoid; }
+        .qr-code-item { display: flex; flex-direction: column; align-items: center; background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); page-break-inside: avoid; break-inside: avoid; }
         .qr-code-image { width: 140px; height: 140px; object-fit: contain; border-radius: 4px; }
         .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
         .kpi-card { background-color: var(--bg-body); border: 1px solid transparent; border-radius: 12px; padding: 20px 24px; transition: all 0.25s ease; }
@@ -981,10 +1029,26 @@ def generate_invoice_html(billing_data, settings_data) -> str:
         .subtotal-row td { border-bottom: none; padding-top: 24px; }
         .subtotal-label { font-size: 14px; font-weight: 700; text-align: right; color: var(--text-muted); }
         .subtotal-value { font-size: 18px; font-weight: 800; color: var(--success); text-align: right; padding-right: 16px; }
-        .payment-box { background-color: #F8FAFC; border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+        .payment-box { background-color: #F8FAFC; border: 1px solid var(--border); border-radius: 12px; padding: 24px; page-break-inside: avoid; break-inside: avoid; }
         .payment-box-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--primary); margin-bottom: 10px; }
         .payment-content { font-size: 13px; color: var(--text-muted); line-height: 1.5; white-space: pre-wrap; }
-        @media print { body { background-color: white; padding: 0; } .print-actions-bar { display: none; } .invoice-container { border: none; box-shadow: none; padding: 0; } }
+        @media print { 
+            body { background-color: white; padding: 0; margin: 0; font-size: 12px; } 
+            .print-actions-bar { display: none; } 
+            .invoice-container { border: none; box-shadow: none; padding: 10px 0; width: 100%; max-width: 100%; } 
+            .invoice-header-row { padding-bottom: 12px; margin-bottom: 12px; }
+            .billed-to-container { margin-bottom: 12px; }
+            .dashboard-grid { gap: 10px; margin-bottom: 15px; }
+            .kpi-card { padding: 10px 14px; }
+            table { margin-bottom: 15px; }
+            th { padding: 6px 8px; }
+            td { padding: 8px; }
+            .payment-box { padding: 12px; margin-top: 10px; page-break-inside: avoid; break-inside: avoid; }
+            .qr-codes-container { margin-top: 8px; gap: 10px; }
+            .qr-code-image { width: 100px; height: 100px; }
+            .invoice-logo { max-height: 50px; margin-bottom: 6px; }
+            .invoice-header-row, .billed-to-container, .dashboard-grid, table, .payment-box { page-break-inside: avoid; break-inside: avoid; }
+        }
     </style>
 </head>
 <body>
@@ -1045,24 +1109,12 @@ def generate_invoice_html(billing_data, settings_data) -> str:
 </body>
 </html>"""
 
-    if not os.path.exists(template_path):
-        os.makedirs(templates_dir, exist_ok=True)
-        try:
-            with open(template_path, "w", encoding="utf-8") as f:
-                f.write(default_template.strip())
-        except Exception as e:
-            print(f"[FocusLog] Recreating template file failed: {e}")
-
-    try:
-        with open(template_path, "r", encoding="utf-8") as f:
-            template_html = f.read()
-    except Exception:
-        template_html = default_template
+    template_html = get_cached_template(template_path, default_template)
 
     # Replace all placeholders in HTML template
     html = template_html
     html = html.replace("{{LOGO_HTML}}", logo_html)
-    html = html.replace("{{BUSINESS_NAME}}", _esc(settings_data.get("business_name", "FocusLog Invoice")))
+    html = html.replace("{{BUSINESS_NAME}}", _esc(settings_data.get("business_name", "TrueHour Invoice")))
     html = html.replace("{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", "")))
     html = html.replace("{{BUSINESS_CONTACT}}", biz_contact_html)
     html = html.replace("{{INVOICE_NO}}", f"INV-{datetime.now().strftime('%Y%m%d%H%M')}")
@@ -1072,8 +1124,16 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     html = html.replace("{{CLIENT_ADDRESS}}", _esc(settings_data.get("client_address", "")))
     html = html.replace("{{CLIENT_EMAILS_HTML}}", client_emails_html)
     html = html.replace("{{HOURS_COUNTED}}", f"{hours_counted:.2f}")
-    html = html.replace("{{TOTAL_AMOUNT_DUE}}", _esc(billing_data["total_earned_display"]))
-    html = html.replace("{{GRAND_TOTAL}}", _esc(billing_data["total_earned_display"]))
+    
+    # Safely get total_earned_display with fallback calculation
+    total_earned_display = billing_data.get("total_earned_display")
+    if not total_earned_display:
+        total_earned = billing_data.get("total_earned", 0.0)
+        curr_sym = settings_data.get("currency_symbol", "$")
+        total_earned_display = f"{curr_sym}{total_earned:,.2f}"
+    
+    html = html.replace("{{TOTAL_AMOUNT_DUE}}", _esc(total_earned_display))
+    html = html.replace("{{GRAND_TOTAL}}", _esc(total_earned_display))
     html = html.replace("{{PAYMENT_INSTRUCTIONS}}", _esc(settings_data.get("business_payment", "Payment is due within 14 days of invoice date.")))
     html = html.replace("{{QR_HTML}}", qr_html)
 
@@ -1123,7 +1183,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>FocusLog Session Report - {{SESSION_NAME}}</title>
+    <title>TrueHour Session Report - {{SESSION_NAME}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -1225,7 +1285,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
                 <div class="report-date">{{DATE}}</div>
             </div>
             <div class="meta-column">
-                <div class="app-badge">FocusLog</div>
+                <div class="app-badge">TrueHour</div>
                 <div class="meta-item"><strong>Start:</strong> {{START_TIME}}</div>
                 <div class="meta-item"><strong>End:</strong> {{END_TIME}}</div>
             </div>
@@ -1282,25 +1342,13 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         </div>
 
         <div class="report-footer">
-            Generated with FocusLog — Automated Time Tracking and Productivity Dashboard.
+            Generated with TrueHour — Automated Time Tracking and Productivity Dashboard.
         </div>
     </div>
 </body>
 </html>"""
 
-    if not os.path.exists(template_path):
-        os.makedirs(templates_dir, exist_ok=True)
-        try:
-            with open(template_path, "w", encoding="utf-8") as f:
-                f.write(default_template.strip())
-        except Exception as e:
-            print(f"[FocusLog] Recreating report template file failed: {e}")
-
-    try:
-        with open(template_path, "r", encoding="utf-8") as f:
-            template_html = f.read()
-    except Exception:
-        template_html = default_template
+    template_html = get_cached_template(template_path, default_template)
 
     total_secs = report.get("total_seconds", 0)
     counted_secs = report.get("counted_seconds", 0)
@@ -1403,21 +1451,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         escaped_app_name = _esc(app['name'])
         escaped_tag = _esc(raw_tag)
         
-        # Extract app icon as base64 PNG
+        # Clean background-friendly bypass for local icon extraction
         local_b64 = ""
-        exe_path = app_exe_paths.get(app['name'], app.get("exe_path", ""))
-        if exe_path:
-            try:
-                import base64
-                import io
-                from appinfo import get_icon_image
-                pil_icon = get_icon_image(exe_path, 20)
-                if pil_icon:
-                    buf = io.BytesIO()
-                    pil_icon.save(buf, format="PNG")
-                    local_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-            except Exception:
-                pass
         
         # Mappings for premium online SVG icons via Simple Icons CDN
         app_name_lower = app['name'].lower().strip()
@@ -1509,6 +1544,10 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     timeline_items = ""
     timeline_entries = report.get("timeline", [])
     capped_timeline = timeline_entries[:15]
+    
+    # Pre-compile app category mappings in O(N) to allow O(1) lookups inside loop
+    app_tags = {app["name"]: app.get("tag", "Unassigned") for app in report.get("apps", [])}
+    
     for t in capped_timeline:
         t_start = t["start"]
         t_end = t["end"]
@@ -1517,13 +1556,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         end_str = t_end.strftime("%I:%M:%S %p") if hasattr(t_end, "strftime") else str(t_end)
         
         app_name = t.get("app", "Active Session")
-        
-        app_tag = "Unassigned"
-        for app in report.get("apps", []):
-            if app["name"] == app_name:
-                app_tag = app.get("tag", "Unassigned")
-                break
-                
+        app_tag = app_tags.get(app_name, "Unassigned")
         tag_color = get_project_color(app_tag)
         
         duration_secs = 0

@@ -1,5 +1,5 @@
 """
-FocusLog — App info resolver.
+TrueHour — App info resolver.
 Extracts friendly display names and icons from Windows executables.
 """
 import platform

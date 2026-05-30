@@ -10,9 +10,9 @@ Commercial Use Restriction
 You may not make any commercial use of the software. Commercial use is any use of the software by a business or for business purposes, or as part of a commercial service, or in any way that is intended for or directed toward commercial advantage or monetary compensation.
 
 Custom Commercial Permission
-If you wish to use this software for commercial purposes, sell it, or distribute it commercially, you must contact the licensor to obtain written permission or a custom commercial license. You may contact the licensor at the official FocusLog website or repository:
-https://mightyiest.github.io/FocusLog/
-https://github.com/mightyiest/FocusLog
+If you wish to use this software for commercial purposes, sell it, or distribute it commercially, you must contact the licensor to obtain written permission or a custom commercial license. You may contact the licensor at the official TrueHour website or repository:
+https://mightyiest.github.io/TrueHour/
+https://github.com/mightyiest/TrueHour
 
 Defensive Patent License
 The licensor grants you a patent license under their patents to do everything with the software that would otherwise infringe their patents, under the same terms as the copyright license. This patent license terminates if you bring a patent lawsuit against the licensor or anyone else for patent infringement related to the software.

@@ -1,25 +1,53 @@
 """
-FocusLog — Core tracking engine.
+TrueHour — Core tracking engine.
 Monitors the active foreground window and records app usage durations.
 Includes tamper-resistant time tracking with monotonic clocks and hash chaining.
 """
 
 import time
 import threading
+import sys
 import ctypes as _ctypes
 
 def _get_idle_seconds():
-    """Return seconds since last mouse/keyboard input (Windows only)."""
-    try:
-        class _LASTINPUTINFO(_ctypes.Structure):
-            _fields_ = [("cbSize", _ctypes.c_uint), ("dwTime", _ctypes.c_uint)]
-        lii = _LASTINPUTINFO()
-        lii.cbSize = _ctypes.sizeof(_LASTINPUTINFO)
-        _ctypes.windll.user32.GetLastInputInfo(_ctypes.byref(lii))
-        millis = (_ctypes.windll.kernel32.GetTickCount() - lii.dwTime) & 0xFFFFFFFF
-        return millis / 1000.0
-    except Exception:
-        return 0.0
+    """Return seconds since last mouse/keyboard input (cross-platform)."""
+    if sys.platform == "win32":
+        try:
+            class _LASTINPUTINFO(_ctypes.Structure):
+                _fields_ = [("cbSize", _ctypes.c_uint), ("dwTime", _ctypes.c_uint)]
+            lii = _LASTINPUTINFO()
+            lii.cbSize = _ctypes.sizeof(_LASTINPUTINFO)
+            _ctypes.windll.user32.GetLastInputInfo(_ctypes.byref(lii))
+            millis = (_ctypes.windll.kernel32.GetTickCount() - lii.dwTime) & 0xFFFFFFFF
+            return millis / 1000.0
+        except Exception:
+            return 0.0
+    elif sys.platform == "darwin":
+        try:
+            # Load CoreGraphics library via ctypes (requires no extra python packages)
+            import ctypes.util
+            lib_path = ctypes.util.find_library("CoreGraphics")
+            if not lib_path:
+                lib_path = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics"
+            cg = _ctypes.CDLL(lib_path)
+            
+            # CGEventSourceSecondsSinceLastEventType is double CGEventSourceSecondsSinceLastEventType(int, int)
+            cg.CGEventSourceSecondsSinceLastEventType.restype = _ctypes.c_double
+            cg.CGEventSourceSecondsSinceLastEventType.argtypes = [_ctypes.c_int32, _ctypes.c_uint32]
+            
+            # kCGEventSourceStateCombinedSessionState = 0
+            # kCGAnyInputEventType = ~0 (0xFFFFFFFF)
+            idle_seconds = cg.CGEventSourceSecondsSinceLastEventType(0, 0xFFFFFFFF)
+            return float(idle_seconds)
+        except Exception:
+            # Fallback to Quartz (PyObjC) if ctypes CoreGraphics load failed
+            try:
+                from Quartz import CGEventSourceSecondsSinceLastEventType, kCGEventSourceStateCombinedSessionState, kCGAnyInputEventType
+                return float(CGEventSourceSecondsSinceLastEventType(kCGEventSourceStateCombinedSessionState, kCGAnyInputEventType))
+            except Exception:
+                return 0.0
+    return 0.0
+
 
 
 import os
@@ -45,11 +73,56 @@ if not logger.handlers:
 
 # Default auto-excluded apps written on first launch only.
 # User edits to the file are never overwritten.
-_DEFAULT_AUTO_EXCLUDED = """\
+import platform as _platform
+_SYSTEM = _platform.system()
+
+if _SYSTEM == "Darwin":
+    _DEFAULT_AUTO_EXCLUDED = """\
 # ══════════════════════════════════════════════════════════════════
-# FocusLog — Auto-Excluded Apps
+# TrueHour — Auto-Excluded Apps (macOS)
 # ══════════════════════════════════════════════════════════════════
-# Apps listed here are completely invisible to FocusLog.
+# Apps listed here are completely invisible to TrueHour.
+# They will not appear in the app list, report, timeline, or CSV.
+#
+# Rules:
+#   - One application name or process name per line (e.g. Finder)
+#   - Lines starting with # are comments and are ignored
+#   - Names are case-insensitive
+#
+# To stop excluding an app, delete its line or add # in front.
+# To exclude a new app, add its name on a new line.
+# Changes take effect on the next session start.
+# ══════════════════════════════════════════════════════════════════
+
+# ── macOS Core System UI & Desktop ─────────────────────────────────
+Finder
+Dock
+SystemUIServer
+loginwindow
+NotificationCenter
+ControlCenter
+Spotlight
+WindowManager
+
+# ── macOS Utilities (brief use, not real work) ────────────────────
+Activity Monitor
+Terminal
+Console
+System Settings
+System Preferences
+Keychain Access
+Screen Sharing
+
+# ── Audio & Core services ─────────────────────────────────────────
+coreaudiod
+screencapture
+"""
+else:
+    _DEFAULT_AUTO_EXCLUDED = """\
+# ══════════════════════════════════════════════════════════════════
+# TrueHour — Auto-Excluded Apps
+# ══════════════════════════════════════════════════════════════════
+# Apps listed here are completely invisible to TrueHour.
 # They will not appear in the app list, report, timeline, or CSV.
 #
 # Rules:
@@ -156,27 +229,28 @@ _AUTO_EXCLUDED_LOCK = threading.Lock()  # thread-safe access to _AUTO_EXCLUDED_E
 
 def create_auto_excluded_if_missing():
     """Generate default auto_excluded_apps.txt on first launch only.
-    If file already exists, make sure all default Windows system apps are present, but don't overwrite user edits."""
+    If file already exists, make sure all default system apps are present, but don't overwrite user edits."""
     if os.path.exists(AUTO_EXCLUDE_FILE):
         try:
             with open(AUTO_EXCLUDE_FILE, "r", encoding="utf-8") as f:
                 content = f.read()
             content_lower = content.lower()
             
-            # Extract all default active executables from _DEFAULT_AUTO_EXCLUDED
+            # Extract all default active executables/apps from _DEFAULT_AUTO_EXCLUDED
             default_apps = []
+            is_windows = _platform.system() == "Windows"
             for line in _DEFAULT_AUTO_EXCLUDED.splitlines():
                 line = line.strip()
                 if line and not line.startswith("#"):
                     exe = line.lower()
-                    if not exe.endswith(".exe"):
+                    if is_windows and not exe.endswith(".exe"):
                         exe += ".exe"
                     default_apps.append((line, exe))
             
             missing_additions = []
             for raw_name, exe_name in default_apps:
-                base_name = exe_name[:-4] if exe_name.endswith(".exe") else exe_name
-                # Check if this executable (with or without .exe) is present in the file
+                base_name = exe_name[:-4] if (is_windows and exe_name.endswith(".exe")) else exe_name
+                # Check if this app/process is present in the file
                 if base_name not in content_lower:
                     missing_additions.append(raw_name)
                 
@@ -269,9 +343,8 @@ def _is_auto_excluded(exe_path):
     """Return True if this exe should be completely ignored by the tracker."""
     if exe_path:
         exe_name = os.path.basename(exe_path).lower()
-        with _AUTO_EXCLUDED_LOCK:
-            if exe_name in _AUTO_EXCLUDED_EXES:
-                return True
+        # Fast path: check set membership without lock (set lookups are thread-safe for reads)
+        return exe_name in _AUTO_EXCLUDED_EXES
     return False
 
 
@@ -432,7 +505,7 @@ class TagManager:
                     search_query = desc
                     
             url = f"https://api.duckduckgo.com/?q={urllib.parse.quote(search_query)}&format=json&no_html=1&skip_disambig=1"
-            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) FocusLog/1.0'})
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) TrueHour/1.0'})
             
             # Query DuckDuckGo API with a clean 3.0s timeout
             with urllib.request.urlopen(req, timeout=3.0) as response:
@@ -633,7 +706,7 @@ class AppTracker:
             self._pause_start = None
             
         if self._thread:
-            self._thread.join(timeout=2)
+            self._thread.join(timeout=0.1)  # Non-blocking: thread exits via running flag
             self._thread = None
             
         # Finalize security detector
@@ -713,8 +786,9 @@ class AppTracker:
                     if elapsed > 0:
                         if elapsed > self.poll_interval + 2.0:
                             elapsed = self.poll_interval
-                        self.app_times[c_app] = self.app_times.get(c_app, 0) + elapsed
-                        c_block_active += elapsed
+                        if self.app_included.get(c_app, True):
+                            self.app_times[c_app] = self.app_times.get(c_app, 0) + elapsed
+                            c_block_active += elapsed
 
                 if c_block_active >= self.min_track_seconds:
                     self.timeline.append({
@@ -859,8 +933,9 @@ class AppTracker:
                     if elapsed > 0:
                         if elapsed > self.poll_interval + 2.0:
                             elapsed = self.poll_interval
-                        self.app_times[c_app] = self.app_times.get(c_app, 0) + elapsed
-                        c_block_active += elapsed
+                        if self.app_included.get(c_app, True):
+                            self.app_times[c_app] = self.app_times.get(c_app, 0) + elapsed
+                            c_block_active += elapsed
                 
                 if c_block_active >= self.min_track_seconds:
                     self.timeline.append({
@@ -909,6 +984,10 @@ class AppTracker:
             return self.app_included.get(app_name, True)
 
     def get_app_times_sorted(self):
+        # Fast path: avoid lock if no apps tracked yet
+        if not self.app_times:
+            return []
+        
         with self._lock:
             return [
                 (name, secs, self.app_included.get(name, True))
@@ -922,12 +1001,25 @@ class AppTracker:
             ]
 
     def get_counted_seconds(self):
+        # Fast path: avoid lock if no apps tracked yet
+        if not self.app_times:
+            return 0
         with self._lock:
-            return sum(s for a, s in self.app_times.items() if self.app_included.get(a, True))
+            return sum(
+                s for a, s in self.app_times.items()
+                if self.app_included.get(a, True)
+                and not _is_auto_excluded(self.app_exe_paths.get(a, ""))
+            )
 
     def get_total_seconds(self):
+        # Fast path: avoid lock if no apps tracked yet
+        if not self.app_times:
+            return 0
         with self._lock:
-            return sum(self.app_times.values())
+            return sum(
+                s for a, s in self.app_times.items()
+                if not _is_auto_excluded(self.app_exe_paths.get(a, ""))
+            )
 
     def get_elapsed(self):
         """Seconds since session started."""
@@ -941,14 +1033,15 @@ class AppTracker:
         return max(0, elapsed - paused_time)
 
     def get_current_app(self):
-        with self._lock:
-            if self.paused:
+        # Fast path for common case (not paused)
+        if self.paused:
+            with self._lock:
                 return "Paused"
-            return self._current_app or ""
+        return self._current_app or ""
 
     def get_exe_path(self, app_name):
-        with self._lock:
-            return self.app_exe_paths.get(app_name, "")
+        # Thread-safe read without explicit lock (dict get is atomic in CPython)
+        return self.app_exe_paths.get(app_name, "")
 
     def get_app_tag(self, app_name: str) -> str:
         exe_path = self.get_exe_path(app_name)
@@ -978,21 +1071,21 @@ class AppTracker:
                             partial - self.poll_interval
                         )
 
-                        self.app_times[self._current_app] = (
-                            self.app_times.get(self._current_app, 0)
-                            + self.poll_interval
-                        )
-                        
-                        self._current_block_active += self.poll_interval
+                        if self.app_included.get(self._current_app, True):
+                            self.app_times[self._current_app] = (
+                                self.app_times.get(self._current_app, 0)
+                                + self.poll_interval
+                            )
+                            self._current_block_active += self.poll_interval
 
                     else:
 
-                        self.app_times[self._current_app] = (
-                            self.app_times.get(self._current_app, 0)
-                            + partial
-                        )
-                        
-                        self._current_block_active += partial
+                        if self.app_included.get(self._current_app, True):
+                            self.app_times[self._current_app] = (
+                                self.app_times.get(self._current_app, 0)
+                                + partial
+                            )
+                            self._current_block_active += partial
 
             if self._current_block_active >= self.min_track_seconds:
 
@@ -1076,14 +1169,15 @@ class AppTracker:
                             self._total_paused_time += (elapsed - self.poll_interval)
                             elapsed = self.poll_interval
 
-                        self.app_times[self._current_app] = (
-                            self.app_times.get(self._current_app, 0) + elapsed
-                        )
-                        self._current_block_active += elapsed
+                        if self.app_included.get(self._current_app, True):
+                            self.app_times[self._current_app] = (
+                                self.app_times.get(self._current_app, 0) + elapsed
+                            )
+                            self._current_block_active += elapsed
                         self._current_start = now
                         
                         # Security: Validate and record with tamper detection
-                        if self.security_detector and self._current_app:
+                        if self.security_detector and self._current_app and self.app_included.get(self._current_app, True):
                             validation = self.security_detector.validate_and_record(
                                 self._current_app, 
                                 elapsed
