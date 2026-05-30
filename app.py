@@ -701,10 +701,10 @@ class TrueHourApp(QMainWindow):
             for i, (app_name, secs, included) in enumerate(apps):
                 active_apps.add(app_name)
                 
+                exe_path = self.tracker.get_exe_path(app_name)
+                tag = self.tracker.get_app_tag(app_name)
+                
                 if app_name not in self._row_widgets:
-                    exe_path = self.tracker.get_exe_path(app_name)
-                    tag = self.tracker.get_app_tag(app_name)
-                    
                     row = AppUsageRow(
                         app_name, secs, included, tag, exe_path,
                         on_toggle=self._toggle_include,
@@ -715,21 +715,24 @@ class TrueHourApp(QMainWindow):
                     # Insert in vertical list
                     self.scroll_layout.insertWidget(self.scroll_layout.count() - 1, row)
                     self._row_widgets[app_name] = row
-                    
-                    # Asynchronous native system icon loading (non-blocking)
-                    if exe_path:
-                        if exe_path in self._icon_cache:
-                            row.set_icon(self._icon_cache[exe_path])
-                        else:
-                            # Avoid queueing duplicates if already being loaded
-                            if exe_path not in self._icon_load_queue:
-                                self._icon_load_queue.add(exe_path)
-                                # Offload icon extraction to a worker thread so UI never stutters
-                                threading.Thread(target=self._load_icon_async, args=(exe_path, app_name), daemon=True).start()
                 else:
                     row = self._row_widgets[app_name]
                     row.update_time(secs)
-                    row.update_tag(self.tracker.get_app_tag(app_name))
+                    row.update_tag(tag)
+                    if exe_path and not row.exe_path:
+                        row.exe_path = exe_path
+
+                # Synchronous robust native system icon loading
+                if exe_path:
+                    if exe_path in self._icon_cache:
+                        if not getattr(row, '_icon_loaded', False):
+                            row.set_icon(self._icon_cache[exe_path])
+                            row._icon_loaded = True
+                    else:
+                        pixmap = get_native_icon_pixmap(exe_path, size=16)
+                        self._icon_cache[exe_path] = pixmap
+                        row.set_icon(pixmap)
+                        row._icon_loaded = True
 
             # Clean up removed apps
             to_remove = [name for name in self._row_widgets if name not in active_apps]
@@ -772,7 +775,9 @@ class TrueHourApp(QMainWindow):
         self._icon_load_queue.discard(exe_path)
         
         if app_name in self._row_widgets:
-            self._row_widgets[app_name].set_icon(self._icon_cache.get(exe_path))
+            row = self._row_widgets[app_name]
+            row.set_icon(self._icon_cache.get(exe_path))
+            row._icon_loaded = True
 
     def _show_tag_menu(self, app_name, button):
         menu = QMenu(self)
