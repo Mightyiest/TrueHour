@@ -31,14 +31,19 @@ True Hours automatically monitors your active window to track productivity, calc
 <div align="center">
   <strong>True Hours Interface</strong><br>
   <em>Main Tracker, Session Report, and Dashboard</em><br><br>
-<img width="2559" height="1397" alt="True Hours Full Window Interface" src="https://github.com/user-attachments/assets/dd4390b7-031a-46a8-84fa-39dd6ea11053"/>
+<img width="2560" height="1440" alt="rue Hours Full Window Interface" src="https://github.com/user-attachments/assets/0f0a8ea7-d378-477d-a657-f4dd9186c6fb" />
+
   
   <br><br><br>
 
   <strong>Generated Invoice</strong><br>
   <em>Professional HTML invoice output</em><br><br>
-<img width="2559" height="1347" alt="True Hours HTML Invoice" src="https://github.com/user-attachments/assets/48288caf-6ab9-43eb-bd36-e303ab229450" />
+
+<img width="2558" height="1265" alt="True Hours HTML Invoice" src="https://github.com/user-attachments/assets/e2c67753-2e22-45a4-ae67-4033d66de6ad" />
 </div>
+
+
+
 
 ---
 
