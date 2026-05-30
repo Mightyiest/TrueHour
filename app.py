@@ -213,6 +213,8 @@ class TrueHourApp(QMainWindow):
         
         self.tracker = AppTracker(poll_interval=1.0, min_track_seconds=2)
         self._load_app_settings()
+        self._init_posthog()
+        self._track_event("app_started", {"version": VERSION_FULL, "platform": sys.platform})
 
         self._check_vars = {}
         self._photo_refs = []
@@ -534,6 +536,7 @@ class TrueHourApp(QMainWindow):
         logger.info("[Action] Clicked Start Tracking")
         auto_name = datetime.now().strftime("Session - %I:%M %p")
         self.tracker.start(session_name=auto_name) 
+        self._track_event("tracking_started", {"session_name": auto_name})
         
         # Clear layout
         self._clear_list_layout()
@@ -586,6 +589,15 @@ class TrueHourApp(QMainWindow):
         self._load_dlg = LoadingDialog("Compiling Report & Saving...", parent=self, is_dark=self.dark_mode, worker=worker)
         if self._load_dlg.exec() == QDialog.DialogCode.Accepted:
             self._show_report(self._load_dlg.compiled_report, is_new=True)
+            try:
+                rep = self._load_dlg.compiled_report
+                self._track_event("tracking_stopped", {
+                    "duration_seconds": rep.get("total_seconds", 0),
+                    "app_count": len(rep.get("items", [])),
+                    "amount_due": rep.get("total_amount_due", "")
+                })
+            except Exception:
+                pass
         else:
             if hasattr(self._load_dlg, "error_message") and self._load_dlg.error_message:
                 QMessageBox.critical(self, "Generation Error", f"Failed to generate report:\n{self._load_dlg.error_message}")
@@ -960,6 +972,7 @@ class TrueHourApp(QMainWindow):
         self.mask_sensitive_data = False  # LEGACY: default mask toggle for invoices
         self.developer_mode = False
         self.dark_mode = False
+        self.anonymous_user_id = ""
         
         if os.path.exists(APP_SETTINGS_FILE):
             try:
@@ -1005,8 +1018,14 @@ class TrueHourApp(QMainWindow):
                     self.mask_sensitive_data = legacy_mask
                     self.developer_mode = data.get("developer_mode", False)
                     self.dark_mode = data.get("dark_mode", False)
+                    self.anonymous_user_id = data.get("anonymous_user_id", "")
             except Exception as e:
                 print(f"[TrueHour] Failed to load app settings: {e}")
+                
+        if not self.anonymous_user_id:
+            import uuid
+            self.anonymous_user_id = str(uuid.uuid4())
+            self._save_app_settings()
 
     def _save_app_settings(self):
         try:
@@ -1038,11 +1057,52 @@ class TrueHourApp(QMainWindow):
                 "mask_sensitive_data": self.mask_business_emails or self.mask_business_phone or self.mask_client_emails,
                 "developer_mode": self.developer_mode,
                 "dark_mode": self.dark_mode,
+                "anonymous_user_id": self.anonymous_user_id,
             }
             with open(APP_SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
         except Exception as e:
             print(f"[TrueHour] Failed to save app settings: {e}")
+            
+    def _init_posthog(self):
+        self.posthog_client = None
+        self.posthog_enabled = False
+        api_key = os.getenv("POSTHOG_API_KEY")
+        host = os.getenv("POSTHOG_HOST", "https://us.i.posthog.com")
+        
+        if api_key:
+            api_key = api_key.strip("'\"")
+        if host:
+            host = host.strip("'\"")
+            
+        # Fallback to embedded credentials if running as a prebuilt release (frozen bundle)
+        # and no specific API key was configured locally in .env.
+        is_frozen = getattr(sys, 'frozen', False)
+        if not api_key and is_frozen:
+            api_key = "phc_nNUNKAHMsXobKfZbD7pJ9X2dM88A5895nyhbJvyWDCHV"
+            host = "https://us.i.posthog.com"
+            
+        if api_key and api_key != "your_posthog_project_api_key_here":
+            try:
+                from posthog import Posthog
+                self.posthog_client = Posthog(api_key, host=host)
+                self.posthog_enabled = True
+                logger.info("[PostHog] Initialized successfully.")
+            except Exception as e:
+                logger.warning(f"[PostHog] Failed to import/initialize posthog: {e}")
+
+    def _track_event(self, event_name, properties=None):
+        if not self.posthog_enabled or not self.posthog_client or not self.anonymous_user_id:
+            return
+        try:
+            self.posthog_client.capture(
+                distinct_id=self.anonymous_user_id,
+                event=event_name,
+                properties=properties or {}
+            )
+            self.posthog_client.flush()
+        except Exception as e:
+            logger.debug(f"[PostHog] Failed to capture event '{event_name}': {e}")
 
     def apply_theme(self, is_dark):
         self.dark_mode = is_dark
@@ -1816,6 +1876,12 @@ class TrueHourApp(QMainWindow):
 
 
 if __name__ == "__main__":
+    # Load environment variables from .env file
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except Exception as e:
+        print(f"[TrueHour] Failed to load .env: {e}")
     # Install global exception hook to catch unhandled Python exceptions
     def exception_hook(exctype, value, tb):
         """Global hook to intercept catastrophic failures and redirect them into logs."""
