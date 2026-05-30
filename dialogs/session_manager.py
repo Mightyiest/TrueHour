@@ -150,7 +150,7 @@ class SessionManagerDialog(QDialog):
         export_btn.clicked.connect(lambda: self.export_csv_history_requested.emit())
         footer.addWidget(export_btn)
         
-        html_invoice_btn = QPushButton("📄 Generate HTML Invoice", self)
+        html_invoice_btn = QPushButton("📄 View Invoice in Browser", self)
         html_invoice_btn.setObjectName("AccentButton")
         html_invoice_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         html_invoice_btn.clicked.connect(self._generate_selected_html_invoice)
@@ -547,12 +547,6 @@ class SessionManagerDialog(QDialog):
             return
         
         logger.info(f"[Action] Generating HTML invoice for {len(self.selected_sessions)} selected sessions")
-        
-        # Show save path dialog
-        default_html_name = f"TrueHour_Invoice_{datetime.now().strftime('%Y-%m-%d')}.html"
-        html_filepath, _ = QFileDialog.getSaveFileName(self, "Save Invoice HTML", default_html_name, "HTML Files (*.html)")
-        if not html_filepath:
-            return
             
         try:
             # Mask sensitive data custom options dialog
@@ -597,26 +591,22 @@ class SessionManagerDialog(QDialog):
             }
             
             html_content = generate_invoice_html(billing_data, settings_data)
-            with open(html_filepath, "w", encoding="utf-8") as f:
-                f.write(html_content)
             
-            reply = QMessageBox.question(
-                self, 
-                "Invoice Created", 
-                f"Invoice HTML generated successfully at:\n{html_filepath}\n\nWould you like to open it in your browser now to print/save as PDF?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            if reply == QMessageBox.StandardButton.Yes:
-                try:
-                    open_file(html_filepath)
-                except Exception as open_err:
-                    logger.warning(f"Failed to auto-open invoice file: {open_err}")
-                    QMessageBox.warning(
-                        self,
-                        "File Saved",
-                        f"Invoice saved successfully at:\n{html_filepath}\n\nCould not automatically open the file. Please open it manually.",
-                        QMessageBox.StandardButton.Ok
-                    )
+            import tempfile
+            with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html', encoding='utf-8') as f:
+                f.write(html_content)
+                temp_path = f.name
+            
+            try:
+                open_file(temp_path)
+            except Exception as open_err:
+                logger.warning(f"Failed to auto-open invoice in browser: {open_err}")
+                QMessageBox.warning(
+                    self,
+                    "Failed to Open",
+                    f"Invoice generated successfully, but could not be opened automatically:\n{temp_path}",
+                    QMessageBox.StandardButton.Ok
+                )
         except Exception as e:
             logger.error(f"Failed to generate invoice HTML: {e}", exc_info=True)
             QMessageBox.critical(self, "Error", f"Failed to generate invoice HTML:\n{str(e)}")

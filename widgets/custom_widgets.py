@@ -158,6 +158,8 @@ class EmailChipWidget(QWidget):
         self.update_theme()
 
     def update_theme(self):
+        if not hasattr(self, "_input"):
+            return
         is_dark = False
         win = self.window()
         if win:
@@ -266,7 +268,9 @@ class EmailChipWidget(QWidget):
         if chip_widget in self._chip_widgets:
             self._chip_widgets.remove(chip_widget)
         self._flow_layout.removeWidget(chip_widget)
+        chip_widget.setParent(None)
         chip_widget.deleteLater()
+        self._flow_layout.invalidate()
 
     def get_emails(self):
         """Return the list of entered emails."""
@@ -286,9 +290,11 @@ class EmailChipWidget(QWidget):
         self._emails.clear()
         for chip in self._chip_widgets:
             self._flow_layout.removeWidget(chip)
+            chip.setParent(None)
             chip.deleteLater()
         self._chip_widgets.clear()
         self._input.clear()
+        self._flow_layout.invalidate()
 
 # ── Dynamic Flow Layout Component ───────────────────────────────────
 class FlowLayout(QLayout):
@@ -464,6 +470,9 @@ class InvoicePrivacyOptionsDialog(QDialog):
         super().changeEvent(event)
 
     def _apply_theme(self):
+        if not hasattr(self, "title"):
+            return
+            
         is_dark = self.is_dark
             
         if is_dark:
@@ -627,6 +636,8 @@ class AppUsageRow(QFrame):
         super().changeEvent(event)
 
     def _apply_row_style(self):
+        if not hasattr(self, "name_lbl"):
+            return
         is_dark = False
         win = self.window()
         if win:
