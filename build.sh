@@ -1,8 +1,8 @@
 #!/bin/bash
-# FocusLog macOS Standalone Packaging Script
+# TrueHours macOS Standalone Packaging Script
 cd "$(dirname "$0")"
 
-echo "Building FocusLog Standalone App Bundle for macOS..."
+echo "Building TrueHours Standalone App Bundle for macOS..."
 
 # Detect standard python interpreter
 PYTHON_CMD="python3"
@@ -20,22 +20,22 @@ $PYTHON_CMD -m pip install pyinstaller PyQt6 pyobjc-framework-AppKit psutil Pill
 
 # Build command using PyInstaller
 echo "Running PyInstaller..."
-pyinstaller --noconsole --onefile --windowed --name="FocusLog" app.py
+pyinstaller --noconsole --onefile --windowed --name="TrueHours" app.py
 
 if [ $? -eq 0 ]; then
     echo "Moving executable bundle to root..."
-    # On macOS, --windowed creates both a standalone binary in dist/FocusLog and FocusLog.app folder in dist/
-    if [ -d "dist/FocusLog.app" ]; then
-        rm -rf ./FocusLog.app
-        mv "dist/FocusLog.app" ./FocusLog.app
+    # On macOS, --windowed creates both a standalone binary in dist/TrueHours and TrueHours.app folder in dist/
+    if [ -d "dist/TrueHours.app" ]; then
+        rm -rf ./TrueHours.app
+        mv "dist/TrueHours.app" ./TrueHours.app
         echo "Clean-up temporary folders..."
-        rm -rf build dist FocusLog.spec
+        rm -rf build dist TrueHours.spec
         echo "----------------------------------------"
         echo "Build Complete!"
-        echo "Your macOS App Bundle is ready: ./FocusLog.app"
+        echo "Your macOS App Bundle is ready: ./TrueHours.app"
         echo "----------------------------------------"
     else
-        echo "Error: App bundle FocusLog.app was not created."
+        echo "Error: App bundle TrueHours.app was not created."
         exit 1
     fi
 else

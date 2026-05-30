@@ -37,6 +37,77 @@ SECURITY_LOG_FILE = os.path.join(get_app_data_dir(), "security_log.json")
 TIME_CHAIN_FILE = os.path.join(get_app_data_dir(), "time_chain.json")
 
 
+def get_last_line(filepath):
+    """Retrieve the last non-empty line of a file efficiently using binary seek."""
+    if not os.path.exists(filepath):
+        return None
+    try:
+        with open(filepath, 'rb') as f:
+            f.seek(0, os.SEEK_END)
+            position = f.tell()
+            if position == 0:
+                return None
+            
+            buffer_size = 1024
+            part = b""
+            while position > 0:
+                seek_pos = max(0, position - buffer_size)
+                f.seek(seek_pos)
+                chunk = f.read(position - seek_pos)
+                part = chunk + part
+                
+                lines = part.split(b"\n")
+                if len(lines) > 1:
+                    for candidate in reversed(lines):
+                        candidate = candidate.strip()
+                        if candidate:
+                            return candidate.decode('utf-8')
+                
+                position = seek_pos
+            
+            part_str = part.strip()
+            return part_str.decode('utf-8') if part_str else None
+    except Exception:
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                for line in reversed(lines):
+                    line = line.strip()
+                    if line:
+                        return line
+        except Exception:
+            return None
+
+
+def check_and_migrate_chain_file():
+    """Migrate historical time_chain.json from legacy array to high-performance JSONL format."""
+    if not os.path.exists(TIME_CHAIN_FILE):
+        return
+    try:
+        size = os.path.getsize(TIME_CHAIN_FILE)
+        if size == 0:
+            return
+        
+        with open(TIME_CHAIN_FILE, "r", encoding="utf-8") as f:
+            header = f.read(100).strip()
+            
+        if header.startswith("{") and '"chain"' in header:
+            logger.info("Migrating old time_chain.json to JSONL format...")
+            with open(TIME_CHAIN_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            
+            chain = data.get("chain", [])
+            temp_file = TIME_CHAIN_FILE + ".tmp"
+            with open(temp_file, "w", encoding="utf-8") as f:
+                for entry in chain:
+                    f.write(json.dumps(entry) + "\n")
+            
+            os.replace(temp_file, TIME_CHAIN_FILE)
+            logger.info("Migration to JSONL completed successfully.")
+    except Exception as e:
+        logger.warning(f"Failed to check/migrate chain file: {e}")
+
+
 class TimeTamperDetector:
     """
     Detects and prevents time manipulation attempts using multiple layers:
@@ -57,28 +128,47 @@ class TimeTamperDetector:
         self.tamper_events = []
         self._lock = threading.RLock()
         self.chain_data = []
+        self.last_historic_hash = "GENESIS"
+        self._appended_count = 0
         self._load_chain()
         self.last_trust_recovery = time.time()
         
     def _load_chain(self):
-        """Load existing hash chain from disk."""
+        """Load only the last hash of the existing chain to link the genesis block."""
+        self.chain_data = []
+        self._appended_count = 0
+        self.last_historic_hash = "GENESIS"
+        
+        check_and_migrate_chain_file()
+        
         if os.path.exists(TIME_CHAIN_FILE):
-            try:
-                with open(TIME_CHAIN_FILE, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    self.chain_data = data.get("chain", [])
-            except Exception:
-                self.chain_data = []
+            last_line = get_last_line(TIME_CHAIN_FILE)
+            if last_line:
+                try:
+                    last_entry = json.loads(last_line)
+                    self.last_historic_hash = last_entry.get("hash", "GENESIS")
+                except Exception:
+                    self.last_historic_hash = "GENESIS"
     
     def _save_chain(self):
-        """Save hash chain to disk atomically."""
-        try:
-            temp_file = TIME_CHAIN_FILE + ".tmp"
-            with open(temp_file, "w", encoding="utf-8") as f:
-                json.dump({"chain": self.chain_data}, f, indent=2)
-            os.replace(temp_file, TIME_CHAIN_FILE)
-        except Exception:
-            pass
+        """Save new chain entries to disk efficiently by appending."""
+        with self._lock:
+            if not self.chain_data:
+                return
+            
+            start_idx = getattr(self, "_appended_count", 0)
+            if start_idx >= len(self.chain_data):
+                return
+            
+            unsaved_entries = self.chain_data[start_idx:]
+            
+            try:
+                with open(TIME_CHAIN_FILE, "a", encoding="utf-8") as f:
+                    for entry in unsaved_entries:
+                        f.write(json.dumps(entry) + "\n")
+                self._appended_count = len(self.chain_data)
+            except Exception as e:
+                logger.warning(f"Failed to append to chain file: {e}")
     
     def _log_security_event(self, event_type, details):
         """Log security events for later review."""
@@ -245,7 +335,7 @@ class TimeTamperDetector:
     
     def _add_to_chain(self, event_type, data):
         """Add an entry to the cryptographic hash chain."""
-        previous_hash = self.chain_data[-1]["hash"] if self.chain_data else "GENESIS"
+        previous_hash = self.chain_data[-1]["hash"] if self.chain_data else self.last_historic_hash
         
         entry_data = {
             "event_type": event_type,
@@ -404,7 +494,7 @@ class TimeTamperDetector:
         for i, entry in enumerate(self.chain_data):
             # Verify previous hash linkage
             if i == 0:
-                if entry.get("previous_hash") != "GENESIS":
+                if entry.get("previous_hash") != self.last_historic_hash:
                     return False
             else:
                 if entry.get("previous_hash") != self.chain_data[i-1]["hash"]:

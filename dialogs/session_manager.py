@@ -531,7 +531,7 @@ class SessionManagerDialog(QDialog):
     def _refresh_all_lists(self):
         from core.reporting.aggregator import rebuild_all_summaries
         try:
-            rebuild_all_summaries()
+            rebuild_all_summaries(force=True)
         except Exception as e:
             print(f"[TrueHour] Failed to rebuild summaries on list refresh: {e}")
         self._render_list(self.sessions_layout, self.history_folder, False)
