@@ -12,10 +12,31 @@ def get_sessions_for_date(date_str: str):
     autosave_folder = os.path.join(get_app_data_dir(), "autosave")
     
     unique_sessions = {}
-    for folder in [autosave_folder, sessions_folder]:
-        if not os.path.exists(folder):
-            continue
-        for filepath in glob.glob(os.path.join(folder, "*.json")):
+    
+    # First, collect all finalized session keys to ignore orphaned/discarded autosaves
+    finalized_keys = set()
+    if os.path.exists(sessions_folder):
+        for filepath in glob.glob(os.path.join(sessions_folder, "*.json")):
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                
+                # Check date
+                s_date = data.get("date")
+                if s_date != date_str:
+                    continue
+                    
+                start_str = data.get("start")
+                if start_str:
+                    finalized_keys.add((s_date, start_str))
+                    key = (s_date, start_str)
+                    unique_sessions[key] = data
+            except Exception:
+                continue
+
+    # Scan autosave folder, only including autosaves of finalized sessions to keep most complete data
+    if os.path.exists(autosave_folder):
+        for filepath in glob.glob(os.path.join(autosave_folder, "*.json")):
             try:
                 with open(filepath, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -30,14 +51,11 @@ def get_sessions_for_date(date_str: str):
                     continue
                     
                 key = (s_date, start_str)
-                total_secs = data.get("total_seconds", 0)
-                
-                if key in unique_sessions:
+                if key in finalized_keys:
+                    total_secs = data.get("total_seconds", 0)
                     existing_total = unique_sessions[key].get("total_seconds", 0)
                     if total_secs > existing_total:
                         unique_sessions[key] = data
-                else:
-                    unique_sessions[key] = data
             except Exception:
                 continue
     return list(unique_sessions.values())
@@ -122,10 +140,30 @@ def rebuild_all_summaries(force=False):
     # Map of date_str -> unique sessions dict
     sessions_by_date = {}
     
-    for folder in [autosave_folder, sessions_folder]:
-        if not os.path.exists(folder):
-            continue
-        for filepath in glob.glob(os.path.join(folder, "*.json")):
+    # First, collect all finalized session keys to ignore orphaned/discarded autosaves
+    finalized_keys = set()
+    if os.path.exists(sessions_folder):
+        for filepath in glob.glob(os.path.join(sessions_folder, "*.json")):
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                
+                date_str = data.get("date")
+                start_str = data.get("start")
+                if date_str and start_str:
+                    finalized_keys.add((date_str, start_str))
+                    
+                    if date_str not in sessions_by_date:
+                        sessions_by_date[date_str] = {}
+                    
+                    key = (date_str, start_str)
+                    sessions_by_date[date_str][key] = data
+            except Exception:
+                continue
+
+    # Scan autosave folder, only including autosaves of finalized sessions to keep most complete data
+    if os.path.exists(autosave_folder):
+        for filepath in glob.glob(os.path.join(autosave_folder, "*.json")):
             try:
                 with open(filepath, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -135,19 +173,15 @@ def rebuild_all_summaries(force=False):
                 if not date_str or not start_str:
                     continue
                 
-                if date_str not in sessions_by_date:
-                    sessions_by_date[date_str] = {}
-                
-                # Deduplicate sessions: keep the one with higher total_seconds
                 key = (date_str, start_str)
-                total_secs = data.get("total_seconds", 0)
-                
-                if key in sessions_by_date[date_str]:
+                if key in finalized_keys:
+                    if date_str not in sessions_by_date:
+                        sessions_by_date[date_str] = {}
+                    
+                    total_secs = data.get("total_seconds", 0)
                     existing_total = sessions_by_date[date_str][key].get("total_seconds", 0)
                     if total_secs > existing_total:
                         sessions_by_date[date_str][key] = data
-                else:
-                    sessions_by_date[date_str][key] = data
             except Exception:
                 continue
                 
