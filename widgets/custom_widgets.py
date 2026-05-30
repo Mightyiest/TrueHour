@@ -540,6 +540,7 @@ class AppUsageRow(QFrame):
         self.exe_path = exe_path
         self.on_toggle = on_toggle
         self.on_tag_click = on_tag_click
+        self._icon_loaded = False
         
         self.setObjectName("AppUsageRow")
         self.init_ui()
