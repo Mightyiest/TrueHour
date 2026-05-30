@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import json
 import io
 import logging
+import traceback
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFrame, QVBoxLayout, QHBoxLayout,
@@ -1752,11 +1753,19 @@ class TrueHourApp(QMainWindow):
                     QMessageBox.StandardButton.Yes
                 )
                 if reply == QMessageBox.StandardButton.Yes:
-                    open_file(path)
+                    try:
+                        open_file(path)
+                    except Exception as e:
+                        logger.error(f"Failed to open file {path}: {e}")
+                        QMessageBox.warning(
+                            self, "File Open Failed",
+                            f"Report saved successfully at:\n{path}\n\nCould not automatically open the file:\n{str(e)}\n\nPlease open it manually."
+                        )
                 return
             QMessageBox.information(self, "Exported", f"Report saved to:\n{path}")
         except Exception as e:
-            QMessageBox.critical(self, "Export Error", str(e))
+            logger.exception(f"Export failed for format {fmt}: {e}")
+            QMessageBox.critical(self, "Export Error", f"Failed to export report:\n{str(e)}")
 
     def _export_csv_history(self):
         logger.info("[Action] Commencing CSV history export")
@@ -1800,6 +1809,15 @@ class TrueHourApp(QMainWindow):
 
 
 if __name__ == "__main__":
+    # Install global exception hook to catch unhandled Python exceptions
+    def exception_hook(exctype, value, tb):
+        """Global hook to intercept catastrophic failures and redirect them into logs."""
+        error_msg = "".join(traceback.format_exception(exctype, value, tb))
+        logger.critical(f"Catastrophic Application Crash Intercepted:\n{error_msg}")
+        sys.__excepthook__(exctype, value, tb)
+    
+    sys.excepthook = exception_hook
+    
     app = QApplication(sys.argv)
     
     # Force style and palette to avoid theme bleeding on systems set to Dark Mode
