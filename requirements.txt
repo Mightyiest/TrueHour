@@ -2,3 +2,5 @@ pywin32
 psutil
 pyinstaller
 PyQt6
+posthog
+python-dotenv
