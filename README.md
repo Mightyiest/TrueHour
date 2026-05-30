@@ -2,7 +2,7 @@
 
 > **A lightweight, privacy-first desktop time tracker with a modern Fluent Design UI, supporting Windows & macOS.**
 
-True Hours automatically monitors your active window to track productivity, calculate earnings based on hourly rates, and generate detailed session reports. It features crash recovery, auto-exclusion of system apps, customizable external HTML templates, offline app icon extraction, and flexible export options (CSV, JSON, TXT, HTML).
+True Hours automatically monitors your active window to track productivity, calculate earnings based on hourly rates, and generate detailed session reports. It features crash recovery, auto-exclusion of system apps, customizable external HTML templates, offline app icon extraction, and flexible export options (TXT, HTML).
 
 ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-0078D4.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078D4?logo=windows)
@@ -23,7 +23,7 @@ True Hours automatically monitors your active window to track productivity, calc
 | 🛡️ | **Smart Exclusions** | Auto-ignores system processes; manually exclude apps (e.g. Spotify) from work time. |
 | 🔒 | **Anti-Tamper Security** | Monotonic clock protection, NTP validation, and SHA-256 hash chaining with real-time integrity scoring. |
 | 💾 | **Crash Recovery** | Unexpected closures are auto-saved to an `autosave` folder for later recovery. |
-| 📤 | **Export Options** | Export to TXT, JSON, CSV, HTML Invoice, or HTML Session Report; bulk-export full history to CSV. |
+| 📤 | **Export Options** | Export to TXT, HTML Invoice, or HTML Session Report. |
 | 🎨 | **Modern UI** | Clean, light-themed interface inspired by Windows 11 Fluent Design, built with PyQt6. |
 ---
 
@@ -105,7 +105,7 @@ TrueHours/
 ├── icon.ico            # Application Icon
 ├── app.py              # Main UI Entry Point (PyQt6)
 ├── tracker.py          # Core Logic: Polling loop, state management, crash recovery
-├── report.py           # Data formatting, export utilities (CSV/JSON/TXT/HTML)
+├── report.py           # Data formatting, export utilities (TXT/HTML)
 ├── appinfo.py          # Windows API wrappers: Get foreground window, extract icons/names
 ├── config.py           # Configuration helpers: Data directory management
 ├── secure_time.py      # Anti-tamper security: Monotonic clocks, hash chaining, NTP sync
@@ -197,7 +197,7 @@ Handles Windows-specific interactions.
 #### `report.py`
 Handles data serialization.
 *   **`build_report_data()`:** Aggregates raw tracker data into a structured dictionary.
-*   **`export_csv()`:** Generates a flat CSV suitable for Excel analysis.
+*   **`export_txt()`:** Generates a clean text file summary of the session.
 *   **`save_to_autosave()`:** Atomic write to prevent corruption during crashes.
 
 ### Adding New Features
@@ -229,6 +229,15 @@ A: **No.** True Hours is 100% offline. All data is stored locally in your `%LOCA
 
 A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+
+---
+
+## 📅 Changelog
+
+### v3.0.0 (2026.05.30)
+- **Asynchronous Batch Report Generation with Pre-Aggregation**: Refactored the report processing pipeline to run fully asynchronously in background worker threads, complete with optimized SQLite database pre-aggregation.
+- **Extreme Performance & Resource Optimization**: Converted the cryptographic time integrity chain to a high-performance, line-delimited JSONL format with incremental append operations and fast O(1) binary-seek loading on startup, completely eliminating disk write spikes and reducing RAM usage.
+- **Streamlined Exports**: Removed legacy CSV and JSON export options in favor of clean TXT summaries and premium interactive HTML A4 invoices/reports.
 
 ---
 
