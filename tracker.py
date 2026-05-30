@@ -1071,21 +1071,19 @@ class AppTracker:
                             partial - self.poll_interval
                         )
 
-                        if self.app_included.get(self._current_app, True):
-                            self.app_times[self._current_app] = (
-                                self.app_times.get(self._current_app, 0)
-                                + self.poll_interval
-                            )
-                            self._current_block_active += self.poll_interval
+                        self.app_times[self._current_app] = (
+                            self.app_times.get(self._current_app, 0)
+                            + self.poll_interval
+                        )
+                        self._current_block_active += self.poll_interval
 
                     else:
 
-                        if self.app_included.get(self._current_app, True):
-                            self.app_times[self._current_app] = (
-                                self.app_times.get(self._current_app, 0)
-                                + partial
-                            )
-                            self._current_block_active += partial
+                        self.app_times[self._current_app] = (
+                            self.app_times.get(self._current_app, 0)
+                            + partial
+                        )
+                        self._current_block_active += partial
 
             if self._current_block_active >= self.min_track_seconds:
 
@@ -1169,11 +1167,10 @@ class AppTracker:
                             self._total_paused_time += (elapsed - self.poll_interval)
                             elapsed = self.poll_interval
 
-                        if self.app_included.get(self._current_app, True):
-                            self.app_times[self._current_app] = (
-                                self.app_times.get(self._current_app, 0) + elapsed
-                            )
-                            self._current_block_active += elapsed
+                        self.app_times[self._current_app] = (
+                            self.app_times.get(self._current_app, 0) + elapsed
+                        )
+                        self._current_block_active += elapsed
                         self._current_start = now
                         
                         # Security: Validate and record with tamper detection
