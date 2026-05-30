@@ -377,47 +377,62 @@ class FlowLayout(QLayout):
 # ── Invoice Privacy Options Dialog ──────────────────────────────────
 class InvoicePrivacyOptionsDialog(QDialog):
     """Custom checkbox selection prompt for sensitive data masking prior to invoice generation."""
-    def __init__(self, parent=None, default_biz_email=False, default_biz_phone=False, default_client_email=False):
+    def __init__(self, parent=None, default_biz_email=False, default_biz_phone=False, default_client_email=False, is_dark=None):
         super().__init__(parent)
         self.setWindowTitle("Invoice Privacy Options")
         self.setFixedSize(380, 240)
         
+        # Robust theme detection
+        self.is_dark = False
+        if is_dark is not None:
+            self.is_dark = is_dark
+        elif parent:
+            if hasattr(parent, "settings") and isinstance(parent.settings, dict):
+                self.is_dark = parent.settings.get("dark_mode", False)
+            elif hasattr(parent, "dark_mode"):
+                self.is_dark = parent.dark_mode
+            elif hasattr(parent, "is_dark"):
+                self.is_dark = parent.is_dark
+            elif hasattr(parent, "window") and parent.window():
+                p_win = parent.window()
+                self.is_dark = p_win.palette().color(p_win.backgroundRole()).value() < 128
+        
+        # Apply dialog-level Fluent Design styling
+        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
+        qss = get_qss_style(self.is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+        self.setStyleSheet(qss)
+        self.setPalette(get_dark_palette() if self.is_dark else get_light_palette())
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
         
-        title = QLabel("Privacy & Masking Options", self)
-        title.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #1A1A1A; border: none; background: transparent;")
-        layout.addWidget(title)
+        self.title = QLabel("Privacy & Masking Options", self)
+        layout.addWidget(self.title)
         
-        desc = QLabel("Select which sensitive details you would like to mask on this invoice:", self)
-        desc.setWordWrap(True)
-        desc.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B; border: none; background: transparent;")
-        layout.addWidget(desc)
+        self.desc = QLabel("Select which sensitive details you would like to mask on this invoice:", self)
+        self.desc.setWordWrap(True)
+        layout.addWidget(self.desc)
         
         # Options Group
-        options_box = QFrame(self)
-        options_box.setStyleSheet("QFrame { background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; }")
-        options_layout = QVBoxLayout(options_box)
+        self.options_box = QFrame(self)
+        options_layout = QVBoxLayout(self.options_box)
         options_layout.setContentsMargins(12, 8, 12, 8)
         options_layout.setSpacing(6)
         
-        self.cb_biz_email = QCheckBox("Mask business contact emails (e.g. bu**@****.com)", options_box)
+        self.cb_biz_email = QCheckBox("Mask business contact emails (e.g. bu**@****.com)", self.options_box)
         self.cb_biz_email.setChecked(default_biz_email)
-        self.cb_biz_email.setStyleSheet("border: none; background: transparent; font-family: 'Segoe UI'; font-size: 12px;")
         options_layout.addWidget(self.cb_biz_email)
         
-        self.cb_biz_phone = QCheckBox("Mask business contact phone (e.g. +1***)", options_box)
+        self.cb_biz_phone = QCheckBox("Mask business contact phone (e.g. +1***)", self.options_box)
         self.cb_biz_phone.setChecked(default_biz_phone)
-        self.cb_biz_phone.setStyleSheet("border: none; background: transparent; font-family: 'Segoe UI'; font-size: 12px;")
         options_layout.addWidget(self.cb_biz_phone)
         
-        self.cb_client_email = QCheckBox("Mask client contact emails (e.g. cl**@****.com)", options_box)
+        self.cb_client_email = QCheckBox("Mask client contact emails (e.g. cl**@****.com)", self.options_box)
         self.cb_client_email.setChecked(default_client_email)
-        self.cb_client_email.setStyleSheet("border: none; background: transparent; font-family: 'Segoe UI'; font-size: 12px;")
         options_layout.addWidget(self.cb_client_email)
         
-        layout.addWidget(options_box)
+        layout.addWidget(self.options_box)
         
         # Buttons
         btn_layout = QHBoxLayout()
@@ -436,6 +451,42 @@ class InvoicePrivacyOptionsDialog(QDialog):
         btn_layout.addWidget(cancel_btn)
         btn_layout.addWidget(gen_btn)
         layout.addLayout(btn_layout)
+        
+        self._apply_theme()
+
+    def changeEvent(self, event):
+        if event.type() in (event.Type.PaletteChange, event.Type.StyleChange):
+            # Recalculate is_dark if theme dynamically changes
+            win = self.window()
+            if win:
+                self.is_dark = win.palette().color(win.backgroundRole()).value() < 128
+            self._apply_theme()
+        super().changeEvent(event)
+
+    def _apply_theme(self):
+        is_dark = self.is_dark
+            
+        if is_dark:
+            title_color = "#F3F4F6"
+            desc_color = "#94A3B8"
+            box_bg = "#1E293B"
+            box_border = "#334155"
+            cb_color = "#F3F4F6"
+        else:
+            title_color = "#1A1A1A"
+            desc_color = "#64748B"
+            box_bg = "#F8FAFC"
+            box_border = "#E2E8F0"
+            cb_color = "#1A1A1A"
+            
+        self.title.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: {title_color}; border: none; background: transparent;")
+        self.desc.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: {desc_color}; border: none; background: transparent;")
+        self.options_box.setStyleSheet(f"QFrame {{ background-color: {box_bg}; border: 1px solid {box_border}; border-radius: 8px; }}")
+        
+        cb_style = f"border: none; background: transparent; font-family: 'Segoe UI'; font-size: 12px; color: {cb_color};"
+        self.cb_biz_email.setStyleSheet(cb_style)
+        self.cb_biz_phone.setStyleSheet(cb_style)
+        self.cb_client_email.setStyleSheet(cb_style)
 
 # ── Segmented Allocation Paint Bar ─────────────────────────────────
 class SegmentedAllocationBar(QWidget):

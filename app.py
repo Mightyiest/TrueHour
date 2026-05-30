@@ -40,17 +40,39 @@ ICON_PATH = os.path.join(ICON_DIR, "icon.ico")
 APP_SETTINGS_FILE = os.path.join(get_app_data_dir(), "app_settings.json")
 
 def pil_to_pixmap(pil_img):
-    """Convert a PIL Image safely to a QPixmap for PyQt6 icon rendering."""
+    """Convert a PIL Image safely to a QPixmap for PyQt6 icon rendering using QImage.fromData (independent memory)."""
     if not pil_img:
         return None
     try:
-        im = pil_img.convert("RGBA")
-        data = im.tobytes("raw", "RGBA")
-        qim = QImage(data, im.size[0], im.size[1], QImage.Format.Format_RGBA8888).copy()
+        byte_arr = io.BytesIO()
+        pil_img.save(byte_arr, format='PNG')
+        png_bytes = byte_arr.getvalue()
+        qim = QImage.fromData(png_bytes)
         return QPixmap.fromImage(qim)
     except Exception as e:
         logger.debug(f"pil_to_pixmap failed: {e}")
         return None
+
+_ICON_PROVIDER = None
+
+def get_native_icon_pixmap(exe_path: str, size: int = 16):
+    """Retrieve the native system icon for a file path using a shared QFileIconProvider."""
+    global _ICON_PROVIDER
+    if not exe_path or not os.path.exists(exe_path):
+        return None
+    try:
+        from PyQt6.QtWidgets import QFileIconProvider
+        from PyQt6.QtCore import QFileInfo, QSize
+        if _ICON_PROVIDER is None:
+            _ICON_PROVIDER = QFileIconProvider()
+        file_info = QFileInfo(exe_path)
+        icon = _ICON_PROVIDER.icon(file_info)
+        if icon and not icon.isNull():
+            return icon.pixmap(QSize(size, size))
+    except Exception as e:
+        logger.debug(f"Failed to get native icon for {exe_path}: {e}")
+    return None
+
 
 from debug_terminal import LogBufferCollector, DebugTerminalWindow
 from PyQt6.QtGui import QKeySequence, QShortcut
@@ -58,6 +80,8 @@ from widgets.custom_widgets import (
     QRThumbnailWidget, EmailChipWidget, FlowLayout,
     InvoicePrivacyOptionsDialog, SegmentedAllocationBar, AppUsageRow
 )
+from widgets.loading_dialog import LoadingDialog
+from workers.report_worker import ReportWorker
 from theme import (
     BG_WHITE, BG_SURFACE, BG_HOVER, BG_CARD, ACCENT, ACCENT_HOVER, ACCENT_LIGHT,
     GREEN_STATUS, RED_STATUS, ORANGE, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_DISABLED,
@@ -523,9 +547,9 @@ class TrueHourApp(QMainWindow):
 
     def _on_stop(self):
         logger.info("[Action] Clicked Stop Tracking")
-        self.tracker.stop()
         self.clock_timer.stop()
         
+        # Update UI immediately — instant visual feedback before any blocking work
         self.start_btn.setEnabled(True)
         self.pause_btn.setEnabled(False)
         self.stop_btn.setEnabled(False)
@@ -534,12 +558,22 @@ class TrueHourApp(QMainWindow):
         self.earnings_label.setText("")
         self.setWindowTitle("TrueHour")
 
-        report = build_report_data(self.tracker, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol)
-        try:
-            save_to_autosave(report)
-        except Exception as e:
-            print(f"[TrueHour] Stop autosave failed: {e}")
-        self._show_report(report, is_new=True)
+        # Initialize background worker (offloading tracker stop to background thread to prevent UI freeze)
+        worker = ReportWorker(
+            self.tracker, 
+            hourly_rate=self.hourly_rate, 
+            currency_symbol=self.currency_symbol, 
+            stop_tracker=True,
+            parent=self
+        )
+        
+        # Show Loading Feedback Dialog instantly, which automatically executes and handles the worker!
+        self._load_dlg = LoadingDialog("Compiling Report & Saving...", parent=self, is_dark=self.dark_mode, worker=worker)
+        if self._load_dlg.exec() == QDialog.DialogCode.Accepted:
+            self._show_report(self._load_dlg.compiled_report, is_new=True)
+        else:
+            if hasattr(self._load_dlg, "error_message") and self._load_dlg.error_message:
+                QMessageBox.critical(self, "Generation Error", f"Failed to generate report:\n{self._load_dlg.error_message}")
 
     def _on_pause(self):
         is_paused = self.tracker.toggle_pause()
@@ -561,8 +595,20 @@ class TrueHourApp(QMainWindow):
         if not self.tracker.running:
             QMessageBox.information(self, "No Active Session", "Start tracking first to view a live report.")
             return
-        report = build_report_data(self.tracker, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol)
-        self._show_report(report, is_new=False, is_live=True)
+            
+        worker = ReportWorker(
+            self.tracker, 
+            hourly_rate=self.hourly_rate, 
+            currency_symbol=self.currency_symbol, 
+            parent=self
+        )
+        
+        self._load_dlg = LoadingDialog("Compiling Live Data...", parent=self, is_dark=self.dark_mode, worker=worker)
+        if self._load_dlg.exec() == QDialog.DialogCode.Accepted:
+            self._show_report(self._load_dlg.compiled_report, is_new=False, is_live=True)
+        else:
+            if hasattr(self._load_dlg, "error_message") and self._load_dlg.error_message:
+                QMessageBox.critical(self, "Generation Error", f"Failed to generate report:\n{self._load_dlg.error_message}")
 
     def _tick_clock(self):
         if not self.tracker.running:
@@ -655,12 +701,11 @@ class TrueHourApp(QMainWindow):
                     self.scroll_layout.insertWidget(self.scroll_layout.count() - 1, row)
                     self._row_widgets[app_name] = row
                     
-                    # Async icon load
-                    if exe_path and exe_path in self._icon_cache:
+                    # Native system icon loading (using fast shared provider)
+                    if exe_path:
+                        if exe_path not in self._icon_cache:
+                            self._icon_cache[exe_path] = get_native_icon_pixmap(exe_path, size=16)
                         row.set_icon(self._icon_cache[exe_path])
-                    elif exe_path and exe_path not in self._icon_load_queue:
-                        self._icon_load_queue.add(exe_path)
-                        threading.Thread(target=self._load_icon_async, args=(exe_path, app_name), daemon=True).start()
                 else:
                     row = self._row_widgets[app_name]
                     row.update_time(secs)
@@ -804,8 +849,12 @@ class TrueHourApp(QMainWindow):
             self.active_label.setStyleSheet("color: #0F7B0F; font-size: 10px;")
             
             self.clock_timer.start(250)
-            self._refresh_app_list()
-            QMessageBox.information(self, "Session Resumed", f"Resumed session: {self.tracker.session_name}\nTracking is now active.")
+            
+            # Defer the heavy app list rebuild to the next event loop tick
+            # so the UI paints the resumed state instantly without freezing
+            session_name = self.tracker.session_name
+            QTimer.singleShot(0, self._refresh_app_list)
+            QTimer.singleShot(50, lambda: QMessageBox.information(self, "Session Resumed", f"Resumed session: {session_name}\nTracking is now active."))
         except Exception as e:
             QMessageBox.critical(self, "Resume Error", f"Could not resume session:\n{e}")
 
@@ -840,8 +889,10 @@ class TrueHourApp(QMainWindow):
                     self.active_label.setStyleSheet("color: #0F7B0F; font-size: 10px;")
                     
                     self.clock_timer.start(250)
-                    self._refresh_app_list()
-                    QMessageBox.information(self, "Recovered", "Previous session recovered successfully.")
+                    
+                    # Defer heavy app list rebuild to next event loop tick
+                    QTimer.singleShot(0, self._refresh_app_list)
+                    QTimer.singleShot(50, lambda: QMessageBox.information(self, "Recovered", "Previous session recovered successfully."))
                 else:
                     QMessageBox.critical(self, "Recovery Error", "Failed to recover the previous session.")
                     if os.path.exists(ACTIVE_SESSION_FILE):

@@ -706,7 +706,7 @@ class AppTracker:
             self._pause_start = None
             
         if self._thread:
-            self._thread.join(timeout=2)
+            self._thread.join(timeout=0.1)  # Non-blocking: thread exits via running flag
             self._thread = None
             
         # Finalize security detector

@@ -81,8 +81,10 @@ class ReportData(TypedDict):
     total_earned_display: str
     project_breakdown: List[ProjectBreakdownEntry]
 
-def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportData:
+def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$", progress_cb=None) -> ReportData:
     """Build a structured dict from the tracker's session data."""
+    if progress_cb:
+        progress_cb(20, "Analyzing tracked session metrics...")
     session_start = tracker.session_start
     session_end = tracker.session_end or datetime.now()
     total_session = tracker.get_elapsed()
@@ -105,6 +107,9 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
         if included:
             project_times[tag] = project_times.get(tag, 0) + secs
 
+    if progress_cb:
+        progress_cb(40, "Compiling category allocations...")
+
     # Snapshot timeline under the lock to prevent concurrent modification
     with tracker._lock:
         timeline_snapshot = list(tracker.timeline)
@@ -118,6 +123,9 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
             "start": entry["start"].strftime("%H:%M:%S"),
             "end": entry["end"].strftime("%H:%M:%S"),
         })
+
+    if progress_cb:
+        progress_cb(60, "Constructing timeline log visualizers...")
 
     total_counted = sum(project_times.values())
     breakdown = []
@@ -165,6 +173,9 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$") -> ReportDa
         # Only keep the list if at least one app has new time
         if not any(a["new_seconds"] > 0 for a in new_activity):
             new_activity = []
+
+    if progress_cb:
+        progress_cb(75, "Aggregating new activities & diff snapshots...")
 
     return {
         "date": session_start.strftime("%Y-%m-%d"),
@@ -794,6 +805,30 @@ def mask_phone(phone: str) -> str:
     except Exception:
         return phone
 
+_TEMPLATE_CACHE = {}
+
+def get_cached_template(template_path: str, default_content: str) -> str:
+    """Return cached HTML template content to prevent redundant disk read operations."""
+    if template_path in _TEMPLATE_CACHE:
+        return _TEMPLATE_CACHE[template_path]
+    
+    if not os.path.exists(template_path):
+        os.makedirs(os.path.dirname(template_path), exist_ok=True)
+        try:
+            with open(template_path, "w", encoding="utf-8") as f:
+                f.write(default_content.strip())
+        except Exception:
+            pass
+
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception:
+        content = default_content
+        
+    _TEMPLATE_CACHE[template_path] = content
+    return content
+
 def generate_invoice_html(billing_data, settings_data) -> str:
     """
     Generates a stunning, premium, modern A4 HTML invoice.
@@ -1064,19 +1099,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
 </body>
 </html>"""
 
-    if not os.path.exists(template_path):
-        os.makedirs(templates_dir, exist_ok=True)
-        try:
-            with open(template_path, "w", encoding="utf-8") as f:
-                f.write(default_template.strip())
-        except Exception as e:
-            print(f"[TrueHour] Recreating template file failed: {e}")
-
-    try:
-        with open(template_path, "r", encoding="utf-8") as f:
-            template_html = f.read()
-    except Exception:
-        template_html = default_template
+    template_html = get_cached_template(template_path, default_template)
 
     # Replace all placeholders in HTML template
     html = template_html
@@ -1307,19 +1330,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
 </body>
 </html>"""
 
-    if not os.path.exists(template_path):
-        os.makedirs(templates_dir, exist_ok=True)
-        try:
-            with open(template_path, "w", encoding="utf-8") as f:
-                f.write(default_template.strip())
-        except Exception as e:
-            print(f"[TrueHour] Recreating report template file failed: {e}")
-
-    try:
-        with open(template_path, "r", encoding="utf-8") as f:
-            template_html = f.read()
-    except Exception:
-        template_html = default_template
+    template_html = get_cached_template(template_path, default_template)
 
     total_secs = report.get("total_seconds", 0)
     counted_secs = report.get("counted_seconds", 0)
@@ -1422,21 +1433,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         escaped_app_name = _esc(app['name'])
         escaped_tag = _esc(raw_tag)
         
-        # Extract app icon as base64 PNG
+        # Clean background-friendly bypass for local icon extraction
         local_b64 = ""
-        exe_path = app_exe_paths.get(app['name'], app.get("exe_path", ""))
-        if exe_path:
-            try:
-                import base64
-                import io
-                from appinfo import get_icon_image
-                pil_icon = get_icon_image(exe_path, 20)
-                if pil_icon:
-                    buf = io.BytesIO()
-                    pil_icon.save(buf, format="PNG")
-                    local_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-            except Exception:
-                pass
         
         # Mappings for premium online SVG icons via Simple Icons CDN
         app_name_lower = app['name'].lower().strip()
@@ -1528,6 +1526,10 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     timeline_items = ""
     timeline_entries = report.get("timeline", [])
     capped_timeline = timeline_entries[:15]
+    
+    # Pre-compile app category mappings in O(N) to allow O(1) lookups inside loop
+    app_tags = {app["name"]: app.get("tag", "Unassigned") for app in report.get("apps", [])}
+    
     for t in capped_timeline:
         t_start = t["start"]
         t_end = t["end"]
@@ -1536,13 +1538,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         end_str = t_end.strftime("%I:%M:%S %p") if hasattr(t_end, "strftime") else str(t_end)
         
         app_name = t.get("app", "Active Session")
-        
-        app_tag = "Unassigned"
-        for app in report.get("apps", []):
-            if app["name"] == app_name:
-                app_tag = app.get("tag", "Unassigned")
-                break
-                
+        app_tag = app_tags.get(app_name, "Unassigned")
         tag_color = get_project_color(app_tag)
         
         duration_secs = 0

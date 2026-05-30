@@ -555,7 +555,8 @@ class SessionManagerDialog(QDialog):
                 self,
                 default_biz_email=self.settings.get("mask_business_emails", False),
                 default_biz_phone=self.settings.get("mask_business_phone", False),
-                default_client_email=self.settings.get("mask_client_emails", False)
+                default_client_email=self.settings.get("mask_client_emails", False),
+                is_dark=self.settings.get("dark_mode", False)
             )
             if privacy_dialog.exec() != QDialog.DialogCode.Accepted:
                 return
