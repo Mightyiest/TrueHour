@@ -58,10 +58,27 @@ def calculate_project_breakdown(start_date_str: str, end_date_str: str):
     for date_str in active_dates:
         # Load unique sessions for this date
         unique_sessions = {}
-        for folder in [autosave_folder, sessions_folder]:
-            if not os.path.exists(folder):
-                continue
-            for filepath in glob.glob(os.path.join(folder, f"*{date_str}*.json")) + glob.glob(os.path.join(folder, "*.json")):
+        
+        # First, collect all finalized session keys to ignore orphaned/discarded autosaves
+        finalized_keys = set()
+        if os.path.exists(sessions_folder):
+            for filepath in glob.glob(os.path.join(sessions_folder, f"*{date_str}*.json")) + glob.glob(os.path.join(sessions_folder, "*.json")):
+                try:
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    if data.get("date") != date_str:
+                        continue
+                    start_str = data.get("start")
+                    if start_str:
+                        finalized_keys.add((date_str, start_str))
+                        key = (date_str, start_str)
+                        unique_sessions[key] = data
+                except Exception:
+                    continue
+
+        # Scan autosave folder, only including autosaves of finalized sessions to keep most complete data
+        if os.path.exists(autosave_folder):
+            for filepath in glob.glob(os.path.join(autosave_folder, f"*{date_str}*.json")) + glob.glob(os.path.join(autosave_folder, "*.json")):
                 try:
                     with open(filepath, "r", encoding="utf-8") as f:
                         data = json.load(f)
@@ -71,12 +88,11 @@ def calculate_project_breakdown(start_date_str: str, end_date_str: str):
                     if not start_str:
                         continue
                     key = (date_str, start_str)
-                    total_secs = data.get("total_seconds", 0)
-                    if key in unique_sessions:
-                        if total_secs > unique_sessions[key].get("total_seconds", 0):
+                    if key in finalized_keys:
+                        total_secs = data.get("total_seconds", 0)
+                        existing_total = unique_sessions[key].get("total_seconds", 0)
+                        if total_secs > existing_total:
                             unique_sessions[key] = data
-                    else:
-                        unique_sessions[key] = data
                 except Exception:
                     continue
                     
