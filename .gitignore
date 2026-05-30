@@ -24,3 +24,4 @@ wheels/
 # Sample report file (if it's auto-generated)
 sample_report.html
 ```
+*.exe
