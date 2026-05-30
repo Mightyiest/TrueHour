@@ -1716,7 +1716,7 @@ class TrueHourApp(QMainWindow):
         txt_btn.clicked.connect(lambda: export_with_name("txt"))
         footer_layout.addWidget(txt_btn)
         
-        html_btn = QPushButton("Export .html", footer_f)
+        html_btn = QPushButton("View in Browser", footer_f)
         html_btn.setObjectName("AccentButton")
         html_btn.clicked.connect(lambda: export_with_name("html"))
         footer_layout.addWidget(html_btn)
@@ -1749,38 +1749,30 @@ class TrueHourApp(QMainWindow):
         logger.info(f"[Action] Commencing report export to format: '{fmt}'")
         if fmt == "txt": 
             path, _ = QFileDialog.getSaveFileName(self, "Export TXT", f"truehour_{report['date']}.txt", "Text files (*.txt)")
-        else: 
-            path, _ = QFileDialog.getSaveFileName(self, "Export HTML", f"truehour_{report['date']}.html", "HTML Files (*.html)")
-            
-        if not path: 
-            return
-        try:
-            if fmt == "txt": 
-                export_txt(report, path)
-            else: 
-                html_content = generate_session_report_html(report, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol)
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(html_content)
-                reply = QMessageBox.question(
-                    self, "Open Report",
-                    f"Session HTML report generated successfully at:\n{path}\n\nWould you like to open it in your browser now?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.Yes
-                )
-                if reply == QMessageBox.StandardButton.Yes:
-                    try:
-                        open_file(path)
-                    except Exception as e:
-                        logger.error(f"Failed to open file {path}: {e}")
-                        QMessageBox.warning(
-                            self, "File Open Failed",
-                            f"Report saved successfully at:\n{path}\n\nCould not automatically open the file:\n{str(e)}\n\nPlease open it manually."
-                        )
+            if not path: 
                 return
-            QMessageBox.information(self, "Exported", f"Report saved to:\n{path}")
-        except Exception as e:
-            logger.exception(f"Export failed for format {fmt}: {e}")
-            QMessageBox.critical(self, "Export Error", f"Failed to export report:\n{str(e)}")
+            try:
+                export_txt(report, path)
+                QMessageBox.information(self, "Exported", f"Report saved to:\n{path}")
+            except Exception as e:
+                logger.error(f"Failed to export TXT report: {e}")
+                QMessageBox.critical(self, "Error", f"Failed to export TXT report:\n{str(e)}")
+        else: 
+            try:
+                html_content = generate_session_report_html(report, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol)
+                import tempfile
+                with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html', encoding='utf-8') as f:
+                    f.write(html_content)
+                    temp_path = f.name
+                
+                try:
+                    open_file(temp_path)
+                except Exception as e:
+                    logger.error(f"Failed to open temp report in browser: {e}")
+                    QMessageBox.warning(self, "Failed to Open", f"Could not automatically open the report in your browser:\n{str(e)}")
+            except Exception as e:
+                logger.error(f"Failed to generate HTML report: {e}")
+                QMessageBox.critical(self, "Error", f"Failed to generate HTML report:\n{str(e)}")
 
     def _export_csv_history(self):
         logger.info("[Action] Commencing CSV history export")
