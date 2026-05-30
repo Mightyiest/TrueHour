@@ -1,5 +1,1 @@
-# Ignore Python cache directories
-**/__pycache__/
-*.pyc
-*.pyo
-*.pyd
+Nothing should be ignored based on the provided file changes, as they only include source code files (.py) without any build artifacts, dependencies, or temporary files.

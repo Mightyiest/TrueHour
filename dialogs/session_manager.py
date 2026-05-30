@@ -607,6 +607,16 @@ class SessionManagerDialog(QDialog):
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if reply == QMessageBox.StandardButton.Yes:
-                open_file(html_filepath)
+                try:
+                    open_file(html_filepath)
+                except Exception as open_err:
+                    logger.warning(f"Failed to auto-open invoice file: {open_err}")
+                    QMessageBox.warning(
+                        self,
+                        "File Saved",
+                        f"Invoice saved successfully at:\n{html_filepath}\n\nCould not automatically open the file. Please open it manually.",
+                        QMessageBox.StandardButton.Ok
+                    )
         except Exception as e:
+            logger.error(f"Failed to generate invoice HTML: {e}", exc_info=True)
             QMessageBox.critical(self, "Error", f"Failed to generate invoice HTML:\n{str(e)}")

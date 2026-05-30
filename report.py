@@ -1124,8 +1124,16 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     html = html.replace("{{CLIENT_ADDRESS}}", _esc(settings_data.get("client_address", "")))
     html = html.replace("{{CLIENT_EMAILS_HTML}}", client_emails_html)
     html = html.replace("{{HOURS_COUNTED}}", f"{hours_counted:.2f}")
-    html = html.replace("{{TOTAL_AMOUNT_DUE}}", _esc(billing_data["total_earned_display"]))
-    html = html.replace("{{GRAND_TOTAL}}", _esc(billing_data["total_earned_display"]))
+    
+    # Safely get total_earned_display with fallback calculation
+    total_earned_display = billing_data.get("total_earned_display")
+    if not total_earned_display:
+        total_earned = billing_data.get("total_earned", 0.0)
+        curr_sym = settings_data.get("currency_symbol", "$")
+        total_earned_display = f"{curr_sym}{total_earned:,.2f}"
+    
+    html = html.replace("{{TOTAL_AMOUNT_DUE}}", _esc(total_earned_display))
+    html = html.replace("{{GRAND_TOTAL}}", _esc(total_earned_display))
     html = html.replace("{{PAYMENT_INSTRUCTIONS}}", _esc(settings_data.get("business_payment", "Payment is due within 14 days of invoice date.")))
     html = html.replace("{{QR_HTML}}", qr_html)
 
