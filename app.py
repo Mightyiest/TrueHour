@@ -204,15 +204,13 @@ class HeaderBar(QFrame):
 class TrueHourApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        # Initialize SQLite database and build initial daily summaries
+        # Initialize SQLite database (lightweight schema creation)
         try:
             from database.schema import init_db
-            from core.reporting.aggregator import rebuild_all_summaries
             init_db()
-            rebuild_all_summaries()
         except Exception as e:
-            print(f"[TrueHour] Failed database/summary bootstrap: {e}")
-            
+            print(f"[TrueHour] Failed database bootstrap: {e}")
+        
         self.tracker = AppTracker(poll_interval=1.0, min_track_seconds=2)
         self._load_app_settings()
 
@@ -260,6 +258,13 @@ class TrueHourApp(QMainWindow):
         from tracker import ACTIVE_SESSION_FILE
         if os.path.exists(ACTIVE_SESSION_FILE):
             QTimer.singleShot(100, self._handle_interrupted_session)
+        
+        # Postpone heavy database aggregation until after UI is fully responsive
+        try:
+            from core.reporting.aggregator import rebuild_all_summaries
+            QTimer.singleShot(2500, rebuild_all_summaries)
+        except Exception as e:
+            print(f"[TrueHour] Failed to schedule summary rebuild: {e}")
 
     def _toggle_debug_console(self):
         import subprocess
@@ -711,11 +716,16 @@ class TrueHourApp(QMainWindow):
                     self.scroll_layout.insertWidget(self.scroll_layout.count() - 1, row)
                     self._row_widgets[app_name] = row
                     
-                    # Native system icon loading (using fast shared provider)
+                    # Asynchronous native system icon loading (non-blocking)
                     if exe_path:
-                        if exe_path not in self._icon_cache:
-                            self._icon_cache[exe_path] = get_native_icon_pixmap(exe_path, size=16)
-                        row.set_icon(self._icon_cache[exe_path])
+                        if exe_path in self._icon_cache:
+                            row.set_icon(self._icon_cache[exe_path])
+                        else:
+                            # Avoid queueing duplicates if already being loaded
+                            if exe_path not in self._icon_load_queue:
+                                self._icon_load_queue.add(exe_path)
+                                # Offload icon extraction to a worker thread so UI never stutters
+                                threading.Thread(target=self._load_icon_async, args=(exe_path, app_name), daemon=True).start()
                 else:
                     row = self._row_widgets[app_name]
                     row.update_time(secs)
