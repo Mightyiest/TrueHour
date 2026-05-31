@@ -1516,11 +1516,11 @@ class TrueHourApp(QMainWindow):
                 color = get_tag_color(proj)
                 dot = QLabel("●", row)
                 dot.setStyleSheet(f"color: {color}; font-size: 14px; font-family: 'Segoe UI';")
-                row_layout.addWidget(dot)
+                row_layout.addWidget(dot, alignment=Qt.AlignmentFlag.AlignVCenter)
                 
                 lbl = QLabel(proj, row)
                 lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; color: #1A1A1A;")
-                row_layout.addWidget(lbl, 1)
+                row_layout.addWidget(lbl, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
                 
                 if proj != "Unassigned":
                     del_btn = QPushButton("❌", row)
