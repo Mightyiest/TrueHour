@@ -1537,10 +1537,13 @@ class TrueHourApp(QMainWindow):
         scroll_layout.setSpacing(2)
         
         def refresh_categories_list():
-            for i in reversed(range(scroll_layout.count())):
-                item = scroll_layout.itemAt(i)
-                if item and item.widget():
-                    item.widget().setParent(None)
+            while scroll_layout.count():
+                item = scroll_layout.takeAt(0)
+                widget = item.widget()
+                if widget:
+                    widget.setParent(None)
+                    widget.deleteLater()
+                    
                     
             projects = self.tracker.tag_manager.projects
             for proj in projects:
