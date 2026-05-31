@@ -310,6 +310,44 @@ class SettingsDialog(QDialog):
         
         scroll_invoice_layout.addWidget(biz_box)
         
+        # Bank Transfer Details
+        bank_box = QGroupBox("Bank Transfer Details", scroll_invoice_content)
+        bank_layout = QFormLayout(bank_box)
+        bank_layout.setSpacing(6)
+        
+        self.enable_bank_cb = QCheckBox("Enable Bank Transfer Details on Invoices", bank_box)
+        self.enable_bank_cb.setChecked(self.settings.get("enable_bank_details", True))
+        bank_layout.addRow(self.enable_bank_cb)
+        
+        self.bank_holder_entry = QLineEdit(bank_box)
+        self.bank_holder_entry.setText(self.settings.get("bank_holder", ""))
+        bank_layout.addRow("Account Holder:", self.bank_holder_entry)
+        
+        self.bank_account_entry = QLineEdit(bank_box)
+        self.bank_account_entry.setText(self.settings.get("bank_account", ""))
+        bank_layout.addRow("Account Number:", self.bank_account_entry)
+        
+        self.bank_routing_entry = QLineEdit(bank_box)
+        self.bank_routing_entry.setText(self.settings.get("bank_routing", ""))
+        bank_layout.addRow("Routing Number:", self.bank_routing_entry)
+        
+        self.bank_swift_entry = QLineEdit(bank_box)
+        self.bank_swift_entry.setText(self.settings.get("bank_swift", ""))
+        bank_layout.addRow("SWIFT / BIC:", self.bank_swift_entry)
+        
+        self.bank_name_entry = QLineEdit(bank_box)
+        self.bank_name_entry.setText(self.settings.get("bank_name", ""))
+        bank_layout.addRow("Bank Name:", self.bank_name_entry)
+        
+        self.bank_address_entry = QLineEdit(bank_box)
+        self.bank_address_entry.setText(self.settings.get("bank_address", ""))
+        bank_layout.addRow("Bank Address:", self.bank_address_entry)
+        
+        self.enable_bank_cb.toggled.connect(self._toggle_bank_inputs)
+        self._toggle_bank_inputs(self.enable_bank_cb.isChecked())
+        
+        scroll_invoice_layout.addWidget(bank_box)
+        
         # Default Client Profile
         client_box = QGroupBox("Default Client Profile", scroll_invoice_content)
         client_layout = QFormLayout(client_box)
@@ -458,6 +496,14 @@ class SettingsDialog(QDialog):
         
         layout.addLayout(btn_layout)
 
+    def _toggle_bank_inputs(self, checked):
+        self.bank_holder_entry.setEnabled(checked)
+        self.bank_account_entry.setEnabled(checked)
+        self.bank_routing_entry.setEnabled(checked)
+        self.bank_swift_entry.setEnabled(checked)
+        self.bank_name_entry.setEnabled(checked)
+        self.bank_address_entry.setEnabled(checked)
+
     def _refresh_qr_thumbnails(self):
         """Rebuild QR thumbnail strip from _qr_paths_local."""
         while self.qr_thumbs_layout.count() > 0:
@@ -528,6 +574,14 @@ class SettingsDialog(QDialog):
             self.settings["business_phone"] = self.business_phone_entry.text().strip()
             self.settings["business_address"] = self.business_address_entry.text().strip()
             self.settings["business_payment"] = self.business_payment_entry.text().strip()
+            
+            self.settings["enable_bank_details"] = self.enable_bank_cb.isChecked()
+            self.settings["bank_holder"] = self.bank_holder_entry.text().strip()
+            self.settings["bank_account"] = self.bank_account_entry.text().strip()
+            self.settings["bank_routing"] = self.bank_routing_entry.text().strip()
+            self.settings["bank_swift"] = self.bank_swift_entry.text().strip()
+            self.settings["bank_name"] = self.bank_name_entry.text().strip()
+            self.settings["bank_address"] = self.bank_address_entry.text().strip()
             
             self.settings["client_name"] = self.client_name_entry.text().strip()
             self.settings["client_emails"] = self.client_email_chips.get_emails()

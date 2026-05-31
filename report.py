@@ -874,6 +874,20 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     logo_html = ""
     if logo_data_uri:
         logo_html = f'<img src="{logo_data_uri}" class="invoice-logo" />'
+    else:
+        # High-fidelity dynamic SVG placeholder logo that dynamically shifts with CSS theme variables!
+        logo_html = """<svg class="invoice-logo" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom: 12px; display: block;">
+  <rect width="40" height="40" rx="10" fill="url(#logo-grad)"/>
+  <path d="M20 11V29" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M13 18L20 11L27 18" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M10 29H30" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <defs>
+    <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop stop-color="var(--accent-gradient-start, #6366F1)"/>
+      <stop offset="1" stop-color="var(--accent-gradient-end, #4F46E5)"/>
+    </linearGradient>
+  </defs>
+</svg>"""
 
     # Calculation Metrics
     hours_counted = billing_data["counted_seconds"] / 3600.0
@@ -968,9 +982,18 @@ def generate_invoice_html(billing_data, settings_data) -> str:
             if has_any_link:
                 hint_html = '\n            <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px; font-weight: 500; font-family: \'Inter\', sans-serif;">💡 Click on a QR code to open its payment link.</div>'
             qr_html = f"""
-            <div class="qr-codes-container">
-                {"".join(qr_items)}
-            </div>{hint_html}
+            <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; width: 100%;">
+                <div class="qr-codes-container">
+                    {"".join(qr_items)}
+                </div>{hint_html}
+                <div class="trust-banner" style="margin-top: 8px; max-width: 320px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span>Secure Settlement</span>
+                </div>
+            </div>
             """
 
     # Self-healing logic: find templates/invoice.html or auto-create it
@@ -992,80 +1015,508 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     <meta charset="utf-8">
     <title>Invoice - {{BUSINESS_NAME}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #0F172A;
-            --primary-light: #1E293B;
-            --accent: #4F46E5;
-            --accent-hover: #4338CA;
-            --success: #16A34A;
             --bg-body: #F8FAFC;
             --bg-card: #FFFFFF;
             --border: #E2E8F0;
             --text-main: #0F172A;
             --text-muted: #64748B;
+            --text-light: #94A3B8;
+            --card-shadow: 0 8px 24px -10px rgba(15, 23, 42, 0.04);
+            --hover-shadow: 0 16px 32px -12px rgba(15, 23, 42, 0.06);
+            
+            --accent: #4F46E5;
+            --accent-hover: #4338CA;
+            --accent-gradient-start: #6366F1;
+            --accent-gradient-end: #4F46E5;
+            --success: #10B981;
+        }
+
+        body.theme-indigo {
+            --accent: #4F46E5;
+            --accent-hover: #4338CA;
+            --accent-gradient-start: #6366F1;
+            --accent-gradient-end: #4F46E5;
+            --success: #10B981;
+        }
+        body.theme-teal {
+            --accent: #0D9488;
+            --accent-hover: #0F766E;
+            --accent-gradient-start: #14B8A6;
+            --accent-gradient-end: #0D9488;
+            --success: #10B981;
+        }
+        body.theme-slate {
+            --accent: #334155;
+            --accent-hover: #1E293B;
+            --accent-gradient-start: #475569;
+            --accent-gradient-end: #334155;
+            --success: #059669;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--bg-body); color: var(--text-main); line-height: 1.5; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }
-        .print-actions-bar { width: 100%; max-width: 800px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 12px; padding: 16px 24px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }
-        .print-btn { background-color: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s ease; }
-        .invoice-container { width: 100%; max-width: 800px; background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 50px; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04); }
-        .invoice-header-row { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--bg-body); padding-bottom: 30px; margin-bottom: 35px; }
-        .invoice-logo { max-width: 200px; max-height: 70px; object-fit: contain; margin-bottom: 12px; display: block; }
-        .profile-title { font-size: 18px; font-weight: 700; color: var(--primary); letter-spacing: -0.02em; }
-        .profile-details { font-size: 13px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+        body { 
+            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+            background-color: var(--bg-body); 
+            color: var(--text-main); 
+            line-height: 1.5; 
+            padding: 20px 16px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            transition: background 0.3s ease;
+        }
+
+        .print-actions-bar { 
+            width: 100%; 
+            max-width: 850px; 
+            background: rgba(255, 255, 255, 0.75); 
+            backdrop-filter: blur(16px); 
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(226, 232, 240, 0.8); 
+            border-radius: 10px; 
+            padding: 8px 16px; 
+            margin-bottom: 12px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: var(--card-shadow);
+        }
+        .action-left-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .status-pill {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .theme-selector {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #F1F5F9;
+            padding: 4px;
+            border-radius: 9999px;
+            border: 1px solid var(--border);
+        }
+        .theme-pill-btn {
+            border: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .theme-pill-btn:hover {
+            transform: scale(1.15);
+        }
+        .theme-pill-btn.active::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .theme-pill-btn[data-theme="indigo"] { background: linear-gradient(135deg, #6366F1, #4F46E5); }
+        .theme-pill-btn[data-theme="teal"] { background: linear-gradient(135deg, #14B8A6, #0D9488); }
+        .theme-pill-btn[data-theme="slate"] { background: linear-gradient(135deg, #475569, #334155); }
+
+        .print-btn { 
+            background: var(--accent-gradient-start);
+            background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            font-family: 'Outfit', sans-serif;
+            font-size: 13.5px;
+            font-weight: 600; 
+            cursor: pointer; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            box-shadow: 0 3px 10px rgba(79, 70, 229, 0.12);
+        }
+        .print-btn:hover { 
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.2);
+        }
+
+        .invoice-container { 
+            width: 100%; 
+            max-width: 850px; 
+            background-color: var(--bg-card); 
+            border: 1px solid var(--border); 
+            border-radius: 16px; 
+            padding: 32px 40px; 
+            box-shadow: var(--card-shadow); 
+            transition: all 0.3s ease;
+        }
+        
+        .invoice-header-row { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            border-bottom: 2px solid var(--bg-body); 
+            padding-bottom: 20px; 
+            margin-bottom: 24px; 
+        }
+        .invoice-logo { 
+            max-width: 180px; 
+            max-height: 52px; 
+            object-fit: contain; 
+            margin-bottom: 8px; 
+            display: block; 
+        }
+        .profile-title { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px; 
+            font-weight: 700; 
+            color: var(--text-main); 
+            letter-spacing: -0.02em; 
+        }
+        .profile-details { 
+            font-size: 12px; 
+            color: var(--text-muted); 
+            margin-top: 4px; 
+            line-height: 1.4; 
+        }
+        
         .meta-column { text-align: right; }
-        .invoice-badge { font-size: 28px; font-weight: 800; color: var(--primary); letter-spacing: -0.03em; margin-bottom: 12px; }
-        .meta-item { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
-        .billed-to-container { margin-bottom: 35px; }
-        .section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--accent); letter-spacing: 0.1em; margin-bottom: 8px; }
-        .client-name { font-size: 15px; font-weight: 700; color: var(--text-main); }
-        .client-address { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
-        .client-email { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
-        .qr-codes-container { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; justify-content: flex-start; page-break-inside: avoid; break-inside: avoid; }
-        .qr-code-item { display: flex; flex-direction: column; align-items: center; background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); page-break-inside: avoid; break-inside: avoid; }
-        .qr-code-image { width: 140px; height: 140px; object-fit: contain; border-radius: 4px; }
-        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
-        .kpi-card { background-color: var(--bg-body); border: 1px solid transparent; border-radius: 12px; padding: 20px 24px; transition: all 0.25s ease; }
-        .kpi-card:hover { background-color: var(--bg-card); border-color: var(--border); }
-        .kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; }
-        .kpi-val { font-size: 24px; font-weight: 800; color: var(--primary); }
-        .amount-val { color: var(--success); }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 45px; }
-        th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); text-align: left; padding: 12px 16px; border-bottom: 2px solid var(--border); }
-        td { font-size: 13px; color: var(--text-main); padding: 16px; border-bottom: 1px solid var(--border); }
-        .subtotal-row td { border-bottom: none; padding-top: 24px; }
-        .subtotal-label { font-size: 14px; font-weight: 700; text-align: right; color: var(--text-muted); }
-        .subtotal-value { font-size: 18px; font-weight: 800; color: var(--success); text-align: right; padding-right: 16px; }
-        .payment-box { background-color: #F8FAFC; border: 1px solid var(--border); border-radius: 12px; padding: 24px; page-break-inside: avoid; break-inside: avoid; }
-        .payment-box-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--primary); margin-bottom: 10px; }
-        .payment-content { font-size: 13px; color: var(--text-muted); line-height: 1.5; white-space: pre-wrap; }
+        .invoice-badge { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 24px; 
+            font-weight: 800; 
+            background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.03em; 
+            margin-bottom: 8px; 
+        }
+        .meta-item { 
+            font-size: 12px; 
+            color: var(--text-muted); 
+            margin-bottom: 4px; 
+        }
+        .meta-item strong {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .billed-to-container { margin-bottom: 20px; }
+        .section-label { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 10px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            color: var(--accent); 
+            letter-spacing: 0.1em; 
+            margin-bottom: 8px; 
+        }
+        .client-name { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 15px; 
+            font-weight: 700; 
+            color: var(--text-main); 
+        }
+        .client-address { 
+            font-size: 12.5px; 
+            color: var(--text-muted); 
+            margin-top: 4px; 
+            line-height: 1.45; 
+        }
+        .client-email { 
+            font-size: 12.5px; 
+            color: var(--text-muted); 
+            margin-top: 3px; 
+            line-height: 1.45; 
+        }
+
+        .dashboard-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 12px; 
+            margin-bottom: 24px; 
+        }
+        .kpi-card { 
+            background-color: var(--bg-body); 
+            border: 1px solid transparent; 
+            border-left: 4px solid var(--accent);
+            border-radius: 10px; 
+            padding: 12px 16px; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        .kpi-card:hover { 
+            background-color: var(--bg-card); 
+            border-color: var(--border); 
+            border-left-color: var(--accent);
+            transform: translateY(-1px);
+            box-shadow: var(--hover-shadow);
+        }
+        .kpi-label { 
+            font-size: 10.5px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            letter-spacing: 0.08em; 
+            color: var(--text-muted); 
+            margin-bottom: 4px; 
+        }
+        .kpi-val { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 22px; 
+            font-weight: 800; 
+            color: var(--text-main); 
+        }
+        .amount-val { 
+            color: var(--success); 
+        }
+
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 28px; 
+        }
+        th { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 10.5px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            letter-spacing: 0.1em; 
+            color: var(--text-muted); 
+            text-align: left; 
+            padding: 8px 14px; 
+            border-bottom: 2px solid var(--border); 
+        }
+        td { 
+            font-size: 12.5px; 
+            color: var(--text-main); 
+            padding: 10px 14px; 
+            border-bottom: 1px solid var(--border); 
+            transition: background-color 0.2s ease;
+        }
+        tr:hover td {
+            background-color: var(--bg-body);
+        }
+        .tag-pill { 
+            display: inline-block; 
+            padding: 3px 8px; 
+            font-size: 10.5px; 
+            font-weight: 600; 
+            border-radius: 6px; 
+            background-color: var(--bg-body); 
+            color: var(--text-muted); 
+        }
+        .subtotal-row td { 
+            border-bottom: none; 
+            padding-top: 14px; 
+        }
+        .subtotal-row:hover td {
+            background-color: transparent;
+        }
+        .subtotal-label { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px; 
+            font-weight: 700; 
+            text-align: right; 
+            color: var(--text-muted); 
+        }
+        .subtotal-value { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 17px; 
+            font-weight: 800; 
+            color: var(--success); 
+            text-align: right; 
+            padding-right: 14px; 
+        }
+
+        .payment-box { 
+            background-color: var(--bg-body); 
+            border: 1px solid var(--border); 
+            border-radius: 12px; 
+            padding: 16px 20px; 
+            page-break-inside: avoid; 
+            break-inside: avoid; 
+        }
+        .payment-box-title { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 12px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            color: var(--text-main); 
+            margin-bottom: 8px; 
+            letter-spacing: 0.05em;
+        }
+        .payment-content { 
+            font-size: 12.5px; 
+            color: var(--text-muted); 
+            line-height: 1.5; 
+            white-space: pre-wrap; 
+        }
+        .payment-flex-row {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 16px;
+            width: 100%;
+        }
+        .payment-flex-row > * {
+            flex: 1 1 280px;
+            box-sizing: border-box;
+        }
+
+        .qr-codes-container { 
+            display: flex; 
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 12px; 
+            align-items: flex-start;
+            justify-content: flex-start;
+            page-break-inside: avoid; 
+            break-inside: avoid; 
+        }
+        .qr-code-item { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            background: #FFFFFF; 
+            border: 1px solid var(--border); 
+            border-radius: 8px; 
+            padding: 6px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03); 
+            page-break-inside: avoid; 
+            break-inside: avoid; 
+        }
+        .qr-code-image { 
+            width: 140px; 
+            height: 140px; 
+            object-fit: contain; 
+            border-radius: 4px; 
+        }
+        .qr-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-top: 4px;
+            letter-spacing: 0.05em;
+        }
+
+        .trust-banner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            width: 100%;
+            box-sizing: border-box;
+            justify-content: center;
+            margin-top: 8px;
+        }
+
+        .invoice-footer { 
+            margin-top: 24px; 
+            text-align: center; 
+            padding: 14px; 
+        }
+        .footer-link { 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            color: var(--text-muted); 
+            text-decoration: none; 
+            font-family: 'Outfit', sans-serif;
+            font-size: 12.5px; 
+            font-weight: 600; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            background-color: var(--bg-body); 
+            border: 1px solid var(--border);
+        }
+        .footer-link:hover { 
+            background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
+            color: white; 
+            border-color: transparent;
+            transform: translateY(-1px); 
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15); 
+        }
+
+        @page {
+            size: auto;
+            margin: 0; 
+        }
+
         @media print { 
-            body { background-color: white; padding: 0; margin: 0; font-size: 12px; } 
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background-color: white; padding: 8mm 12mm; margin: 0; font-size: 11px; } 
             .print-actions-bar { display: none; } 
-            .invoice-container { border: none; box-shadow: none; padding: 10px 0; width: 100%; max-width: 100%; } 
-            .invoice-header-row { padding-bottom: 12px; margin-bottom: 12px; }
+            .invoice-container { border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; } 
+            .invoice-header-row { padding-bottom: 14px; margin-bottom: 14px; }
+            .invoice-badge { font-size: 20px; margin-bottom: 4px; }
+            .invoice-logo { max-height: 40px; margin-bottom: 4px; }
             .billed-to-container { margin-bottom: 12px; }
-            .dashboard-grid { gap: 10px; margin-bottom: 15px; }
-            .kpi-card { padding: 10px 14px; }
-            table { margin-bottom: 15px; }
-            th { padding: 6px 8px; }
-            td { padding: 8px; }
-            .payment-box { padding: 12px; margin-top: 10px; page-break-inside: avoid; break-inside: avoid; }
-            .qr-codes-container { margin-top: 8px; gap: 10px; }
-            .qr-code-image { width: 100px; height: 100px; }
-            .invoice-logo { max-height: 50px; margin-bottom: 6px; }
+            .dashboard-grid { gap: 10px; margin-bottom: 14px; }
+            .kpi-card { padding: 8px 12px; }
+            .kpi-val { font-size: 16px; }
+            table { margin-bottom: 14px; }
+            th { padding: 6px 10px; }
+            td { padding: 8px 10px; }
+            .payment-box { padding: 10px 14px; }
+            .qr-code-image { width: 140px; height: 140px; }
+            .invoice-footer { margin-top: 14px; padding: 6px 0; }
+            .footer-link { background: none; padding: 0; border: none; box-shadow: none; display: inline-flex; color: var(--accent); }
             .invoice-header-row, .billed-to-container, .dashboard-grid, table, .payment-box { page-break-inside: avoid; break-inside: avoid; }
         }
     </style>
 </head>
-<body>
+<body class="theme-indigo">
     <div class="print-actions-bar">
-        <div>📄 Invoice generated.</div>
-        <button class="print-btn" onclick="window.print()">Print / Save PDF</button>
+        <div class="action-left-info">
+            <div class="status-pill">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <span>Invoice Generated</span>
+            </div>
+            <div class="theme-selector">
+                <button class="theme-pill-btn active" data-theme="indigo" onclick="switchTheme('indigo')" title="Indigo Violet Theme"></button>
+                <button class="theme-pill-btn" data-theme="teal" onclick="switchTheme('teal')" title="Emerald Teal Theme"></button>
+                <button class="theme-pill-btn" data-theme="slate" onclick="switchTheme('slate')" title="Slate Charcoal Theme"></button>
+            </div>
+        </div>
+        
+        <button class="print-btn" onclick="window.print()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            Print / Save PDF
+        </button>
     </div>
+    
     <div class="invoice-container">
         <div class="invoice-header-row">
             <div>
@@ -1080,15 +1531,17 @@ def generate_invoice_html(billing_data, settings_data) -> str:
                 <div class="invoice-badge">INVOICE</div>
                 <div class="meta-item"><strong>Invoice No:</strong> {{INVOICE_NO}}</div>
                 <div class="meta-item"><strong>Date:</strong> {{DATE}}</div>
-                <div class="meta-item"><strong>Sessions Compiled:</strong> {{SESSIONS_COMPILED}}</div>
+                <div class="meta-item"><strong>Sessions:</strong> {{SESSIONS_COMPILED}}</div>
             </div>
         </div>
+        
         <div class="billed-to-container">
             <div class="section-label">Billed To</div>
             <div class="client-name">{{CLIENT_NAME}}</div>
             <div class="client-address">{{CLIENT_ADDRESS}}</div>
             {{CLIENT_EMAILS_HTML}}
         </div>
+        
         <div class="dashboard-grid">
             <div class="kpi-card">
                 <div class="kpi-label">Total Work Hours</div>
@@ -1099,9 +1552,18 @@ def generate_invoice_html(billing_data, settings_data) -> str:
                 <div class="kpi-val amount-val">{{TOTAL_AMOUNT_DUE}}</div>
             </div>
         </div>
+        
         <div class="section-label">Itemized Work Breakdown</div>
         <table>
-            <thead><tr><th>Focus Category</th><th>Formatted Time</th><th>Hours</th><th>Rate</th><th style="text-align: right;">Total Amount</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Focus Category</th>
+                    <th>Formatted Time</th>
+                    <th>Hours</th>
+                    <th>Rate</th>
+                    <th style="text-align: right;">Total Amount</th>
+                </tr>
+            </thead>
             <tbody>
                 <!-- {{ITEMS}} -->
                 <tr class="subtotal-row">
@@ -1110,12 +1572,44 @@ def generate_invoice_html(billing_data, settings_data) -> str:
                 </tr>
             </tbody>
         </table>
+        
         <div class="payment-box">
             <div class="payment-box-title">Payment Terms & Instructions</div>
             <div class="payment-content">{{PAYMENT_INSTRUCTIONS}}</div>
-            {{QR_HTML}}
+            <div class="payment-flex-row">
+                {{BANK_DETAILS_HTML}}
+                {{QR_HTML}}
+            </div>
+        </div>
+        
+        <div class="invoice-footer">
+            <a href="https://mightyiest.github.io/TrueHour/" target="_blank" class="footer-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+                </svg>
+                Powered by TrueHour - View on GitHub
+            </a>
         </div>
     </div>
+
+    <script>
+        function switchTheme(themeName) {
+            document.body.className = 'theme-' + themeName;
+            document.querySelectorAll('.theme-pill-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-theme') === themeName);
+            });
+            try {
+                localStorage.setItem('truehour-theme', themeName);
+            } catch(e) {}
+        }
+        
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                const savedTheme = localStorage.getItem('truehour-theme') || 'indigo';
+                switchTheme(savedTheme);
+            } catch(e) {}
+        });
+    </script>
 </body>
 </html>"""
 
@@ -1146,6 +1640,64 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     html = html.replace("{{GRAND_TOTAL}}", _esc(total_earned_display))
     html = html.replace("{{PAYMENT_INSTRUCTIONS}}", _esc(settings_data.get("business_payment", "Payment is due within 14 days of invoice date.")))
     html = html.replace("{{QR_HTML}}", qr_html)
+
+    # Generate bank details block if any provided
+    bank_holder = settings_data.get("bank_holder", "")
+    bank_account = settings_data.get("bank_account", "")
+    bank_routing = settings_data.get("bank_routing", "")
+    bank_swift = settings_data.get("bank_swift", "")
+    bank_name = settings_data.get("bank_name", "")
+    bank_address = settings_data.get("bank_address", "")
+    
+    bank_details_html = ""
+    if settings_data.get("enable_bank_details", True) and any([bank_holder, bank_account, bank_routing, bank_swift, bank_name, bank_address]):
+        items = []
+        if bank_holder:
+            items.append(f"""
+            <div class="bank-detail-item">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Account Holder</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-top: 3px;">{_esc(bank_holder)}</div>
+            </div>""")
+        if bank_account:
+            items.append(f"""
+            <div class="bank-detail-item">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Account Number</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-top: 3px;">{_esc(bank_account)}</div>
+            </div>""")
+        if bank_routing:
+            items.append(f"""
+            <div class="bank-detail-item">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Routing Number</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-top: 3px;">{_esc(bank_routing)}</div>
+            </div>""")
+        if bank_swift:
+            items.append(f"""
+            <div class="bank-detail-item">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">SWIFT / BIC</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-top: 3px;">{_esc(bank_swift)}</div>
+            </div>""")
+        if bank_name or bank_address:
+            bank_info_parts = []
+            if bank_name:
+                bank_info_parts.append(bank_name)
+            if bank_address:
+                bank_info_parts.append(bank_address)
+            bank_info_str = ", ".join(bank_info_parts)
+            items.append(f"""
+            <div class="bank-detail-item" style="grid-column: span 2;">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Bank Name & Address</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-top: 3px; line-height: 1.4;">{_esc(bank_info_str)}</div>
+            </div>""")
+            
+        bank_details_html = f"""
+        <div class="bank-details-box" style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border);">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--accent); letter-spacing: 0.05em; margin-bottom: 8px;">Bank Transfer Details</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 16px;">
+                {"".join(items)}
+            </div>
+        </div>"""
+        
+    html = html.replace("{{BANK_DETAILS_HTML}}", bank_details_html)
 
     # Generate Itemized Rows
     items_html = ""
@@ -1195,82 +1747,420 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     <meta charset="utf-8">
     <title>TrueHour Session Report - {{SESSION_NAME}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #0F172A;
-            --primary-light: #1E293B;
-            --accent: #4F46E5;
-            --accent-hover: #4338CA;
-            --success: #10B981;
-            --warning: #F59E0B;
             --bg-body: #F8FAFC;
             --bg-card: #FFFFFF;
             --border: #E2E8F0;
             --text-main: #0F172A;
             --text-muted: #64748B;
+            --text-light: #94A3B8;
+            --card-shadow: 0 10px 40px -15px rgba(15, 23, 42, 0.04);
+            --hover-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.08);
+
+            --accent: #4F46E5;
+            --accent-hover: #4338CA;
+            --accent-gradient-start: #6366F1;
+            --accent-gradient-end: #4F46E5;
+            --success: #10B981;
+            --warning: #F59E0B;
+        }
+
+        body.theme-indigo {
+            --accent: #4F46E5;
+            --accent-hover: #4338CA;
+            --accent-gradient-start: #6366F1;
+            --accent-gradient-end: #4F46E5;
+            --success: #10B981;
+        }
+        body.theme-teal {
+            --accent: #0D9488;
+            --accent-hover: #0F766E;
+            --accent-gradient-start: #14B8A6;
+            --accent-gradient-end: #0D9488;
+            --success: #10B981;
+        }
+        body.theme-slate {
+            --accent: #334155;
+            --accent-hover: #1E293B;
+            --accent-gradient-start: #475569;
+            --accent-gradient-end: #334155;
+            --success: #059669;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--bg-body); color: var(--text-main); line-height: 1.5; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }
+        body { 
+            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+            background-color: var(--bg-body); 
+            color: var(--text-main); 
+            line-height: 1.6; 
+            padding: 40px 20px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            transition: background 0.3s ease;
+        }
         
-        .print-actions-bar { width: 100%; max-width: 900px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 12px; padding: 16px 24px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }
-        .print-btn { background-color: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s ease; }
-        .print-btn:hover { background-color: var(--accent-hover); }
+        .print-actions-bar { 
+            width: 100%; 
+            max-width: 900px; 
+            background: rgba(255, 255, 255, 0.75); 
+            backdrop-filter: blur(16px); 
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(226, 232, 240, 0.8); 
+            border-radius: 16px; 
+            padding: 14px 24px; 
+            margin-bottom: 24px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: var(--card-shadow);
+        }
+        .action-left-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .status-pill {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
 
-        .report-container { width: 100%; max-width: 900px; background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 50px; box-shadow: 0 10px 40px -15px rgba(0, 0, 0, 0.04); }
+        .theme-selector {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #F1F5F9;
+            padding: 4px;
+            border-radius: 9999px;
+            border: 1px solid var(--border);
+        }
+        .theme-pill-btn {
+            border: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .theme-pill-btn:hover {
+            transform: scale(1.15);
+        }
+        .theme-pill-btn.active::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .theme-pill-btn[data-theme="indigo"] { background: linear-gradient(135deg, #6366F1, #4F46E5); }
+        .theme-pill-btn[data-theme="teal"] { background: linear-gradient(135deg, #14B8A6, #0D9488); }
+        .theme-pill-btn[data-theme="slate"] { background: linear-gradient(135deg, #475569, #334155); }
+
+        .print-btn { 
+            background: var(--accent-gradient-start);
+            background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 10px; 
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            font-weight: 600; 
+            cursor: pointer; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            box-shadow: 0 4px 14px rgba(79, 70, 229, 0.15);
+        }
+        .print-btn:hover { 
+            transform: translateY(-1.5px);
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.25);
+        }
+
+        .report-container { 
+            width: 100%; 
+            max-width: 900px; 
+            background-color: var(--bg-card); 
+            border: 1px solid var(--border); 
+            border-radius: 24px; 
+            padding: 60px; 
+            box-shadow: var(--card-shadow); 
+            transition: all 0.3s ease;
+        }
         
-        /* Header section */
-        .report-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--bg-body); padding-bottom: 30px; margin-bottom: 35px; }
+        .report-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            border-bottom: 2px solid var(--bg-body); 
+            padding-bottom: 35px; 
+            margin-bottom: 40px; 
+        }
         .report-title-section { max-width: 60%; }
-        .report-title-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--accent); letter-spacing: 0.1em; margin-bottom: 6px; }
-        .report-title { font-size: 28px; font-weight: 800; color: var(--primary); letter-spacing: -0.03em; line-height: 1.2; }
-        .report-date { font-size: 14px; color: var(--text-muted); margin-top: 6px; font-weight: 500; }
+        .report-title-label { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 11px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            color: var(--accent); 
+            letter-spacing: 0.1em; 
+            margin-bottom: 8px; 
+        }
+        .report-title { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 32px; 
+            font-weight: 800; 
+            color: var(--text-main); 
+            letter-spacing: -0.04em; 
+            line-height: 1.25; 
+        }
+        .report-date { 
+            font-size: 14px; 
+            color: var(--text-muted); 
+            margin-top: 8px; 
+            font-weight: 500; 
+        }
         
         .meta-column { text-align: right; }
-        .app-badge { font-size: 24px; font-weight: 800; color: var(--primary); letter-spacing: -0.02em; margin-bottom: 8px; }
-        .meta-item { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; font-weight: 500; }
-        .meta-item strong { color: var(--primary); }
+        .app-badge { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 26px; 
+            font-weight: 800; 
+            background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.03em; 
+            margin-bottom: 12px; 
+        }
+        .meta-item { 
+            font-size: 13px; 
+            color: var(--text-muted); 
+            margin-bottom: 5px; 
+            font-weight: 500; 
+        }
+        .meta-item strong { color: var(--text-main); }
 
-        /* KPI Dashboard Grid */
-        .dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
-        .kpi-card { background-color: var(--bg-body); border: 1px solid transparent; border-radius: 14px; padding: 20px; transition: all 0.25s ease; position: relative; overflow: hidden; }
-        .kpi-card:hover { background-color: var(--bg-card); border-color: var(--border); transform: translateY(-2px); box-shadow: 0 8px 20px -6px rgba(0,0,0,0.05); }
-        .kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; }
-        .kpi-val { font-size: 24px; font-weight: 800; color: var(--primary); }
+        .dashboard-grid { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 20px; 
+            margin-bottom: 45px; 
+        }
+        .kpi-card { 
+            background-color: var(--bg-body); 
+            border: 1px solid transparent; 
+            border-top: 4px solid var(--accent);
+            border-radius: 16px; 
+            padding: 22px 20px; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            position: relative; 
+            overflow: hidden; 
+        }
+        .kpi-card:hover { 
+            background-color: var(--bg-card); 
+            border-color: var(--border); 
+            border-top-color: var(--accent);
+            transform: translateY(-2.5px); 
+            box-shadow: var(--hover-shadow); 
+        }
+        .kpi-label { 
+            font-size: 11px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            letter-spacing: 0.08em; 
+            color: var(--text-muted); 
+            margin-bottom: 6px; 
+        }
+        .kpi-val { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 24px; 
+            font-weight: 800; 
+            color: var(--text-main); 
+        }
+        .kpi-card.productive { border-top-color: var(--accent); }
         .kpi-card.productive .kpi-val { color: var(--accent); }
+        .kpi-card.ratio { border-top-color: var(--success); }
         .kpi-card.ratio .kpi-val { color: var(--success); }
 
-        /* Section divider */
-        .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-        .section-title { font-size: 14px; font-weight: 700; text-transform: uppercase; color: var(--primary); letter-spacing: 0.05em; }
+        .section-header { 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            margin-bottom: 24px; 
+            padding-bottom: 10px; 
+            border-bottom: 2px solid var(--bg-body); 
+        }
+        .section-title { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            color: var(--text-main); 
+            letter-spacing: 0.08em; 
+        }
 
-        /* Projects horizontal bars */
-        .projects-container { display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px; }
-        .project-row { display: flex; flex-direction: column; gap: 6px; }
+        .projects-container { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+            margin-bottom: 45px; 
+        }
+        .project-row { display: flex; flex-direction: column; gap: 8px; }
         .project-info { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
-        .project-name { color: var(--primary); }
+        .project-name { 
+            font-family: 'Outfit', sans-serif;
+            color: var(--text-main); 
+        }
         .project-stats { color: var(--text-muted); }
-        .project-bar-bg { width: 100%; height: 10px; background-color: var(--bg-body); border-radius: 5px; overflow: hidden; }
-        .project-bar-fill { height: 100%; border-radius: 5px; transition: width 1s ease-out; }
+        .project-bar-bg { 
+            width: 100%; 
+            height: 10px; 
+            background-color: var(--bg-body); 
+            border-radius: 9999px; 
+            overflow: hidden; 
+            border: 1px solid var(--border);
+        }
+        .project-bar-fill { 
+            height: 100%; 
+            border-radius: 9999px; 
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
 
-        /* Tables styling */
-        table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
-        th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); text-align: left; padding: 12px 16px; border-bottom: 2px solid var(--border); }
-        td { font-size: 13px; color: var(--text-main); padding: 14px 16px; border-bottom: 1px solid var(--border); }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 45px; 
+        }
+        th { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 11px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            letter-spacing: 0.1em; 
+            color: var(--text-muted); 
+            text-align: left; 
+            padding: 14px 20px; 
+            border-bottom: 2px solid var(--border); 
+        }
+        td { 
+            font-size: 13.5px; 
+            color: var(--text-main); 
+            padding: 15px 20px; 
+            border-bottom: 1px solid var(--border); 
+            transition: background-color 0.2s ease;
+        }
         tr:hover td { background-color: var(--bg-body); }
-        .tag-pill { display: inline-block; padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; background-color: var(--bg-body); color: var(--text-muted); }
-        .app-icon { width: 20px; height: 20px; border-radius: 4px; vertical-align: middle; margin-right: 8px; }
+        .tag-pill { 
+            display: inline-block; 
+            padding: 4px 10px; 
+            font-size: 11px; 
+            font-weight: 600; 
+            border-radius: 8px; 
+            background-color: var(--bg-body); 
+            color: var(--text-muted); 
+        }
+        .app-icon { 
+            width: 22px; 
+            height: 22px; 
+            border-radius: 6px; 
+            vertical-align: middle; 
+            margin-right: 10px; 
+        }
 
-        /* Timeline Section */
-        .timeline-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
-        .timeline-item { display: flex; align-items: center; background: var(--bg-body); border-radius: 8px; padding: 10px 14px; border-left: 3px solid var(--accent); }
-        .timeline-time { font-size: 11px; font-weight: 700; color: var(--text-muted); min-width: 220px; white-space: nowrap; }
-        .timeline-app { font-size: 12px; font-weight: 600; color: var(--primary); flex-grow: 1; }
-        .timeline-duration { font-size: 11px; font-weight: 600; color: var(--text-muted); text-align: right; white-space: nowrap; }
+        .timeline-list { 
+            position: relative;
+            display: flex; 
+            flex-direction: column; 
+            gap: 16px; 
+            margin-bottom: 25px; 
+            padding-left: 24px;
+        }
+        .timeline-list::before {
+            content: '';
+            position: absolute;
+            left: 5px;
+            top: 10px;
+            bottom: 10px;
+            width: 2px;
+            background: var(--border);
+        }
+        .timeline-item { 
+            position: relative;
+            display: flex; 
+            align-items: center; 
+            background: var(--bg-body); 
+            border-radius: 12px; 
+            padding: 12px 20px; 
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent); 
+            transition: all 0.25s ease;
+        }
+        .timeline-item:hover {
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            background: var(--bg-card);
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -24px;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--tag-color, var(--accent));
+            border: 2px solid var(--bg-card);
+            box-shadow: 0 0 0 2px var(--border);
+            z-index: 2;
+        }
+        .timeline-time { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 11.5px; 
+            font-weight: 700; 
+            color: var(--text-muted); 
+            min-width: 200px; 
+            white-space: nowrap; 
+        }
+        .timeline-app { 
+            font-size: 13px; 
+            font-weight: 600; 
+            color: var(--text-main); 
+            flex-grow: 1; 
+        }
+        .timeline-duration { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 12px; 
+            font-weight: 700; 
+            color: var(--text-muted); 
+            text-align: right; 
+            white-space: nowrap; 
+        }
 
-        /* Footer copy */
-        .report-footer { text-align: center; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 25px; margin-top: 40px; font-weight: 500; }
+        .report-footer { 
+            text-align: center; 
+            font-family: 'Outfit', sans-serif;
+            font-size: 12.5px; 
+            color: var(--text-muted); 
+            border-top: 1px solid var(--border); 
+            padding-top: 30px; 
+            margin-top: 45px; 
+            font-weight: 500; 
+        }
 
         @media print { 
             body { background-color: white; padding: 0; } 
@@ -1279,14 +2169,37 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             .kpi-card { background-color: #F8FAFC !important; border: 1px solid #E2E8F0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .project-bar-bg { background-color: #F8FAFC !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .project-bar-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .timeline-item { background-color: #F8FAFC !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
     </style>
 </head>
-<body>
+<body class="theme-indigo">
     <div class="print-actions-bar">
-        <div>📄 Session Report compiled.</div>
-        <button class="print-btn" onclick="window.print()">Print / Save PDF</button>
+        <div class="action-left-info">
+            <div class="status-pill">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <span>Report Compiled</span>
+            </div>
+            <div class="theme-selector">
+                <button class="theme-pill-btn active" data-theme="indigo" onclick="switchTheme('indigo')" title="Indigo Violet Theme"></button>
+                <button class="theme-pill-btn" data-theme="teal" onclick="switchTheme('teal')" title="Emerald Teal Theme"></button>
+                <button class="theme-pill-btn" data-theme="slate" onclick="switchTheme('slate')" title="Slate Charcoal Theme"></button>
+            </div>
+        </div>
+        
+        <button class="print-btn" onclick="window.print()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            Print / Save PDF
+        </button>
     </div>
+    
     <div class="report-container">
         <div class="report-header">
             <div class="report-title-section">
@@ -1302,11 +2215,11 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         </div>
 
         <div class="dashboard-grid">
-            <div class="kpi-card">
+            <div class="kpi-card productive">
                 <div class="kpi-label">Total Session Time</div>
                 <div class="kpi-val">{{TOTAL_DURATION}}</div>
             </div>
-            <div class="kpi-card productive">
+            <div class="kpi-card">
                 <div class="kpi-label">Productive (Counted) Time</div>
                 <div class="kpi-val">{{PRODUCTIVE_DURATION}}</div>
             </div>
@@ -1355,6 +2268,25 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             Generated with TrueHour — Automated Time Tracking and Productivity Dashboard.
         </div>
     </div>
+
+    <script>
+        function switchTheme(themeName) {
+            document.body.className = 'theme-' + themeName;
+            document.querySelectorAll('.theme-pill-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-theme') === themeName);
+            });
+            try {
+                localStorage.setItem('truehour-theme', themeName);
+            } catch(e) {}
+        }
+        
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                const savedTheme = localStorage.getItem('truehour-theme') || 'indigo';
+                switchTheme(savedTheme);
+            } catch(e) {}
+        });
+    </script>
 </body>
 </html>"""
 
@@ -1443,7 +2375,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
                 <span class="project-stats">{pb['formatted']} ({pct:.1f}%)</span>
             </div>
             <div class="project-bar-bg">
-                <div class="project-bar-fill" style="width: {pct:.1f}%; background-color: {color};"></div>
+                <div class="project-bar-fill" style="width: {pct:.1f}%; background: linear-gradient(90deg, {color} 0%, {color}cc 100%);"></div>
             </div>
         </div>
         """
@@ -1577,7 +2509,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         escaped_app_name = _esc(app_name)
         escaped_app_tag = _esc(app_tag)
         timeline_items += f"""
-        <div class="timeline-item" style="border-left-color: {tag_color};">
+        <div class="timeline-item" style="border-left-color: {tag_color}; --tag-color: {tag_color};">
             <span class="timeline-time">{start_str} - {end_str}</span>
             <span class="timeline-app">{escaped_app_name} <span style="font-weight: normal; color: var(--text-muted); font-size: 11px;">({escaped_app_tag})</span></span>
             <span class="timeline-duration">{duration_str}</span>

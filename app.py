@@ -54,6 +54,34 @@ def pil_to_pixmap(pil_img):
         logger.debug(f"pil_to_pixmap failed: {e}")
         return None
 
+import base64
+import hashlib
+
+def _get_secure_key(seed: str) -> str:
+    if not seed:
+        return "default_key_seed"
+    machine_id = os.environ.get("COMPUTERNAME", "") or os.environ.get("HOSTNAME", "default_host")
+    combined = f"{seed}:{machine_id}"
+    return hashlib.sha256(combined.encode("utf-8")).hexdigest()
+
+def _encrypt_string(plain_text: str, key: str) -> str:
+    if not plain_text:
+        return ""
+    key_len = len(key)
+    xor_bytes = bytearray(ord(c) ^ ord(key[i % key_len]) for i, c in enumerate(plain_text))
+    return base64.b64encode(xor_bytes).decode("utf-8")
+
+def _decrypt_string(cipher_text: str, key: str) -> str:
+    if not cipher_text:
+        return ""
+    try:
+        raw_bytes = base64.b64decode(cipher_text)
+        key_len = len(key)
+        plain_bytes = bytearray(b ^ ord(key[i % key_len]) for i, b in enumerate(raw_bytes))
+        return plain_bytes.decode("utf-8")
+    except Exception:
+        return ""
+
 _ICON_PROVIDER = None
 
 def get_native_icon_pixmap(exe_path: str, size: int = 16):
@@ -98,9 +126,29 @@ log_collector.start_redirection()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-    logger.addHandler(handler)
+    # Stream (console) output handler
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(stream_handler)
+    
+    # File logging handler (saved to App Data Directory)
+    try:
+        log_file_path = os.path.join(get_app_data_dir(), "truehour.log")
+        file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        logger.addHandler(file_handler)
+        logger.info(f"[TrueHour] File logging initialized at: {log_file_path}")
+    except Exception as log_err:
+        logger.warning(f"Failed to initialize file logging: {log_err}")
+
+# Uncaught exception hook to capture all application crashes to the log file
+def handle_exception(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    logger.critical("Uncaught application crash occurred:", exc_info=(exc_type, exc_value, exc_traceback))
+
+sys.excepthook = handle_exception
 
 # ── Force Windows to use Light Mode ──────────────────────────────────
 def _force_light_mode():
@@ -829,6 +877,12 @@ class TrueHourApp(QMainWindow):
             "business_phone": self.business_phone,
             "business_address": self.business_address,
             "business_payment": self.business_payment,
+            "bank_holder": self.bank_holder,
+            "bank_account": self.bank_account,
+            "bank_routing": self.bank_routing,
+            "bank_swift": self.bank_swift,
+            "bank_name": self.bank_name,
+            "bank_address": self.bank_address,
             "client_name": self.client_name,
             "client_emails": self.client_emails,
             "client_address": self.client_address,
@@ -838,6 +892,7 @@ class TrueHourApp(QMainWindow):
             "mask_business_emails": self.mask_business_emails,
             "mask_business_phone": self.mask_business_phone,
             "mask_client_emails": self.mask_client_emails,
+            "enable_bank_details": self.enable_bank_details,
             "developer_mode": self.developer_mode,
             "dark_mode": self.dark_mode,
         }
@@ -960,6 +1015,13 @@ class TrueHourApp(QMainWindow):
         self.business_phone = ""
         self.business_address = ""
         self.business_payment = ""
+        self.bank_holder = ""
+        self.bank_account = ""
+        self.bank_routing = ""
+        self.bank_swift = ""
+        self.bank_name = ""
+        self.bank_address = ""
+        self.enable_bank_details = True
         self.client_name = ""
         self.client_emails = []     # NEW: list of client contact emails
         self.client_address = ""
@@ -994,6 +1056,26 @@ class TrueHourApp(QMainWindow):
                     self.business_phone = data.get("business_phone", "")
                     self.business_address = data.get("business_address", "")
                     self.business_payment = data.get("business_payment", "")
+                    
+                    self.anonymous_user_id = data.get("anonymous_user_id", "")
+                    sec_key = _get_secure_key(self.anonymous_user_id)
+                    self.enable_bank_details = data.get("enable_bank_details", True)
+                    
+                    if "bank_holder_enc" in data:
+                        self.bank_holder = _decrypt_string(data.get("bank_holder_enc", ""), sec_key)
+                        self.bank_account = _decrypt_string(data.get("bank_account_enc", ""), sec_key)
+                        self.bank_routing = _decrypt_string(data.get("bank_routing_enc", ""), sec_key)
+                        self.bank_swift = _decrypt_string(data.get("bank_swift_enc", ""), sec_key)
+                        self.bank_name = _decrypt_string(data.get("bank_name_enc", ""), sec_key)
+                        self.bank_address = _decrypt_string(data.get("bank_address_enc", ""), sec_key)
+                    else:
+                        self.bank_holder = data.get("bank_holder", "")
+                        self.bank_account = data.get("bank_account", "")
+                        self.bank_routing = data.get("bank_routing", "")
+                        self.bank_swift = data.get("bank_swift", "")
+                        self.bank_name = data.get("bank_name", "")
+                        self.bank_address = data.get("bank_address", "")
+                        
                     self.client_name = data.get("client_name", "")
                     self.client_address = data.get("client_address", "")
                     self.business_logo_path = data.get("business_logo_path", "")
@@ -1032,6 +1114,7 @@ class TrueHourApp(QMainWindow):
             dirpath = os.path.dirname(APP_SETTINGS_FILE)
             if dirpath:
                 os.makedirs(dirpath, exist_ok=True)
+            sec_key = _get_secure_key(self.anonymous_user_id)
             data = {
                 "confirm_on_close": self.confirm_on_close,
                 "min_track_seconds": self.min_track_seconds,
@@ -1045,6 +1128,22 @@ class TrueHourApp(QMainWindow):
                 "business_phone": self.business_phone,
                 "business_address": self.business_address,
                 "business_payment": self.business_payment,
+                
+                "enable_bank_details": self.enable_bank_details,
+                "bank_holder": "",
+                "bank_account": "",
+                "bank_routing": "",
+                "bank_swift": "",
+                "bank_name": "",
+                "bank_address": "",
+                
+                "bank_holder_enc": _encrypt_string(self.bank_holder, sec_key),
+                "bank_account_enc": _encrypt_string(self.bank_account, sec_key),
+                "bank_routing_enc": _encrypt_string(self.bank_routing, sec_key),
+                "bank_swift_enc": _encrypt_string(self.bank_swift, sec_key),
+                "bank_name_enc": _encrypt_string(self.bank_name, sec_key),
+                "bank_address_enc": _encrypt_string(self.bank_address, sec_key),
+                
                 "client_name": self.client_name,
                 "client_emails": self.client_emails,
                 "client_address": self.client_address,
@@ -1151,6 +1250,12 @@ class TrueHourApp(QMainWindow):
             "business_phone": self.business_phone,
             "business_address": self.business_address,
             "business_payment": self.business_payment,
+            "bank_holder": self.bank_holder,
+            "bank_account": self.bank_account,
+            "bank_routing": self.bank_routing,
+            "bank_swift": self.bank_swift,
+            "bank_name": self.bank_name,
+            "bank_address": self.bank_address,
             "client_name": self.client_name,
             "client_emails": self.client_emails,
             "client_address": self.client_address,
@@ -1160,6 +1265,7 @@ class TrueHourApp(QMainWindow):
             "mask_business_emails": self.mask_business_emails,
             "mask_business_phone": self.mask_business_phone,
             "mask_client_emails": self.mask_client_emails,
+            "enable_bank_details": self.enable_bank_details,
             "developer_mode": self.developer_mode,
             "dark_mode": self.dark_mode,
         }
@@ -1198,6 +1304,13 @@ class TrueHourApp(QMainWindow):
             self.business_phone = new_settings["business_phone"]
             self.business_address = new_settings["business_address"]
             self.business_payment = new_settings["business_payment"]
+            self.enable_bank_details = new_settings.get("enable_bank_details", True)
+            self.bank_holder = new_settings["bank_holder"]
+            self.bank_account = new_settings["bank_account"]
+            self.bank_routing = new_settings["bank_routing"]
+            self.bank_swift = new_settings["bank_swift"]
+            self.bank_name = new_settings["bank_name"]
+            self.bank_address = new_settings["bank_address"]
             self.client_name = new_settings["client_name"]
             self.client_emails = new_settings["client_emails"]
             self.client_address = new_settings["client_address"]
