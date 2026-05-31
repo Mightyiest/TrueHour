@@ -8,3 +8,5 @@ __pycache__/
 # Sample files
 sample_report.html
 ```
+.env
+*.exe
