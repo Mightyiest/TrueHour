@@ -43,3 +43,4 @@ build/
 /tests
 /tests
 /tests
+tests/test_export_diagnostic.py
