@@ -4,3 +4,5 @@ pyinstaller
 PyQt6
 posthog
 python-dotenv
+pytest
+pytest-qt
