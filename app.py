@@ -126,9 +126,29 @@ log_collector.start_redirection()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-    logger.addHandler(handler)
+    # Stream (console) output handler
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(stream_handler)
+    
+    # File logging handler (saved to App Data Directory)
+    try:
+        log_file_path = os.path.join(get_app_data_dir(), "truehour.log")
+        file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        logger.addHandler(file_handler)
+        logger.info(f"[TrueHour] File logging initialized at: {log_file_path}")
+    except Exception as log_err:
+        logger.warning(f"Failed to initialize file logging: {log_err}")
+
+# Uncaught exception hook to capture all application crashes to the log file
+def handle_exception(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    logger.critical("Uncaught application crash occurred:", exc_info=(exc_type, exc_value, exc_traceback))
+
+sys.excepthook = handle_exception
 
 # ── Force Windows to use Light Mode ──────────────────────────────────
 def _force_light_mode():
