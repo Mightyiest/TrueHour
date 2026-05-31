@@ -5,8 +5,38 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Sample files
-sample_report.html
-```
-.env
+# Compiled and build artifacts
+*.o
+*.obj
+*.out
+*.so
+*.dll
 *.exe
+
+# Dependencies
+.venv/
+venv/
+.env
+.env.local
+.env.*
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Editors
+.vscode/
+.idea/
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# Distribution / packaging
+dist/
+build/
+*.tar.gz
+*.whl
+```
