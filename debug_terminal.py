@@ -3,6 +3,7 @@ TrueHour — Debug Terminal Module
 Manages thread-safe stdout/stderr, active file logging, and UDP loopback streaming to a standalone debug console.
 """
 import sys
+import os
 import html
 import socket
 from collections import deque
