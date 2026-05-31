@@ -4,93 +4,527 @@
     <meta charset="utf-8">
     <title>Invoice - {{BUSINESS_NAME}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Google Fonts: Outfit for dynamic modern headings, Inter for clean body typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #0F172A;
-            --primary-light: #1E293B;
-            --accent: #4F46E5;
-            --accent-hover: #4338CA;
-            --success: #16A34A;
+            /* Common Design Variables */
             --bg-body: #F8FAFC;
             --bg-card: #FFFFFF;
             --border: #E2E8F0;
             --text-main: #0F172A;
             --text-muted: #64748B;
+            --text-light: #94A3B8;
+            --card-shadow: 0 8px 24px -10px rgba(15, 23, 42, 0.04);
+            --hover-shadow: 0 16px 32px -12px rgba(15, 23, 42, 0.06);
+            
+            /* Themes Override Fallbacks */
+            --accent: #4F46E5;
+            --accent-hover: #4338CA;
+            --accent-gradient-start: #6366F1;
+            --accent-gradient-end: #4F46E5;
+            --success: #10B981;
+        }
+
+        /* Premium Theme Schemes */
+        body.theme-indigo {
+            --accent: #4F46E5;
+            --accent-hover: #4338CA;
+            --accent-gradient-start: #6366F1;
+            --accent-gradient-end: #4F46E5;
+            --success: #10B981;
+        }
+        body.theme-teal {
+            --accent: #0D9488;
+            --accent-hover: #0F766E;
+            --accent-gradient-start: #14B8A6;
+            --accent-gradient-end: #0D9488;
+            --success: #10B981;
+        }
+        body.theme-slate {
+            --accent: #334155;
+            --accent-hover: #1E293B;
+            --accent-gradient-start: #475569;
+            --accent-gradient-end: #334155;
+            --success: #059669;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--bg-body); color: var(--text-main); line-height: 1.5; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }
-        .print-actions-bar { width: 100%; max-width: 800px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 12px; padding: 16px 24px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }
-        .print-btn { background-color: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s ease; }
-        .invoice-container { width: 100%; max-width: 800px; background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 50px; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04); }
-        .invoice-header-row { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--bg-body); padding-bottom: 30px; margin-bottom: 35px; }
-        .invoice-logo { max-width: 200px; max-height: 70px; object-fit: contain; margin-bottom: 12px; display: block; }
-        .profile-title { font-size: 18px; font-weight: 700; color: var(--primary); letter-spacing: -0.02em; }
-        .profile-details { font-size: 13px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+        body { 
+            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+            background-color: var(--bg-body); 
+            color: var(--text-main); 
+            line-height: 1.5; 
+            padding: 20px 16px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            transition: background 0.3s ease;
+        }
+
+        /* Glassmorphic Print Actions Bar */
+        .print-actions-bar { 
+            width: 100%; 
+            max-width: 850px; 
+            background: rgba(255, 255, 255, 0.75); 
+            backdrop-filter: blur(16px); 
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(226, 232, 240, 0.8); 
+            border-radius: 10px; 
+            padding: 8px 16px; 
+            margin-bottom: 12px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: var(--card-shadow);
+        }
+        .action-left-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .status-pill {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Theme Selector Buttons */
+        .theme-selector {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #F1F5F9;
+            padding: 4px;
+            border-radius: 9999px;
+            border: 1px solid var(--border);
+        }
+        .theme-pill-btn {
+            border: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .theme-pill-btn:hover {
+            transform: scale(1.15);
+        }
+        .theme-pill-btn.active::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .theme-pill-btn[data-theme="indigo"] { background: linear-gradient(135deg, #6366F1, #4F46E5); }
+        .theme-pill-btn[data-theme="teal"] { background: linear-gradient(135deg, #14B8A6, #0D9488); }
+        .theme-pill-btn[data-theme="slate"] { background: linear-gradient(135deg, #475569, #334155); }
+
+        /* Modernized Buttons */
+        .print-btn { 
+            background: var(--accent-gradient-start);
+            background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            font-family: 'Outfit', sans-serif;
+            font-size: 13.5px;
+            font-weight: 600; 
+            cursor: pointer; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            box-shadow: 0 3px 10px rgba(79, 70, 229, 0.12);
+        }
+        .print-btn:hover { 
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.2);
+        }
+
+        /* Invoice Container Overhaul */
+        .invoice-container { 
+            width: 100%; 
+            max-width: 850px; 
+            background-color: var(--bg-card); 
+            border: 1px solid var(--border); 
+            border-radius: 16px; 
+            padding: 32px 40px; 
+            box-shadow: var(--card-shadow); 
+            transition: all 0.3s ease;
+        }
+        
+        /* Header Block */
+        .invoice-header-row { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            border-bottom: 2px solid var(--bg-body); 
+            padding-bottom: 20px; 
+            margin-bottom: 24px; 
+        }
+        .invoice-logo { 
+            max-width: 180px; 
+            max-height: 52px; 
+            object-fit: contain; 
+            margin-bottom: 8px; 
+            display: block; 
+        }
+        .profile-title { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px; 
+            font-weight: 700; 
+            color: var(--text-main); 
+            letter-spacing: -0.02em; 
+        }
+        .profile-details { 
+            font-size: 12px; 
+            color: var(--text-muted); 
+            margin-top: 4px; 
+            line-height: 1.4; 
+        }
+        
         .meta-column { text-align: right; }
-        .invoice-badge { font-size: 28px; font-weight: 800; color: var(--primary); letter-spacing: -0.03em; margin-bottom: 12px; }
-        .meta-item { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
-        .billed-to-container { margin-bottom: 35px; }
-        .section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--accent); letter-spacing: 0.1em; margin-bottom: 8px; }
-        .client-name { font-size: 15px; font-weight: 700; color: var(--text-main); }
-        .client-address { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
-        .client-email { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
-        .qr-codes-container { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; justify-content: flex-start; page-break-inside: avoid; break-inside: avoid; }
-        .qr-code-item { display: flex; flex-direction: column; align-items: center; background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); page-break-inside: avoid; break-inside: avoid; }
-        .qr-code-image { width: 140px; height: 140px; object-fit: contain; border-radius: 4px; }
-        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
-        .kpi-card { background-color: var(--bg-body); border: 1px solid transparent; border-radius: 12px; padding: 20px 24px; transition: all 0.25s ease; }
-        .kpi-card:hover { background-color: var(--bg-card); border-color: var(--border); }
-        .kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; }
-        .kpi-val { font-size: 24px; font-weight: 800; color: var(--primary); }
-        .amount-val { color: var(--success); }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 45px; }
-        th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); text-align: left; padding: 12px 16px; border-bottom: 2px solid var(--border); }
-        td { font-size: 13px; color: var(--text-main); padding: 16px; border-bottom: 1px solid var(--border); }
-        .tag-pill { display: inline-block; padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; background-color: var(--bg-body); color: var(--text-muted); }
-        .subtotal-row td { border-bottom: none; padding-top: 24px; }
-        .subtotal-label { font-size: 14px; font-weight: 700; text-align: right; color: var(--text-muted); }
-        .subtotal-value { font-size: 18px; font-weight: 800; color: var(--success); text-align: right; padding-right: 16px; }
-        .payment-box { background-color: #F8FAFC; border: 1px solid var(--border); border-radius: 12px; padding: 24px; page-break-inside: avoid; break-inside: avoid; }
-        .payment-box-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--primary); margin-bottom: 10px; }
-        .payment-content { font-size: 13px; color: var(--text-muted); line-height: 1.5; white-space: pre-wrap; }
+        .invoice-badge { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 24px; 
+            font-weight: 800; 
+            background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.03em; 
+            margin-bottom: 8px; 
+        }
+        .meta-item { 
+            font-size: 12px; 
+            color: var(--text-muted); 
+            margin-bottom: 4px; 
+        }
+        .meta-item strong {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        /* Client Details */
+        .billed-to-container { margin-bottom: 20px; }
+        .section-label { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 10px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            color: var(--accent); 
+            letter-spacing: 0.1em; 
+            margin-bottom: 8px; 
+        }
+        .client-name { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 15px; 
+            font-weight: 700; 
+            color: var(--text-main); 
+        }
+        .client-address { 
+            font-size: 12.5px; 
+            color: var(--text-muted); 
+            margin-top: 4px; 
+            line-height: 1.45; 
+        }
+        .client-email { 
+            font-size: 12.5px; 
+            color: var(--text-muted); 
+            margin-top: 3px; 
+            line-height: 1.45; 
+        }
+
+        /* Dashboard Overview Grid */
+        .dashboard-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 12px; 
+            margin-bottom: 24px; 
+        }
+        .kpi-card { 
+            background-color: var(--bg-body); 
+            border: 1px solid transparent; 
+            border-left: 4px solid var(--accent);
+            border-radius: 10px; 
+            padding: 12px 16px; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        .kpi-card:hover { 
+            background-color: var(--bg-card); 
+            border-color: var(--border); 
+            border-left-color: var(--accent);
+            transform: translateY(-1px);
+            box-shadow: var(--hover-shadow);
+        }
+        .kpi-label { 
+            font-size: 10.5px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            letter-spacing: 0.08em; 
+            color: var(--text-muted); 
+            margin-bottom: 4px; 
+        }
+        .kpi-val { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 22px; 
+            font-weight: 800; 
+            color: var(--text-main); 
+        }
+        .amount-val { 
+            color: var(--success); 
+        }
+
+        /* Tables Styling */
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 28px; 
+        }
+        th { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 10.5px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            letter-spacing: 0.1em; 
+            color: var(--text-muted); 
+            text-align: left; 
+            padding: 8px 14px; 
+            border-bottom: 2px solid var(--border); 
+        }
+        td { 
+            font-size: 12.5px; 
+            color: var(--text-main); 
+            padding: 10px 14px; 
+            border-bottom: 1px solid var(--border); 
+            transition: background-color 0.2s ease;
+        }
+        tr:hover td {
+            background-color: var(--bg-body);
+        }
+        .tag-pill { 
+            display: inline-block; 
+            padding: 3px 8px; 
+            font-size: 10.5px; 
+            font-weight: 600; 
+            border-radius: 6px; 
+            background-color: var(--bg-body); 
+            color: var(--text-muted); 
+        }
+        .subtotal-row td { 
+            border-bottom: none; 
+            padding-top: 14px; 
+        }
+        .subtotal-row:hover td {
+            background-color: transparent;
+        }
+        .subtotal-label { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px; 
+            font-weight: 700; 
+            text-align: right; 
+            color: var(--text-muted); 
+        }
+        .subtotal-value { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 17px; 
+            font-weight: 800; 
+            color: var(--success); 
+            text-align: right; 
+            padding-right: 14px; 
+        }
+
+        /* Payment Hub & Layout */
+        .payment-box { 
+            background-color: var(--bg-body); 
+            border: 1px solid var(--border); 
+            border-radius: 12px; 
+            padding: 16px 20px; 
+            page-break-inside: avoid; 
+            break-inside: avoid; 
+        }
+        .payment-box-title { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 12px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            color: var(--text-main); 
+            margin-bottom: 8px; 
+            letter-spacing: 0.05em;
+        }
+        .payment-content { 
+            font-size: 12.5px; 
+            color: var(--text-muted); 
+            line-height: 1.5; 
+            white-space: pre-wrap; 
+        }
+        .payment-flex-row {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 16px;
+            width: 100%;
+        }
+        .payment-flex-row > * {
+            flex: 1 1 280px;
+            box-sizing: border-box;
+        }
+
+        /* QR Codes & Direct Payments */
+        .qr-codes-container { 
+            display: flex; 
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 16px; 
+            align-items: flex-start;
+            justify-content: flex-start;
+            page-break-inside: avoid; 
+            break-inside: avoid; 
+        }
+        .qr-code-item { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            background: #FFFFFF; 
+            border: 1px solid var(--border); 
+            border-radius: 8px; 
+            padding: 6px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03); 
+            page-break-inside: avoid; 
+            break-inside: avoid; 
+        }
+        .qr-code-image { 
+            width: 140px; 
+            height: 140px; 
+            object-fit: contain; 
+            border-radius: 4px; 
+        }
+        .qr-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-top: 4px;
+            letter-spacing: 0.05em;
+        }
+
+        /* Trust Banner */
+        .trust-banner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            width: 100%;
+            box-sizing: border-box;
+            justify-content: center;
+            margin-top: 8px;
+        }
+
+        /* Footer */
+        .invoice-footer { 
+            margin-top: 24px; 
+            text-align: center; 
+            padding: 14px; 
+        }
+        .footer-link { 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            color: var(--text-muted); 
+            text-decoration: none; 
+            font-family: 'Outfit', sans-serif;
+            font-size: 12.5px; 
+            font-weight: 600; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            background-color: var(--bg-body); 
+            border: 1px solid var(--border);
+        }
+        .footer-link:hover { 
+            background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
+            color: white; 
+            border-color: transparent;
+            transform: translateY(-1px); 
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15); 
+        }
+
+        /* Responsive Print Adjustments */
         @page {
             size: auto;
-            margin: 0; /* Suppresses browser-injected header (title/date) and footer (URL link) */
+            margin: 0; 
         }
 
         @media print { 
-            body { background-color: white; padding: 12mm 15mm; margin: 0; font-size: 11px; } 
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background-color: white; padding: 8mm 12mm; margin: 0; font-size: 11px; } 
             .print-actions-bar { display: none; } 
             .invoice-container { border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; } 
-            .invoice-header-row { padding-bottom: 12px; margin-bottom: 12px; }
-            .invoice-badge { font-size: 24px; margin-bottom: 8px; }
-            .invoice-logo { max-height: 45px; margin-bottom: 4px; }
+            .invoice-header-row { padding-bottom: 14px; margin-bottom: 14px; }
+            .invoice-badge { font-size: 20px; margin-bottom: 4px; }
+            .invoice-logo { max-height: 40px; margin-bottom: 4px; }
             .billed-to-container { margin-bottom: 12px; }
-            .dashboard-grid { gap: 10px; margin-bottom: 12px; }
+            .dashboard-grid { gap: 10px; margin-bottom: 14px; }
             .kpi-card { padding: 8px 12px; }
-            .kpi-val { font-size: 20px; }
-            table { margin-bottom: 12px; }
-            th { padding: 5px 8px; }
-            td { padding: 6px 8px; }
-            .payment-box { padding: 10px 14px; margin-top: 8px; page-break-inside: avoid; break-inside: avoid; }
-            .qr-codes-container { margin-top: 6px; gap: 8px; }
-            .qr-code-image { width: 90px; height: 90px; }
-            .invoice-footer { display: block; margin-top: 15px; padding: 10px; border-top: 1px solid var(--border); }
-            .footer-link { color: var(--accent); text-decoration: underline; font-size: 10px; font-weight: 600; background: none; padding: 0; box-shadow: none; display: inline-flex; }
+            .kpi-val { font-size: 16px; }
+            table { margin-bottom: 14px; }
+            th { padding: 6px 10px; }
+            td { padding: 8px 10px; }
+            .payment-box { padding: 10px 14px; }
+            .qr-code-image { width: 140px; height: 140px; }
+            .invoice-footer { margin-top: 14px; padding: 6px 0; }
+            .footer-link { background: none; padding: 0; border: none; box-shadow: none; display: inline-flex; color: var(--accent); }
             .invoice-header-row, .billed-to-container, .dashboard-grid, table, .payment-box { page-break-inside: avoid; break-inside: avoid; }
         }
-        .invoice-footer { margin-top: 40px; text-align: center; padding: 20px; border-top: 1px solid var(--border); }
-        .footer-link { display: inline-flex; align-items: center; gap: 8px; color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.2s ease; padding: 8px 16px; border-radius: 8px; background-color: var(--bg-body); }
-        .footer-link:hover { background-color: var(--accent); color: white; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); }
     </style>
 </head>
-<body>
+<body class="theme-indigo">
     <div class="print-actions-bar">
-        <div>📄 Invoice generated.</div>
-        <button class="print-btn" onclick="window.print()">Print / Save PDF</button>
+        <div class="action-left-info">
+            <div class="status-pill">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <span>Invoice Generated</span>
+            </div>
+            
+            <!-- Dynamic Theme Selector Button Group -->
+            <div class="theme-selector">
+                <button class="theme-pill-btn active" data-theme="indigo" onclick="switchTheme('indigo')" title="Indigo Violet Theme"></button>
+                <button class="theme-pill-btn" data-theme="teal" onclick="switchTheme('teal')" title="Emerald Teal Theme"></button>
+                <button class="theme-pill-btn" data-theme="slate" onclick="switchTheme('slate')" title="Slate Charcoal Theme"></button>
+            </div>
+        </div>
+        
+        <button class="print-btn" onclick="window.print()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            Print / Save PDF
+        </button>
     </div>
+    
     <div class="invoice-container">
         <div class="invoice-header-row">
             <div>
@@ -105,15 +539,17 @@
                 <div class="invoice-badge">INVOICE</div>
                 <div class="meta-item"><strong>Invoice No:</strong> {{INVOICE_NO}}</div>
                 <div class="meta-item"><strong>Date:</strong> {{DATE}}</div>
-                <div class="meta-item"><strong>Sessions Compiled:</strong> {{SESSIONS_COMPILED}}</div>
+                <div class="meta-item"><strong>Sessions:</strong> {{SESSIONS_COMPILED}}</div>
             </div>
         </div>
+        
         <div class="billed-to-container">
             <div class="section-label">Billed To</div>
             <div class="client-name">{{CLIENT_NAME}}</div>
             <div class="client-address">{{CLIENT_ADDRESS}}</div>
             {{CLIENT_EMAILS_HTML}}
         </div>
+        
         <div class="dashboard-grid">
             <div class="kpi-card">
                 <div class="kpi-label">Total Work Hours</div>
@@ -124,9 +560,18 @@
                 <div class="kpi-val amount-val">{{TOTAL_AMOUNT_DUE}}</div>
             </div>
         </div>
+        
         <div class="section-label">Itemized Work Breakdown</div>
         <table>
-            <thead><tr><th>Focus Category</th><th>Formatted Time</th><th>Hours</th><th>Rate</th><th style="text-align: right;">Total Amount</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Focus Category</th>
+                    <th>Formatted Time</th>
+                    <th>Hours</th>
+                    <th>Rate</th>
+                    <th style="text-align: right;">Total Amount</th>
+                </tr>
+            </thead>
             <tbody>
                 <!-- {{ITEMS}} -->
                 <tr class="subtotal-row">
@@ -135,20 +580,45 @@
                 </tr>
             </tbody>
         </table>
+        
         <div class="payment-box">
             <div class="payment-box-title">Payment Terms & Instructions</div>
             <div class="payment-content">{{PAYMENT_INSTRUCTIONS}}</div>
-            {{QR_HTML}}
-            {{BANK_DETAILS_HTML}}
+            <div class="payment-flex-row">
+                {{BANK_DETAILS_HTML}}
+                {{QR_HTML}}
+            </div>
         </div>
+        
         <div class="invoice-footer">
             <a href="https://mightyiest.github.io/TrueHour/" target="_blank" class="footer-link">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
                 </svg>
                 Powered by TrueHour - View on GitHub
             </a>
         </div>
     </div>
+
+    <!-- Interactive Theme Changer Scripts -->
+    <script>
+        function switchTheme(themeName) {
+            document.body.className = 'theme-' + themeName;
+            document.querySelectorAll('.theme-pill-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-theme') === themeName);
+            });
+            try {
+                localStorage.setItem('truehour-theme', themeName);
+            } catch(e) {}
+        }
+        
+        // Auto-load client theme preference
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                const savedTheme = localStorage.getItem('truehour-theme') || 'indigo';
+                switchTheme(savedTheme);
+            } catch(e) {}
+        });
+    </script>
 </body>
 </html>

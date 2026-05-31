@@ -576,6 +576,7 @@ class SessionManagerDialog(QDialog):
                 "business_phone": self.settings.get("business_phone", ""),
                 "business_address": self.settings.get("business_address", ""),
                 "business_payment": self.settings.get("business_payment", ""),
+                "enable_bank_details": self.settings.get("enable_bank_details", True),
                 "bank_holder": self.settings.get("bank_holder", ""),
                 "bank_account": self.settings.get("bank_account", ""),
                 "bank_routing": self.settings.get("bank_routing", ""),
