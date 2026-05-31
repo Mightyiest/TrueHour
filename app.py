@@ -727,7 +727,11 @@ class TrueHourApp(QMainWindow):
         try:
             apps = self.tracker.get_app_times_sorted()
             # Use a coarser hash (10-second buckets) to reduce UI rebuilds
-            app_state_key = tuple((name, included, int(secs) // 10) for name, secs, included in apps)
+            # Include tag in hash to detect category changes
+            app_state_key = tuple(
+                (name, included, int(secs) // 10, self.tracker.get_app_tag(name))
+                for name, secs, included in apps
+            )
 
             # Skip full rebuild if nothing meaningful changed
             if app_state_key == self._last_app_state_hash and not self._showing_placeholder:
@@ -758,13 +762,42 @@ class TrueHourApp(QMainWindow):
                 self._showing_placeholder = False
 
             active_apps = set()
-            for i, (app_name, secs, included) in enumerate(apps):
+            # Build a map of expected widget order
+            new_widgets = {}
+            
+            # First pass: update existing widgets and track which ones to keep
+            for app_name, secs, included in apps:
                 active_apps.add(app_name)
                 
                 exe_path = self.tracker.get_exe_path(app_name)
                 tag = self.tracker.get_app_tag(app_name)
                 
-                if app_name not in self._row_widgets:
+                if app_name in self._row_widgets:
+                    row = self._row_widgets[app_name]
+                    row.update_time(secs)
+                    row.update_tag(tag)
+                    if exe_path and not row.exe_path:
+                        row.exe_path = exe_path
+                    new_widgets[app_name] = row
+                    
+                    # Synchronous robust native system icon loading
+                    if exe_path:
+                        if exe_path in self._icon_cache:
+                            if not getattr(row, '_icon_loaded', False):
+                                row.set_icon(self._icon_cache[exe_path])
+                                row._icon_loaded = True
+                        else:
+                            pixmap = get_native_icon_pixmap(exe_path, size=16)
+                            self._icon_cache[exe_path] = pixmap
+                            row.set_icon(pixmap)
+                            row._icon_loaded = True
+            
+            # Second pass: create new widgets for apps that don't have widgets yet
+            for app_name, secs, included in apps:
+                if app_name not in new_widgets:
+                    exe_path = self.tracker.get_exe_path(app_name)
+                    tag = self.tracker.get_app_tag(app_name)
+                    
                     row = AppUsageRow(
                         app_name, secs, included, tag, exe_path,
                         on_toggle=self._toggle_include,
@@ -773,32 +806,32 @@ class TrueHourApp(QMainWindow):
                     )
                     
                     # Insert in vertical list
-                    self.scroll_layout.insertWidget(self.scroll_layout.count() - 1, row)
-                    self._row_widgets[app_name] = row
-                else:
-                    row = self._row_widgets[app_name]
-                    row.update_time(secs)
-                    row.update_tag(tag)
-                    if exe_path and not row.exe_path:
-                        row.exe_path = exe_path
-
-                # Synchronous robust native system icon loading
-                if exe_path:
-                    if exe_path in self._icon_cache:
-                        if not getattr(row, '_icon_loaded', False):
-                            row.set_icon(self._icon_cache[exe_path])
+                    self.scroll_layout.addWidget(row)
+                    new_widgets[app_name] = row
+                    
+                    # Synchronous robust native system icon loading
+                    if exe_path:
+                        if exe_path in self._icon_cache:
+                            if not getattr(row, '_icon_loaded', False):
+                                row.set_icon(self._icon_cache[exe_path])
+                                row._icon_loaded = True
+                        else:
+                            pixmap = get_native_icon_pixmap(exe_path, size=16)
+                            self._icon_cache[exe_path] = pixmap
+                            row.set_icon(pixmap)
                             row._icon_loaded = True
-                    else:
-                        pixmap = get_native_icon_pixmap(exe_path, size=16)
-                        self._icon_cache[exe_path] = pixmap
-                        row.set_icon(pixmap)
-                        row._icon_loaded = True
 
-            # Clean up removed apps
+            # Third pass: clean up removed apps
             to_remove = [name for name in self._row_widgets if name not in active_apps]
             for name in to_remove:
                 self._row_widgets[name].setParent(None)
                 del self._row_widgets[name]
+            
+            # Update the widget dictionary to reflect new order
+            self._row_widgets = new_widgets
+            
+            # Add stretch at the end to push content to top
+            self.scroll_layout.addStretch()
                 
             counted = self.tracker.get_counted_seconds()
             self.total_label.setText(format_duration(counted))
@@ -807,11 +840,15 @@ class TrueHourApp(QMainWindow):
             logger.debug(f"Exception during app list refresh: {e}")
 
     def _clear_list_layout(self):
+        """Clear all widgets from the scroll layout while preserving the bottom stretch."""
+        # First, find and remove the stretch if it exists
         for i in reversed(range(self.scroll_layout.count())):
             item = self.scroll_layout.itemAt(i)
             if item and item.widget():
-                # Retain the bottom spacer stretch
                 item.widget().setParent(None)
+            elif item and item.spacerItem():
+                # Remove stretch items
+                self.scroll_layout.removeItem(item)
 
     def _toggle_include(self, app_name, is_checked):
         self.tracker.set_included(app_name, is_checked)
