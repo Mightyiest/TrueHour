@@ -235,8 +235,8 @@ class TestIncrementalAggregation(unittest.TestCase):
         
         rebuild_all_summaries()
         
-        # Should call execute 3 times (once per date)
-        self.assertEqual(mock_cursor.execute.call_count, 3)
+        # Should call execute 4 times: 1 SELECT for count check + 3 INSERTs (once per date)
+        self.assertEqual(mock_cursor.execute.call_count, 4)
 
 
 class TestAsynchronousBatchReportGeneration(unittest.TestCase):
