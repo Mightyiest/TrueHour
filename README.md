@@ -246,6 +246,13 @@ A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!
 
 ## 📅 Changelog
 
+### v3.1.0 (2026.05.31)
+- **Compact Invoicing & 1-Page A4 Compliance**: Re-engineered invoice margins, container paddings, table cells, and row layouts to achieve a ~38% screen-height reduction, guaranteeing a single-page print budget.
+- **Side-by-Side Responsive Payment Details**: Dynamic inline flex-row wrapper wraps bank details and direct QR codes side-by-side, collapsing perfectly when settings change.
+- **Granular Security & Local Machine-Bound Encryption**: Introduced secure XOR-Base64 encryption for sensitive banking information, bound to local machine hardware signatures and local installations via SHA-256 seed hashing.
+- **Privacy-First Invoicing Toggle**: Native desktop settings checkbox toggle instantly hides/reveals bank transfer details on generated HTML layouts.
+- **Exact Color Adjustments & Enlarged High-Resolution QR Codes**: Configured print-color-adjust rules to force gradient and badge replication on saved PDF pages, and scaled QR codes to a high-contrast `140px` size for premium scanning fidelity.
+
 ### v3.0.0 (2026.05.30)
 - **Asynchronous Batch Report Generation with Pre-Aggregation**: Refactored the report processing pipeline to run fully asynchronously in background worker threads, complete with optimized SQLite database pre-aggregation.
 - **Extreme Performance & Resource Optimization**: Converted the cryptographic time integrity chain to a high-performance, line-delimited JSONL format with incremental append operations and fast O(1) binary-seek loading on startup, completely eliminating disk write spikes and reducing RAM usage.
