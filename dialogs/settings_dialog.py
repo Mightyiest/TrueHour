@@ -310,6 +310,37 @@ class SettingsDialog(QDialog):
         
         scroll_invoice_layout.addWidget(biz_box)
         
+        # Bank Transfer Details
+        bank_box = QGroupBox("Bank Transfer Details", scroll_invoice_content)
+        bank_layout = QFormLayout(bank_box)
+        bank_layout.setSpacing(6)
+        
+        self.bank_holder_entry = QLineEdit(bank_box)
+        self.bank_holder_entry.setText(self.settings.get("bank_holder", ""))
+        bank_layout.addRow("Account Holder:", self.bank_holder_entry)
+        
+        self.bank_account_entry = QLineEdit(bank_box)
+        self.bank_account_entry.setText(self.settings.get("bank_account", ""))
+        bank_layout.addRow("Account Number:", self.bank_account_entry)
+        
+        self.bank_routing_entry = QLineEdit(bank_box)
+        self.bank_routing_entry.setText(self.settings.get("bank_routing", ""))
+        bank_layout.addRow("Routing Number:", self.bank_routing_entry)
+        
+        self.bank_swift_entry = QLineEdit(bank_box)
+        self.bank_swift_entry.setText(self.settings.get("bank_swift", ""))
+        bank_layout.addRow("SWIFT / BIC:", self.bank_swift_entry)
+        
+        self.bank_name_entry = QLineEdit(bank_box)
+        self.bank_name_entry.setText(self.settings.get("bank_name", ""))
+        bank_layout.addRow("Bank Name:", self.bank_name_entry)
+        
+        self.bank_address_entry = QLineEdit(bank_box)
+        self.bank_address_entry.setText(self.settings.get("bank_address", ""))
+        bank_layout.addRow("Bank Address:", self.bank_address_entry)
+        
+        scroll_invoice_layout.addWidget(bank_box)
+        
         # Default Client Profile
         client_box = QGroupBox("Default Client Profile", scroll_invoice_content)
         client_layout = QFormLayout(client_box)
@@ -528,6 +559,13 @@ class SettingsDialog(QDialog):
             self.settings["business_phone"] = self.business_phone_entry.text().strip()
             self.settings["business_address"] = self.business_address_entry.text().strip()
             self.settings["business_payment"] = self.business_payment_entry.text().strip()
+            
+            self.settings["bank_holder"] = self.bank_holder_entry.text().strip()
+            self.settings["bank_account"] = self.bank_account_entry.text().strip()
+            self.settings["bank_routing"] = self.bank_routing_entry.text().strip()
+            self.settings["bank_swift"] = self.bank_swift_entry.text().strip()
+            self.settings["bank_name"] = self.bank_name_entry.text().strip()
+            self.settings["bank_address"] = self.bank_address_entry.text().strip()
             
             self.settings["client_name"] = self.client_name_entry.text().strip()
             self.settings["client_emails"] = self.client_email_chips.get_emails()

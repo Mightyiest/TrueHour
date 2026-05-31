@@ -829,6 +829,12 @@ class TrueHourApp(QMainWindow):
             "business_phone": self.business_phone,
             "business_address": self.business_address,
             "business_payment": self.business_payment,
+            "bank_holder": self.bank_holder,
+            "bank_account": self.bank_account,
+            "bank_routing": self.bank_routing,
+            "bank_swift": self.bank_swift,
+            "bank_name": self.bank_name,
+            "bank_address": self.bank_address,
             "client_name": self.client_name,
             "client_emails": self.client_emails,
             "client_address": self.client_address,
@@ -960,6 +966,12 @@ class TrueHourApp(QMainWindow):
         self.business_phone = ""
         self.business_address = ""
         self.business_payment = ""
+        self.bank_holder = ""
+        self.bank_account = ""
+        self.bank_routing = ""
+        self.bank_swift = ""
+        self.bank_name = ""
+        self.bank_address = ""
         self.client_name = ""
         self.client_emails = []     # NEW: list of client contact emails
         self.client_address = ""
@@ -994,6 +1006,12 @@ class TrueHourApp(QMainWindow):
                     self.business_phone = data.get("business_phone", "")
                     self.business_address = data.get("business_address", "")
                     self.business_payment = data.get("business_payment", "")
+                    self.bank_holder = data.get("bank_holder", "")
+                    self.bank_account = data.get("bank_account", "")
+                    self.bank_routing = data.get("bank_routing", "")
+                    self.bank_swift = data.get("bank_swift", "")
+                    self.bank_name = data.get("bank_name", "")
+                    self.bank_address = data.get("bank_address", "")
                     self.client_name = data.get("client_name", "")
                     self.client_address = data.get("client_address", "")
                     self.business_logo_path = data.get("business_logo_path", "")
@@ -1045,6 +1063,12 @@ class TrueHourApp(QMainWindow):
                 "business_phone": self.business_phone,
                 "business_address": self.business_address,
                 "business_payment": self.business_payment,
+                "bank_holder": self.bank_holder,
+                "bank_account": self.bank_account,
+                "bank_routing": self.bank_routing,
+                "bank_swift": self.bank_swift,
+                "bank_name": self.bank_name,
+                "bank_address": self.bank_address,
                 "client_name": self.client_name,
                 "client_emails": self.client_emails,
                 "client_address": self.client_address,
@@ -1151,6 +1175,12 @@ class TrueHourApp(QMainWindow):
             "business_phone": self.business_phone,
             "business_address": self.business_address,
             "business_payment": self.business_payment,
+            "bank_holder": self.bank_holder,
+            "bank_account": self.bank_account,
+            "bank_routing": self.bank_routing,
+            "bank_swift": self.bank_swift,
+            "bank_name": self.bank_name,
+            "bank_address": self.bank_address,
             "client_name": self.client_name,
             "client_emails": self.client_emails,
             "client_address": self.client_address,
@@ -1198,6 +1228,12 @@ class TrueHourApp(QMainWindow):
             self.business_phone = new_settings["business_phone"]
             self.business_address = new_settings["business_address"]
             self.business_payment = new_settings["business_payment"]
+            self.bank_holder = new_settings["bank_holder"]
+            self.bank_account = new_settings["bank_account"]
+            self.bank_routing = new_settings["bank_routing"]
+            self.bank_swift = new_settings["bank_swift"]
+            self.bank_name = new_settings["bank_name"]
+            self.bank_address = new_settings["bank_address"]
             self.client_name = new_settings["client_name"]
             self.client_emails = new_settings["client_emails"]
             self.client_address = new_settings["client_address"]

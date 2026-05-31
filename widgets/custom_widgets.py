@@ -267,6 +267,7 @@ class EmailChipWidget(QWidget):
             self._emails.remove(email)
         if chip_widget in self._chip_widgets:
             self._chip_widgets.remove(chip_widget)
+        chip_widget.hide()
         self._flow_layout.removeWidget(chip_widget)
         chip_widget.setParent(None)
         chip_widget.deleteLater()
@@ -289,6 +290,7 @@ class EmailChipWidget(QWidget):
         """Remove all chips and clear input."""
         self._emails.clear()
         for chip in self._chip_widgets:
+            chip.hide()
             self._flow_layout.removeWidget(chip)
             chip.setParent(None)
             chip.deleteLater()

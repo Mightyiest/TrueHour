@@ -1114,6 +1114,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
             <div class="payment-box-title">Payment Terms & Instructions</div>
             <div class="payment-content">{{PAYMENT_INSTRUCTIONS}}</div>
             {{QR_HTML}}
+            {{BANK_DETAILS_HTML}}
         </div>
     </div>
 </body>
@@ -1146,6 +1147,64 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     html = html.replace("{{GRAND_TOTAL}}", _esc(total_earned_display))
     html = html.replace("{{PAYMENT_INSTRUCTIONS}}", _esc(settings_data.get("business_payment", "Payment is due within 14 days of invoice date.")))
     html = html.replace("{{QR_HTML}}", qr_html)
+
+    # Generate bank details block if any provided
+    bank_holder = settings_data.get("bank_holder", "")
+    bank_account = settings_data.get("bank_account", "")
+    bank_routing = settings_data.get("bank_routing", "")
+    bank_swift = settings_data.get("bank_swift", "")
+    bank_name = settings_data.get("bank_name", "")
+    bank_address = settings_data.get("bank_address", "")
+    
+    bank_details_html = ""
+    if any([bank_holder, bank_account, bank_routing, bank_swift, bank_name, bank_address]):
+        items = []
+        if bank_holder:
+            items.append(f"""
+            <div class="bank-detail-item">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Account Holder</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-top: 3px;">{_esc(bank_holder)}</div>
+            </div>""")
+        if bank_account:
+            items.append(f"""
+            <div class="bank-detail-item">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Account Number</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-top: 3px;">{_esc(bank_account)}</div>
+            </div>""")
+        if bank_routing:
+            items.append(f"""
+            <div class="bank-detail-item">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Routing Number</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-top: 3px;">{_esc(bank_routing)}</div>
+            </div>""")
+        if bank_swift:
+            items.append(f"""
+            <div class="bank-detail-item">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">SWIFT / BIC</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-top: 3px;">{_esc(bank_swift)}</div>
+            </div>""")
+        if bank_name or bank_address:
+            bank_info_parts = []
+            if bank_name:
+                bank_info_parts.append(bank_name)
+            if bank_address:
+                bank_info_parts.append(bank_address)
+            bank_info_str = ", ".join(bank_info_parts)
+            items.append(f"""
+            <div class="bank-detail-item" style="grid-column: span 2;">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Bank Name & Address</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-top: 3px; line-height: 1.4;">{_esc(bank_info_str)}</div>
+            </div>""")
+            
+        bank_details_html = f"""
+        <div class="bank-details-box" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--accent); letter-spacing: 0.05em; margin-bottom: 12px;">Bank Transfer Details</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px 20px;">
+                {"".join(items)}
+            </div>
+        </div>"""
+        
+    html = html.replace("{{BANK_DETAILS_HTML}}", bank_details_html)
 
     # Generate Itemized Rows
     items_html = ""
