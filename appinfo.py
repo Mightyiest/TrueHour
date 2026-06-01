@@ -16,7 +16,7 @@ from PIL import Image
 import os
 import logging
 from functools import lru_cache
-from config import get_app_data_dir
+from config import get_app_data_dir, DynamicPath
 
 # Configure logging for security events
 logger = logging.getLogger(__name__)
@@ -29,11 +29,13 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 _name_cache = {}
-OVERRIDES_FILE = os.path.join(get_app_data_dir(), "name_overrides.txt")
+OVERRIDES_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "name_overrides.txt"))
 _NAME_OVERRIDES = {}
 
 def _load_name_overrides():
-    global _NAME_OVERRIDES
+    global _NAME_OVERRIDES, _name_cache
+    _NAME_OVERRIDES.clear()
+    _name_cache.clear()
     if not os.path.exists(OVERRIDES_FILE):
         try:
             override_dir = os.path.dirname(OVERRIDES_FILE)
@@ -62,6 +64,7 @@ def get_foreground_app_info():
     if SYSTEM != "Windows":
         # macOS Implementation using native AppKit
         try:
+            # pyrefly: ignore [missing-import]
             from AppKit import NSWorkspace
             active_app = NSWorkspace.sharedWorkspace().activeApplication()
             if not active_app:
@@ -135,6 +138,7 @@ def _extract_icon(exe_path, size=16):
     if SYSTEM != "Windows":
         # macOS Icon Extraction using native Cocoa / AppKit
         try:
+            # pyrefly: ignore [missing-import]
             from AppKit import NSWorkspace
             import io
             
@@ -210,6 +214,7 @@ def get_running_applications():
     if SYSTEM != "Windows":
         # macOS Implementation using Cocoa / AppKit
         try:
+            # pyrefly: ignore [missing-import]
             from AppKit import NSWorkspace, NSApplicationActivationPolicyRegular
             running_apps = NSWorkspace.sharedWorkspace().runningApplications()
             for app in running_apps:
