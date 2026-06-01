@@ -56,7 +56,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 from appinfo import get_foreground_app_info
-from config import get_app_data_dir
+from config import get_app_data_dir, DynamicPath
 from secure_time import get_detector, reset_detector
 
 # Configure logging for security events
@@ -220,8 +220,8 @@ consent.exe
 # docker.exe
 """
 
-AUTO_EXCLUDE_FILE = os.path.join(get_app_data_dir(), "auto_excluded_apps.txt")
-ACTIVE_SESSION_FILE = os.path.join(get_app_data_dir(), "active_session.json")
+AUTO_EXCLUDE_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "auto_excluded_apps.txt"))
+ACTIVE_SESSION_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "active_session.json"))
 
 _AUTO_EXCLUDED_EXES = set()  # must be declared before any function references it
 _AUTO_EXCLUDED_LOCK = threading.Lock()  # thread-safe access to _AUTO_EXCLUDED_EXES
@@ -352,8 +352,8 @@ def _is_auto_excluded(exe_path):
 create_auto_excluded_if_missing()
 _load_auto_excluded()
 
-SETTINGS_FILE = os.path.join(get_app_data_dir(), "settings.json")
-TAGS_FILE = os.path.join(get_app_data_dir(), "tags.json")
+SETTINGS_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "settings.json"))
+TAGS_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "tags.json"))
 
 
 class TagManager:

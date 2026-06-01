@@ -9,7 +9,7 @@ import tempfile
 import traceback
 
 # Add workspace to path
-sys.path.insert(0, '/workspace')
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from report import generate_session_report_html
 
@@ -124,7 +124,6 @@ def test_html_export_isolated_flow():
         print("\n" + "=" * 60)
         print("TEST PASSED: HTML export works correctly!")
         print("=" * 60)
-        return True
         
     except Exception as e:
         print("\n" + "=" * 60)
@@ -134,7 +133,7 @@ def test_html_export_isolated_flow():
         print(f"Error Message: {str(e)}")
         print("\nFull Traceback:")
         traceback.print_exc()
-        return False
+        raise e
 
 
 def datetime_from_str(iso_str):
@@ -144,5 +143,8 @@ def datetime_from_str(iso_str):
 
 
 if __name__ == "__main__":
-    success = test_html_export_isolated_flow()
-    sys.exit(0 if success else 1)
+    try:
+        test_html_export_isolated_flow()
+        sys.exit(0)
+    except Exception:
+        sys.exit(1)

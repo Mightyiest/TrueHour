@@ -44,3 +44,4 @@ build/
 /tests
 /tests
 tests/test_export_diagnostic.py
+*.exe

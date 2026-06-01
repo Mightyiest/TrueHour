@@ -1,16 +1,17 @@
 import os
 import shutil
 import logging
+import json
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTabWidget, QWidget,
     QScrollArea, QCheckBox, QFormLayout, QLineEdit, QComboBox, QGroupBox,
-    QPushButton, QMessageBox, QFileDialog, QSizePolicy, QApplication
+    QPushButton, QMessageBox, QFileDialog, QSizePolicy, QApplication, QInputDialog
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QSize
 
 from widgets.custom_widgets import EmailChipWidget, QRThumbnailWidget
 from theme import TEXT_SECONDARY, get_tag_color, get_svg_icon
-from config import get_app_data_dir, open_file
+from config import get_app_data_dir, open_file, get_app_data_root
 from tracker import AUTO_EXCLUDE_FILE, create_auto_excluded_if_missing
 from appinfo import OVERRIDES_FILE
 from assets import INFO_SVG
@@ -23,12 +24,30 @@ class SettingsDialog(QDialog):
     reload_exclusions_requested = pyqtSignal()
     settings_saved = pyqtSignal(dict)
     theme_toggled = pyqtSignal(bool)
+    profile_changed = pyqtSignal(str)
+    profile_renamed = pyqtSignal(str, str)
+    profile_deleted = pyqtSignal(str)
+    settings_imported = pyqtSignal(str)
 
     def __init__(self, current_settings, parent=None):
         super().__init__(parent)
         self.settings = dict(current_settings)  # copy to avoid mutating directly
         self.setWindowTitle("Settings")
         self._center_window(520, 650)
+        
+        # Load profiles config
+        root_dir = get_app_data_root()
+        profiles_file = os.path.join(root_dir, "profiles.json")
+        self.profiles_list = ["Default"]
+        self.active_profile = "Default"
+        if os.path.exists(profiles_file):
+            try:
+                with open(profiles_file, "r", encoding="utf-8") as f:
+                    pdata = json.load(f)
+                    self.profiles_list = pdata.get("profiles", ["Default"])
+                    self.active_profile = pdata.get("active_profile", "Default")
+            except Exception:
+                pass
         
         self._qr_paths_local = list(self.settings.get("qr_code_paths", []))
         self._qr_links_local = dict(self.settings.get("qr_code_links", {}))
@@ -86,6 +105,38 @@ class SettingsDialog(QDialog):
         tg_layout = QVBoxLayout(scroll_general_content)
         tg_layout.setContentsMargins(12, 12, 12, 12)
         tg_layout.setSpacing(6)
+        
+        # Profile Selection Group Box
+        profile_box = QGroupBox("Profile Selection", scroll_general_content)
+        profile_layout = QHBoxLayout(profile_box)
+        profile_layout.setContentsMargins(8, 8, 8, 8)
+        profile_layout.setSpacing(6)
+        
+        self.profile_combo = QComboBox(scroll_general_content)
+        self.profile_combo.addItems(self.profiles_list)
+        self.profile_combo.setCurrentText(self.active_profile)
+        self.profile_combo.currentTextChanged.connect(self._on_profile_combo_changed)
+        profile_layout.addWidget(self.profile_combo, 2)
+        
+        btn_new_prof = QPushButton("New Profile", scroll_general_content)
+        btn_new_prof.setObjectName("NormalButton")
+        btn_new_prof.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_new_prof.clicked.connect(self._on_new_profile_clicked)
+        profile_layout.addWidget(btn_new_prof, 1)
+        
+        btn_rename_prof = QPushButton("Rename", scroll_general_content)
+        btn_rename_prof.setObjectName("NormalButton")
+        btn_rename_prof.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_rename_prof.clicked.connect(self._on_rename_profile_clicked)
+        profile_layout.addWidget(btn_rename_prof, 1)
+        
+        btn_delete_prof = QPushButton("Delete", scroll_general_content)
+        btn_delete_prof.setObjectName("NormalButton")
+        btn_delete_prof.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_delete_prof.clicked.connect(self._on_delete_profile_clicked)
+        profile_layout.addWidget(btn_delete_prof, 1)
+        
+        tg_layout.addWidget(profile_box)
         
         self.cb_confirm = QCheckBox("Always ask for confirmation before closing", scroll_general_content)
         self.cb_confirm.setChecked(self.settings.get("confirm_on_close", True))
@@ -260,6 +311,33 @@ class SettingsDialog(QDialog):
         config_layout.addWidget(btn_about)
         
         tg_layout.addWidget(config_box)
+        
+        # Backup & Restore Group
+        backup_box = QGroupBox("Backup && Restore", scroll_general_content)
+        backup_layout = QHBoxLayout(backup_box)
+        backup_layout.setContentsMargins(8, 8, 8, 8)
+        backup_layout.setSpacing(8)
+        
+        btn_backup = QPushButton("Backup Settings...", scroll_general_content)
+        btn_backup.setObjectName("AccentButton")
+        btn_backup.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_backup.clicked.connect(self._on_backup_clicked)
+        backup_layout.addWidget(btn_backup, 1)
+        
+        btn_import = QPushButton("Import Settings...", scroll_general_content)
+        btn_import.setObjectName("NormalButton")
+        btn_import.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_import.clicked.connect(self._on_import_clicked)
+        backup_layout.addWidget(btn_import, 1)
+        
+        btn_browse = QPushButton("Open Data Folder", scroll_general_content)
+        btn_browse.setObjectName("NormalButton")
+        btn_browse.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_browse.clicked.connect(self._on_browse_files_clicked)
+        backup_layout.addWidget(btn_browse, 1)
+        
+        tg_layout.addWidget(backup_box)
+        
         tg_layout.addStretch()
         
         scroll_general.setWidget(scroll_general_content)
@@ -606,3 +684,180 @@ class SettingsDialog(QDialog):
             self.accept()
         except ValueError:
             QMessageBox.critical(self, "Error", "Please enter valid numeric values.")
+
+    def _on_profile_combo_changed(self, text):
+        if text != self.active_profile:
+            self.profile_changed.emit(text)
+            self.accept()
+
+    def _on_new_profile_clicked(self):
+        name, ok = QInputDialog.getText(
+            self, "New Profile",
+            "Enter profile name:",
+            QLineEdit.EchoMode.Normal, ""
+        )
+        if not ok or not name.strip():
+            return
+        name = name.strip()
+        # Clean profile name validation
+        if not all(c.isalnum() or c in " _-" for c in name):
+            QMessageBox.critical(
+                self, "Invalid Name",
+                "Profile name can only contain alphanumeric characters, spaces, hyphens, or underscores."
+            )
+            return
+            
+        if name in self.profiles_list:
+            QMessageBox.critical(
+                self, "Already Exists",
+                f"A profile named '{name}' already exists."
+            )
+            return
+            
+        # Update config directly
+        root_dir = get_app_data_root()
+        profiles_file = os.path.join(root_dir, "profiles.json")
+        try:
+            self.profiles_list.append(name)
+            with open(profiles_file, "w", encoding="utf-8") as f:
+                json.dump({
+                    "active_profile": name,
+                    "profiles": self.profiles_list
+                }, f, indent=4)
+            self.profile_changed.emit(name)
+            self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to create profile:\n{e}")
+
+    def _on_rename_profile_clicked(self):
+        name, ok = QInputDialog.getText(
+            self, "Rename Profile",
+            f"Enter new name for profile '{self.active_profile}':",
+            QLineEdit.EchoMode.Normal, self.active_profile
+        )
+        if not ok or not name.strip():
+            return
+        name = name.strip()
+        if name == self.active_profile:
+            return
+        if not all(c.isalnum() or c in " _-" for c in name):
+            QMessageBox.critical(
+                self, "Invalid Name",
+                "Profile name can only contain alphanumeric characters, spaces, hyphens, or underscores."
+            )
+            return
+            
+        if name in self.profiles_list:
+            QMessageBox.critical(
+                self, "Already Exists",
+                f"A profile named '{name}' already exists."
+            )
+            return
+            
+        self.profile_renamed.emit(self.active_profile, name)
+        self.accept()
+
+    def _on_delete_profile_clicked(self):
+        if len(self.profiles_list) <= 1:
+            QMessageBox.critical(
+                self, "Action Prohibited",
+                "You must keep at least one active profile."
+            )
+            return
+            
+        confirm = QMessageBox.question(
+            self, "Delete Profile",
+            f"Are you sure you want to permanently delete profile '{self.active_profile}' and ALL of its session logs?\n\nThis action cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if confirm == QMessageBox.StandardButton.Yes:
+            self.profile_deleted.emit(self.active_profile)
+            self.accept()
+
+    def _on_backup_clicked(self):
+        from datetime import datetime
+        from core.backup_manager import backup_settings
+        
+        default_name = f"backup_{self.active_profile}_{datetime.now().strftime('%Y%m%d')}.truehour"
+        dest_path, _ = QFileDialog.getSaveFileName(
+            self, "Backup Settings & History", default_name, "TrueHour Backup Files (*.truehour)"
+        )
+        if not dest_path:
+            return
+            
+        # Ensure it has .truehour extension
+        if not dest_path.endswith(".truehour"):
+            dest_path += ".truehour"
+            
+        success = backup_settings(dest_path, self.active_profile)
+        if success:
+            QMessageBox.information(
+                self, "Backup Successful",
+                f"Profile '{self.active_profile}' settings, categories, payment QR codes, and session logs have been successfully backed up to:\n{dest_path}"
+            )
+        else:
+            QMessageBox.critical(
+                self, "Backup Failed",
+                "An error occurred while compiling and writing the settings backup."
+            )
+
+    def _on_import_clicked(self):
+        from core.backup_manager import import_settings
+        import re
+        
+        src_path, _ = QFileDialog.getOpenFileName(
+            self, "Import Settings Backup", "", "TrueHour Backup Files (*.truehour)"
+        )
+        if not src_path:
+            return
+            
+        # Parse suggested profile name from filename
+        base_fn = os.path.basename(src_path)
+        match = re.match(r"backup_(.*?)_\d+", base_fn)
+        suggested_name = match.group(1) if match else os.path.splitext(base_fn)[0]
+        
+        # Ask what name to restore as
+        imported_name, ok = QInputDialog.getText(
+            self, "Import Profile Name",
+            "Enter the profile name to restore this backup as:",
+            QLineEdit.EchoMode.Normal, suggested_name
+        )
+        if not ok or not imported_name.strip():
+            return
+        imported_name = imported_name.strip()
+        
+        # Name validation
+        if not all(c.isalnum() or c in " _-" for c in imported_name):
+            QMessageBox.critical(
+                self, "Invalid Name",
+                "Profile name can only contain alphanumeric characters, spaces, hyphens, or underscores."
+            )
+            return
+            
+        # Overwrite warning if exists
+        if imported_name in self.profiles_list:
+            overwrite_confirm = QMessageBox.question(
+                self, "Overwrite Profile?",
+                f"A profile named '{imported_name}' already exists. Importing this backup will permanently overwrite all of its preferences, tags, pre-aggregated summaries, and historical session logs.\n\nDo you want to proceed?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            if overwrite_confirm != QMessageBox.StandardButton.Yes:
+                return
+                
+        success = import_settings(src_path, imported_name)
+        if success:
+            self.settings_imported.emit(imported_name)
+            self.accept()
+        else:
+            QMessageBox.critical(
+                self, "Import Failed",
+                "Failed to restore profile. Please ensure that the selected file is a valid TrueHour backup archive."
+            )
+
+    def _on_browse_files_clicked(self):
+        try:
+            open_file(get_app_data_dir())
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Could not open data directory:\n{e}")

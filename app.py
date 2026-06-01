@@ -2,6 +2,7 @@
 TrueHour — Main Application UI (PyQt6).
 Lightweight Windows desktop time tracker with a clean Windows 11-style light theme.
 """
+import shutil
 import sys
 import os
 import time
@@ -24,7 +25,7 @@ from PyQt6.QtGui import QColor, QPainter, QBrush, QPen, QImage, QPixmap, QIcon, 
 
 from tracker import AppTracker, AUTO_EXCLUDE_FILE, create_auto_excluded_if_missing
 from appinfo import get_icon_image, OVERRIDES_FILE
-from config import get_app_data_dir, open_file
+from config import get_app_data_dir, open_file, get_app_data_root, DynamicPath
 from secure_time import get_detector
 from report import (
     format_duration, format_duration_hms, build_report_data,
@@ -38,7 +39,7 @@ from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG, EDIT_SVG, SUN
 # Global Constants & Paths
 ICON_DIR = os.path.dirname(os.path.abspath(__file__))
 ICON_PATH = os.path.join(ICON_DIR, "icon.ico")
-APP_SETTINGS_FILE = os.path.join(get_app_data_dir(), "app_settings.json")
+APP_SETTINGS_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "app_settings.json"))
 
 def pil_to_pixmap(pil_img):
     """Convert a PIL Image safely to a QPixmap for PyQt6 icon rendering using QImage.fromData (independent memory)."""
@@ -131,9 +132,9 @@ if not logger.handlers:
     stream_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     logger.addHandler(stream_handler)
     
-    # File logging handler (saved to App Data Directory)
+    # File logging handler (saved to App Data Root Directory)
     try:
-        log_file_path = os.path.join(get_app_data_dir(), "truehour.log")
+        log_file_path = os.path.join(get_app_data_root(), "truehour.log")
         file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
         file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         logger.addHandler(file_handler)
@@ -1313,6 +1314,10 @@ class TrueHourApp(QMainWindow):
         dialog.manage_categories_requested.connect(self._show_categories_dialog)
         dialog.about_requested.connect(self._show_about_dialog)
         dialog.theme_toggled.connect(self.apply_theme)
+        dialog.profile_changed.connect(self._handle_profile_switched)
+        dialog.profile_renamed.connect(self._handle_profile_renamed)
+        dialog.profile_deleted.connect(self._handle_profile_deleted)
+        dialog.settings_imported.connect(self._handle_settings_imported)
         
         def handle_reload():
             from tracker import reload_auto_excluded
@@ -2021,6 +2026,220 @@ class TrueHourApp(QMainWindow):
         dialog = TrueHourDashboard(self)
         dialog.exec()
 
+    def _handle_profile_switched(self, profile_name):
+        if self.tracker.running:
+            QMessageBox.warning(
+                self, "Active Tracking Session",
+                "Please stop the current active tracking session before switching or modifying profiles."
+            )
+            return False
+            
+        root_dir = get_app_data_root()
+        profiles_file = os.path.join(root_dir, "profiles.json")
+        try:
+            # Load profiles.json
+            with open(profiles_file, "r", encoding="utf-8") as f:
+                pdata = json.load(f)
+            
+            pdata["active_profile"] = profile_name
+            if profile_name not in pdata.get("profiles", []):
+                pdata["profiles"].append(profile_name)
+                
+            with open(profiles_file, "w", encoding="utf-8") as f:
+                json.dump(pdata, f, indent=4)
+                
+            # Dynamic dynamic reloading of target profile configuration
+            self._load_app_settings()
+            
+            # Re-initialize target database schema inside target profile directory
+            try:
+                from database.schema import init_db
+                init_db()
+            except Exception as e:
+                print(f"[TrueHour] Failed database bootstrap on profile switch: {e}")
+                
+            # Reload tracker configurations
+            self.tracker._load_settings()
+            self.tracker.tag_manager._load_tags()
+            from tracker import reload_auto_excluded
+            reload_auto_excluded()
+            
+            # Reset security time integrity detector for the new profile
+            try:
+                from secure_time import reset_detector
+                reset_detector()
+            except Exception as e:
+                print(f"[TrueHour] Failed to reset security time detector: {e}")
+                
+            # Reload name overrides for the new profile
+            try:
+                from appinfo import _load_name_overrides
+                _load_name_overrides()
+            except Exception as e:
+                print(f"[TrueHour] Failed to reload name overrides: {e}")
+            
+            # Apply dynamic parameters
+            self.tracker.min_track_seconds = self.min_track_seconds
+            self.tracker.save_interval = self.auto_save_seconds
+            self.tracker.idle_threshold_seconds = self.idle_threshold_seconds_total
+            
+            # Trigger dynamic refresh of active layout
+            self._last_app_state_hash = None
+            self._refresh_app_list()
+            self._update_developer_ui()
+            self.apply_theme(self.dark_mode)
+            
+            # Reset earnings text if tracker not active
+            if self.hourly_rate > 0:
+                self.earnings_label.setText(f"💰 {self.currency_symbol}0.00 earned")
+            else:
+                self.earnings_label.setText(" ")
+                
+            QMessageBox.information(
+                self, "Profile Switched",
+                f"Successfully switched to profile '{profile_name}'."
+            )
+            return True
+        except Exception as e:
+            QMessageBox.critical(self, "Switch Failed", f"Failed to switch to profile:\n{e}")
+            return False
+
+    def _handle_profile_renamed(self, old_name, new_name):
+        if self.tracker.running:
+            QMessageBox.warning(
+                self, "Active Tracking Session",
+                "Please stop the current active tracking session before switching or modifying profiles."
+            )
+            return False
+            
+        root_dir = get_app_data_root()
+        profiles_dir = os.path.join(root_dir, "profiles")
+        src = os.path.join(profiles_dir, old_name)
+        dst = os.path.join(profiles_dir, new_name)
+        
+        try:
+            # Force GC to release SQLite database connection handles
+            import gc
+            import time
+            gc.collect()
+            
+            # Retry rename loop in case of temporary OS indexer/anti-virus locks on Windows
+            rename_success = False
+            for i in range(10):
+                try:
+                    if os.path.exists(src):
+                        os.rename(src, dst)
+                    rename_success = True
+                    break
+                except PermissionError:
+                    time.sleep(0.1)
+                    gc.collect()
+                    
+            if not rename_success:
+                raise PermissionError(f"Could not rename profile folder '{old_name}' because it is currently locked by another process.")
+            
+            profiles_file = os.path.join(root_dir, "profiles.json")
+            with open(profiles_file, "r", encoding="utf-8") as f:
+                pdata = json.load(f)
+                
+            # Update values
+            pdata["active_profile"] = new_name
+            pdata["profiles"] = [new_name if p == old_name else p for p in pdata.get("profiles", ["Default"])]
+            
+            with open(profiles_file, "w", encoding="utf-8") as f:
+                json.dump(pdata, f, indent=4)
+                
+            self._handle_profile_switched(new_name)
+            QMessageBox.information(
+                self, "Profile Renamed",
+                f"Successfully renamed profile from '{old_name}' to '{new_name}'."
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Rename Failed", f"Failed to rename profile directory:\n{e}")
+
+    def _handle_profile_deleted(self, profile_name):
+        if self.tracker.running:
+            QMessageBox.warning(
+                self, "Active Tracking Session",
+                "Please stop the current active tracking session before switching or modifying profiles."
+            )
+            return False
+            
+        root_dir = get_app_data_root()
+        profiles_dir = os.path.join(root_dir, "profiles")
+        target_dir = os.path.join(profiles_dir, profile_name)
+        
+        try:
+            if os.path.exists(target_dir):
+                import gc
+                import stat
+                import time
+                gc.collect()
+                
+                # Helper to clear read-only flag on Windows
+                def remove_readonly(func, path, exc_info):
+                    try:
+                        os.chmod(path, stat.S_IWRITE)
+                        func(path)
+                    except Exception:
+                        pass
+                
+                # Delete folder aggressively and with retries
+                delete_success = False
+                for i in range(5):
+                    try:
+                        shutil.rmtree(target_dir, onerror=remove_readonly)
+                        delete_success = True
+                        break
+                    except Exception:
+                        time.sleep(0.1)
+                        gc.collect()
+                        
+                if not delete_success:
+                    # Final aggressive sweep fallback
+                    for root, dirs, files in os.walk(target_dir, topdown=False):
+                        for file in files:
+                            fp = os.path.join(root, file)
+                            try:
+                                os.chmod(fp, stat.S_IWRITE)
+                                os.remove(fp)
+                            except Exception:
+                                pass
+                        for d in dirs:
+                            dp = os.path.join(root, d)
+                            try:
+                                os.chmod(dp, stat.S_IWRITE)
+                                shutil.rmtree(dp, onerror=remove_readonly)
+                            except Exception:
+                                pass
+                    shutil.rmtree(target_dir, onerror=remove_readonly)
+                
+            profiles_file = os.path.join(root_dir, "profiles.json")
+            with open(profiles_file, "r", encoding="utf-8") as f:
+                pdata = json.load(f)
+                
+            # Filter from list
+            pdata["profiles"] = [p for p in pdata.get("profiles", ["Default"]) if p != profile_name]
+            
+            # Switch active to first available profile
+            new_active = pdata["profiles"][0] if pdata["profiles"] else "Default"
+            pdata["active_profile"] = new_active
+            
+            with open(profiles_file, "w", encoding="utf-8") as f:
+                json.dump(pdata, f, indent=4)
+                
+            self._handle_profile_switched(new_active)
+            QMessageBox.information(
+                self, "Profile Deleted",
+                f"Permanently deleted profile '{profile_name}'."
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Delete Failed", f"Failed to delete profile:\n{e}")
+
+    def _handle_settings_imported(self, profile_name):
+        # Trigger dynamic switch to imported profile
+        self._handle_profile_switched(profile_name)
+
     def run(self):
         self.show()
 
@@ -2070,7 +2289,7 @@ if __name__ == "__main__":
     
     # Single instance lock using QLockFile to prevent multiple running instances
     from PyQt6.QtCore import QLockFile
-    lock_file_path = os.path.join(get_app_data_dir(), "truehour.lock")
+    lock_file_path = os.path.join(get_app_data_root(), "truehour.lock")
     lock_file = QLockFile(lock_file_path)
     
     if not lock_file.tryLock(100):

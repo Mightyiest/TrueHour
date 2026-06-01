@@ -2,27 +2,121 @@ import os
 import sys
 import subprocess
 import shutil
+import json
 from pathlib import Path
 
-def get_app_data_dir(migrate=False) -> str:
+class DynamicPath(os.PathLike):
+    def __init__(self, resolver):
+        self._resolver = resolver
+
+    def __fspath__(self) -> str:
+        return str(self._resolver())
+
+    def __str__(self) -> str:
+        return str(self._resolver())
+
+    def __repr__(self) -> str:
+        return repr(self._resolver())
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, DynamicPath):
+            return str(self) == str(other)
+        return str(self) == other
+
+    def __hash__(self) -> int:
+        return hash(str(self))
+
+    def __len__(self) -> int:
+        return len(str(self))
+
+    def __getitem__(self, index):
+        return str(self)[index]
+
+    def __add__(self, other) -> str:
+        return str(self) + other
+
+    def __radd__(self, other) -> str:
+        return other + str(self)
+
+
+def get_app_data_root() -> str:
     base_env = os.environ.get("LOCALAPPDATA")
     base = Path(base_env) if base_env else Path.home()
-    
-    # New TrueHour folder
     new_path = base / "TrueHour"
-    old_path = base / "FocusLog"
-    
-    # Create new directory
     new_path.mkdir(parents=True, exist_ok=True)
-    
-    # Optional: Migrate old files on first run
-    if migrate and old_path.exists():
-        for file in old_path.glob("*"):
-            dest = new_path / file.name
-            if not dest.exists():
-                shutil.copy2(file, dest)
-    
     return str(new_path)
+
+def get_app_data_dir(migrate=False) -> str:
+    root_dir = Path(get_app_data_root())
+    
+    # Ensure legacy migration from old FocusLog app to TrueHour root
+    old_path = root_dir.parent / "FocusLog"
+    if old_path.exists() and not (root_dir / "profiles.json").exists():
+        for file in old_path.glob("*"):
+            dest = root_dir / file.name
+            if not dest.exists():
+                try:
+                    if file.is_dir():
+                        shutil.copytree(file, dest)
+                    else:
+                        shutil.copy2(file, dest)
+                except Exception:
+                    pass
+
+    profiles_file = root_dir / "profiles.json"
+    
+    # Load/Initialize profiles.json
+    profiles_data = {"active_profile": "Default", "profiles": ["Default"]}
+    if profiles_file.exists():
+        try:
+            with open(profiles_file, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                if isinstance(loaded, dict) and "active_profile" in loaded and "profiles" in loaded:
+                    profiles_data = loaded
+        except Exception:
+            pass
+    else:
+        # Create profiles.json on first run
+        try:
+            with open(profiles_file, "w", encoding="utf-8") as f:
+                json.dump(profiles_data, f, indent=4)
+        except Exception:
+            pass
+            
+    active_profile = profiles_data.get("active_profile", "Default")
+    profile_dir = root_dir / "profiles" / active_profile
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    
+    # ── Legacy Migration to 'Default' Profile ──
+    # If legacy files exist in TrueHour root, move them into TrueHour/profiles/Default on first launch
+    if active_profile == "Default":
+        legacy_files = [
+            "app_settings.json", "settings.json", "tags.json",
+            "auto_excluded_apps.txt", "truehour.db"
+        ]
+        legacy_dirs = ["sessions", "autosave", "qr_codes"]
+        
+        # Check if legacy files exist in root
+        has_legacy = any((root_dir / f).exists() for f in legacy_files + legacy_dirs)
+        if has_legacy:
+            for filename in legacy_files:
+                src = root_dir / filename
+                dst = profile_dir / filename
+                if src.exists() and not dst.exists():
+                    try:
+                        shutil.move(str(src), str(dst))
+                    except Exception:
+                        pass
+            for dirname in legacy_dirs:
+                src = root_dir / dirname
+                dst = profile_dir / dirname
+                if src.exists() and not dst.exists():
+                    try:
+                        shutil.move(str(src), str(dst))
+                    except Exception:
+                        pass
+                        
+    return str(profile_dir)
 
 def open_file(path: str) -> None:
     """Open a file or folder using the default system handler in a cross-platform manner."""

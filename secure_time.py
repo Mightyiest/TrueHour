@@ -13,7 +13,7 @@ import ssl
 import logging
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from config import get_app_data_dir
+from config import get_app_data_dir, DynamicPath
 
 # Configure logging for security events
 logger = logging.getLogger(__name__)
@@ -33,8 +33,8 @@ NTP_SOURCES = [
     "https://timeapi.io/api/time/current/zone?timeZone=UTC",
 ]
 
-SECURITY_LOG_FILE = os.path.join(get_app_data_dir(), "security_log.json")
-TIME_CHAIN_FILE = os.path.join(get_app_data_dir(), "time_chain.json")
+SECURITY_LOG_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "security_log.json"))
+TIME_CHAIN_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "time_chain.json"))
 
 
 def get_last_line(filepath):

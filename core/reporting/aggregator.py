@@ -34,7 +34,7 @@ def get_sessions_for_date(date_str: str):
             except Exception:
                 continue
 
-    # Scan autosave folder, only including autosaves of finalized sessions to keep most complete data
+    # Scan autosave folder, including autosaves of finalized sessions (to keep most complete data) and unfinalized recovery sessions
     if os.path.exists(autosave_folder):
         for filepath in glob.glob(os.path.join(autosave_folder, "*.json")):
             try:
@@ -51,11 +51,13 @@ def get_sessions_for_date(date_str: str):
                     continue
                     
                 key = (s_date, start_str)
-                if key in finalized_keys:
-                    total_secs = data.get("total_seconds", 0)
+                total_secs = data.get("total_seconds", 0)
+                if key in unique_sessions:
                     existing_total = unique_sessions[key].get("total_seconds", 0)
                     if total_secs > existing_total:
                         unique_sessions[key] = data
+                else:
+                    unique_sessions[key] = data
             except Exception:
                 continue
     return list(unique_sessions.values())
@@ -161,7 +163,7 @@ def rebuild_all_summaries(force=False):
             except Exception:
                 continue
 
-    # Scan autosave folder, only including autosaves of finalized sessions to keep most complete data
+    # Scan autosave folder, including autosaves of finalized sessions (to keep most complete data) and unfinalized recovery sessions
     if os.path.exists(autosave_folder):
         for filepath in glob.glob(os.path.join(autosave_folder, "*.json")):
             try:
@@ -174,14 +176,16 @@ def rebuild_all_summaries(force=False):
                     continue
                 
                 key = (date_str, start_str)
-                if key in finalized_keys:
-                    if date_str not in sessions_by_date:
-                        sessions_by_date[date_str] = {}
-                    
-                    total_secs = data.get("total_seconds", 0)
+                if date_str not in sessions_by_date:
+                    sessions_by_date[date_str] = {}
+                
+                total_secs = data.get("total_seconds", 0)
+                if key in sessions_by_date[date_str]:
                     existing_total = sessions_by_date[date_str][key].get("total_seconds", 0)
                     if total_secs > existing_total:
                         sessions_by_date[date_str][key] = data
+                else:
+                    sessions_by_date[date_str][key] = data
             except Exception:
                 continue
                 

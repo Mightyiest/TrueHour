@@ -90,6 +90,10 @@ def process_reports():
         finally:
             report_queue.task_done()
 
-# Start background worker thread
-worker_thread = threading.Thread(target=process_reports, daemon=True)
-worker_thread.start()
+# Start background worker thread unless running under unit test environment
+import sys
+if not any(mod in sys.modules for mod in ("pytest", "unittest", "_pytest")):
+    worker_thread = threading.Thread(target=process_reports, daemon=True)
+    worker_thread.start()
+else:
+    worker_thread = None

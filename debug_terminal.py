@@ -3,6 +3,7 @@ TrueHour — Debug Terminal Module
 Manages thread-safe stdout/stderr, active file logging, and UDP loopback streaming to a standalone debug console.
 """
 import sys
+import os
 import html
 import socket
 from collections import deque
@@ -33,9 +34,9 @@ class LogBufferCollector:
         
         # Initialize and clear the active log file
         try:
-            from config import get_app_data_dir
+            from config import get_app_data_root
             import os
-            log_file = os.path.join(get_app_data_dir(), "TrueHour_active.log")
+            log_file = os.path.join(get_app_data_root(), "TrueHour_active.log")
             if os.path.exists(log_file):
                 os.remove(log_file)
             with open(log_file, "w", encoding="utf-8") as f:
@@ -52,9 +53,9 @@ class LogBufferCollector:
             
             # Write to persistent active log file
             try:
-                from config import get_app_data_dir
+                from config import get_app_data_root
                 import os
-                log_file = os.path.join(get_app_data_dir(), "TrueHour_active.log")
+                log_file = os.path.join(get_app_data_root(), "TrueHour_active.log")
                 with open(log_file, "a", encoding="utf-8") as f:
                     f.write(text)
             except Exception:
@@ -243,9 +244,9 @@ class DebugTerminalWindow(QDialog):
 
     def load_history_from_file(self):
         try:
-            from config import get_app_data_dir
+            from config import get_app_data_root
             import os
-            log_file = os.path.join(get_app_data_dir(), "TrueHour_active.log")
+            log_file = os.path.join(get_app_data_root(), "TrueHour_active.log")
             if os.path.exists(log_file):
                 with open(log_file, "r", encoding="utf-8") as f:
                     lines = f.readlines()
@@ -350,16 +351,15 @@ class DebugTerminalWindow(QDialog):
         if self.collector:
             with self.collector.lock:
                 self.collector.buffer.clear()
-        else:
-            try:
-                from config import get_app_data_dir
-                import os
-                log_file = os.path.join(get_app_data_dir(), "TrueHour_active.log")
-                if os.path.exists(log_file):
-                    with open(log_file, "w", encoding="utf-8") as f:
-                        f.write(f"--- Log Cleared at {datetime.now()} ---\n")
-            except Exception:
-                pass
+        try:
+            from config import get_app_data_root
+            import os
+            log_file = os.path.join(get_app_data_root(), "TrueHour_active.log")
+            if os.path.exists(log_file):
+                with open(log_file, "w", encoding="utf-8") as f:
+                    f.write(f"--- Log Cleared at {datetime.now()} ---\n")
+        except Exception:
+            pass
         self.log_display.clear()
 
     def export_logs(self):
@@ -376,9 +376,9 @@ class DebugTerminalWindow(QDialog):
                         with self.collector.lock:
                             f.writelines(self.collector.buffer)
                 else:
-                    from config import get_app_data_dir
+                    from config import get_app_data_root
                     import shutil
-                    log_file = os.path.join(get_app_data_dir(), "TrueHour_active.log")
+                    log_file = os.path.join(get_app_data_root(), "TrueHour_active.log")
                     if os.path.exists(log_file):
                         shutil.copy(log_file, path)
                     else:
