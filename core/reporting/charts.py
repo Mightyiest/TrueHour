@@ -1,11 +1,22 @@
 import math
+import sys
 from PyQt6.QtGui import QImage, QPainter, QColor, QPen, QBrush, QFont, QLinearGradient, QPainterPath
-from PyQt6.QtCore import Qt, QRectF, QPointF
+from PyQt6.QtCore import Qt, QRectF, QPointF, QCoreApplication
+from PyQt6.QtWidgets import QApplication
+
+_qt_app = None
+
+def ensure_qt_app():
+    global _qt_app
+    if not QCoreApplication.instance():
+        args = sys.argv if hasattr(sys, "argv") else []
+        _qt_app = QApplication(args)
 
 def build_donut_chart(segments, output_path: str, width=400, height=400):
     """
     Renders a donut chart offscreen to the specified output_path using PyQt6 QPainter.
     """
+    ensure_qt_app()
     image = QImage(width, height, QImage.Format.Format_ARGB32)
     image.fill(QColor("#FFFFFF"))
     
@@ -77,6 +88,7 @@ def build_bar_chart(data, output_path: str, width=500, height=300):
     """
     Renders a bar chart offscreen to the specified output_path using PyQt6 QPainter.
     """
+    ensure_qt_app()
     image = QImage(width, height, QImage.Format.Format_ARGB32)
     image.fill(QColor("#FFFFFF"))
     

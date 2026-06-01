@@ -536,7 +536,7 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
             except Exception:
                 continue
 
-    # Scan autosave folder, only including autosaves of finalized sessions to keep most complete data
+    # Scan autosave folder, including autosaves of finalized sessions (to keep most complete data) and unfinalized recovery sessions
     if os.path.exists(autosave_folder):
         for filepath in glob.glob(os.path.join(autosave_folder, "*.json")):
             try:
@@ -549,11 +549,13 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
                     continue
                 
                 key = (date_str, start_str)
-                if key in finalized_keys:
-                    total_secs = data.get("total_seconds", 0)
+                total_secs = data.get("total_seconds", 0)
+                if key in unique_sessions:
                     existing_total = unique_sessions[key].get("total_seconds", 0)
                     if total_secs > existing_total:
                         unique_sessions[key] = data
+                else:
+                    unique_sessions[key] = data
             except Exception:
                 continue
                 
@@ -733,7 +735,8 @@ def merge_sessions_for_invoice(filepaths: List[str], tracker, hourly_rate: float
             secs = app.get("seconds", 0)
             
             # Use the saved session's own exclusion status to compile exactly the productive/counted work time
-            tag = tracker.get_app_tag(name)
+            active_tag = tracker.get_app_tag(name)
+            tag = active_tag if active_tag and active_tag != "Unassigned" else app.get("tag", "Unassigned")
             included = not app.get("excluded", False)
             
             if included:

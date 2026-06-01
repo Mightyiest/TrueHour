@@ -351,16 +351,15 @@ class DebugTerminalWindow(QDialog):
         if self.collector:
             with self.collector.lock:
                 self.collector.buffer.clear()
-        else:
-            try:
-                from config import get_app_data_dir
-                import os
-                log_file = os.path.join(get_app_data_dir(), "TrueHour_active.log")
-                if os.path.exists(log_file):
-                    with open(log_file, "w", encoding="utf-8") as f:
-                        f.write(f"--- Log Cleared at {datetime.now()} ---\n")
-            except Exception:
-                pass
+        try:
+            from config import get_app_data_dir
+            import os
+            log_file = os.path.join(get_app_data_dir(), "TrueHour_active.log")
+            if os.path.exists(log_file):
+                with open(log_file, "w", encoding="utf-8") as f:
+                    f.write(f"--- Log Cleared at {datetime.now()} ---\n")
+        except Exception:
+            pass
         self.log_display.clear()
 
     def export_logs(self):
