@@ -762,11 +762,19 @@ class TrueHourApp(QMainWindow):
                 self._clear_list_layout()
                 self._showing_placeholder = False
 
+            # Temporarily remove all widgets and spacers from layout to reorder them without destroying
+            for i in reversed(range(self.scroll_layout.count())):
+                item = self.scroll_layout.itemAt(i)
+                if item:
+                    if item.widget():
+                        self.scroll_layout.removeWidget(item.widget())
+                    elif item.spacerItem():
+                        self.scroll_layout.removeItem(item)
+
             active_apps = set()
-            # Build a map of expected widget order
             new_widgets = {}
             
-            # First pass: update existing widgets and track which ones to keep
+            # Single unified pass to update existing or create new widgets and add them in correct sorted order
             for app_name, secs, included in apps:
                 active_apps.add(app_name)
                 
@@ -779,50 +787,30 @@ class TrueHourApp(QMainWindow):
                     row.update_tag(tag)
                     if exe_path and not row.exe_path:
                         row.exe_path = exe_path
-                    new_widgets[app_name] = row
-                    
-                    # Synchronous robust native system icon loading
-                    if exe_path:
-                        if exe_path in self._icon_cache:
-                            if not getattr(row, '_icon_loaded', False):
-                                row.set_icon(self._icon_cache[exe_path])
-                                row._icon_loaded = True
-                        else:
-                            pixmap = get_native_icon_pixmap(exe_path, size=16)
-                            self._icon_cache[exe_path] = pixmap
-                            row.set_icon(pixmap)
-                            row._icon_loaded = True
-            
-            # Second pass: create new widgets for apps that don't have widgets yet
-            for app_name, secs, included in apps:
-                if app_name not in new_widgets:
-                    exe_path = self.tracker.get_exe_path(app_name)
-                    tag = self.tracker.get_app_tag(app_name)
-                    
+                else:
                     row = AppUsageRow(
                         app_name, secs, included, tag, exe_path,
                         on_toggle=self._toggle_include,
                         on_tag_click=self._show_tag_menu,
                         parent=self.scroll_widget
                     )
-                    
-                    # Insert in vertical list
-                    self.scroll_layout.addWidget(row)
-                    new_widgets[app_name] = row
-                    
-                    # Synchronous robust native system icon loading
-                    if exe_path:
-                        if exe_path in self._icon_cache:
-                            if not getattr(row, '_icon_loaded', False):
-                                row.set_icon(self._icon_cache[exe_path])
-                                row._icon_loaded = True
-                        else:
-                            pixmap = get_native_icon_pixmap(exe_path, size=16)
-                            self._icon_cache[exe_path] = pixmap
-                            row.set_icon(pixmap)
+                
+                self.scroll_layout.addWidget(row)
+                new_widgets[app_name] = row
+                
+                # Synchronous robust native system icon loading
+                if exe_path:
+                    if exe_path in self._icon_cache:
+                        if not getattr(row, '_icon_loaded', False):
+                            row.set_icon(self._icon_cache[exe_path])
                             row._icon_loaded = True
+                    else:
+                        pixmap = get_native_icon_pixmap(exe_path, size=16)
+                        self._icon_cache[exe_path] = pixmap
+                        row.set_icon(pixmap)
+                        row._icon_loaded = True
 
-            # Third pass: clean up removed apps
+            # Clean up removed apps
             to_remove = [name for name in self._row_widgets if name not in active_apps]
             for name in to_remove:
                 self._row_widgets[name].setParent(None)
