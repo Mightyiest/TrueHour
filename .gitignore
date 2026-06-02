@@ -46,3 +46,7 @@ build/
 tests/test_export_diagnostic.py
 *.exe
 /skill
+build_telemetry.bat
+telemetry_config.py
+
+

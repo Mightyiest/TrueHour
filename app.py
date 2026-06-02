@@ -1215,7 +1215,16 @@ class TrueHourApp(QMainWindow):
         # Fallback to embedded credentials if running as a prebuilt release (frozen bundle)
         # and no specific API key was configured locally in .env.
         is_frozen = getattr(sys, 'frozen', False)
-        if not api_key and is_frozen:
+        
+        telemetry_allowed = True
+        try:
+            # pyrefly: ignore [missing-import]
+            import telemetry_config
+            telemetry_allowed = getattr(telemetry_config, "TELEMETRY_ENABLED", True)
+        except ImportError:
+            pass
+
+        if not api_key and is_frozen and telemetry_allowed:
             api_key = "phc_nNUNKAHMsXobKfZbD7pJ9X2dM88A5895nyhbJvyWDCHV"
             host = "https://us.i.posthog.com"
             
