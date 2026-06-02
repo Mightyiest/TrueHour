@@ -1,4 +1,4 @@
-# True Hours v3.0.0
+# True Hours v3.1.0
 
 > **A lightweight, privacy-first desktop time tracker with a modern Fluent Design UI, supporting Windows & macOS.**
 
@@ -246,17 +246,16 @@ A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!
 
 ## 📅 Changelog
 
-### v3.1.0 (2026.05.31)
+### v3.1.0 (2026.06.02)
+- **Multi-Profile Settings & Database Isolation**: Added native support for creating, selecting, renaming, and deleting multiple distinct user profiles (e.g. `Mightyiest`, `Neil`) with isolated settings, app categories, and SQLite databases.
+- **Compressed `.truehour` ZIP Backups & Restores**: Implemented robust full-profile backup and import logic, zipping settings, databases, session logs, QR codes, and custom logos into a portable `.truehour` format with overwrite safety checks.
+- **Dynamic Path Resolution (`DynamicPath`)**: Introduced real-time path binding via a custom dynamic PathLike wrapper, resolving all settings, time integrity hash-chains, and custom name overrides in real-time on profile switch.
+- **Complete Windows File Lock Resolution**: Moved permanent logging streams (`truehour.log`, `TrueHour_active.log`) and single-instance locks (`truehour.lock`) to the global root AppData directory, enabling seamless runtime profile folder renaming and deletion.
 - **Compact Invoicing & 1-Page A4 Compliance**: Re-engineered invoice margins, container paddings, table cells, and row layouts to achieve a ~38% screen-height reduction, guaranteeing a single-page print budget.
 - **Side-by-Side Responsive Payment Details**: Dynamic inline flex-row wrapper wraps bank details and direct QR codes side-by-side, collapsing perfectly when settings change.
 - **Granular Security & Local Machine-Bound Encryption**: Introduced secure XOR-Base64 encryption for sensitive banking information, bound to local machine hardware signatures and local installations via SHA-256 seed hashing.
 - **Privacy-First Invoicing Toggle**: Native desktop settings checkbox toggle instantly hides/reveals bank transfer details on generated HTML layouts.
 - **Exact Color Adjustments & Enlarged High-Resolution QR Codes**: Configured print-color-adjust rules to force gradient and badge replication on saved PDF pages, and scaled QR codes to a high-contrast `140px` size for premium scanning fidelity.
-
-### v3.0.0 (2026.05.30)
-- **Asynchronous Batch Report Generation with Pre-Aggregation**: Refactored the report processing pipeline to run fully asynchronously in background worker threads, complete with optimized SQLite database pre-aggregation.
-- **Extreme Performance & Resource Optimization**: Converted the cryptographic time integrity chain to a high-performance, line-delimited JSONL format with incremental append operations and fast O(1) binary-seek loading on startup, completely eliminating disk write spikes and reducing RAM usage.
-- **Streamlined Exports**: Removed legacy CSV and JSON export options in favor of clean TXT summaries and premium interactive HTML A4 invoices/reports.
 
 ---
 

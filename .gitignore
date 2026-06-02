@@ -45,3 +45,4 @@ build/
 /tests
 tests/test_export_diagnostic.py
 *.exe
+/skill
