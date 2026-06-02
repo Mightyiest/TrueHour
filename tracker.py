@@ -992,7 +992,9 @@ class AppTracker:
             return [
                 (name, secs, self.app_included.get(name, True))
                 for name, secs in sorted(
-                    self.app_times.items(), key=lambda x: x[1], reverse=True
+                    self.app_times.items(),
+                    key=lambda x: (self.app_included.get(x[0], True), x[1]),
+                    reverse=True
                 )
                 if not _is_auto_excluded(
                     self.app_exe_paths.get(name, "")
