@@ -34,7 +34,7 @@ from report import (
     aggregate_history_data, generate_session_report_html,
 )
 from version import VERSION_SHORT, VERSION_FULL, INFO
-from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG, EDIT_SVG, SUN_SVG, MOON_SVG
+from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG, EDIT_SVG, SUN_SVG, MOON_SVG, BUG_SVG
 
 # Global Constants & Paths
 ICON_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -548,7 +548,17 @@ class TrueHourApp(QMainWindow):
         ver_lbl = QLabel(VERSION_FULL, self)
         ver_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 9px; color: #ABABAB;")
         ver_lbl.mousePressEvent = self._on_version_clicked
-        bottom_bar_layout.addWidget(ver_lbl, alignment=Qt.AlignmentFlag.AlignRight)
+        bottom_bar_layout.addWidget(ver_lbl, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+        
+        self.bug_btn = QPushButton(self)
+        self.bug_btn.setFixedSize(16, 16)
+        self.bug_btn.setIconSize(QSize(12, 12))
+        self.bug_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.bug_btn.setToolTip("Report a Bug / Feedback")
+        self.bug_btn.setStyleSheet("QPushButton { background: none; border: none; padding: 0px; }")
+        self.bug_btn.setIcon(get_svg_icon(BUG_SVG, QSize(12, 12)))
+        self.bug_btn.clicked.connect(self._show_bug_report_menu)
+        bottom_bar_layout.addWidget(self.bug_btn, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
         
         body_layout.addLayout(bottom_bar_layout)
 
@@ -1268,6 +1278,29 @@ class TrueHourApp(QMainWindow):
         new_mode = not self.dark_mode
         self.apply_theme(new_mode)
         self._save_app_settings()
+
+    def _show_bug_report_menu(self):
+        import webbrowser
+        logger.info("[Action] Opened Bug Report / Feedback Menu")
+        
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Report a Bug / Feedback")
+        msg.setText("Would you like to report a bug or share feedback?")
+        msg.setInformativeText("If you have a GitHub account, you can open an issue on our GitHub repository. Otherwise, you can submit our feedback form.")
+        
+        github_btn = msg.addButton("Open GitHub Issues", QMessageBox.ButtonRole.AcceptRole)
+        form_btn = msg.addButton("Open Feedback Form", QMessageBox.ButtonRole.AcceptRole)
+        cancel_btn = msg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+        
+        # Apply current stylesheet to the QMessageBox
+        msg.setStyleSheet(self.styleSheet())
+        
+        msg.exec()
+        
+        if msg.clickedButton() == github_btn:
+            webbrowser.open("https://github.com/Mightyiest/TrueHour/issues")
+        elif msg.clickedButton() == form_btn:
+            webbrowser.open("https://forms.gle/Kqqb32i1ZE3d3vY8A")
 
     def _show_settings(self):
         logger.info("[Action] Opened Settings")
