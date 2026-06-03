@@ -495,6 +495,7 @@ class TagManager:
         try:
             import urllib.request
             import urllib.parse
+            import ssl
             
             # Use app name or file description for better search accuracy
             search_query = app_name
@@ -507,8 +508,11 @@ class TagManager:
             url = f"https://api.duckduckgo.com/?q={urllib.parse.quote(search_query)}&format=json&no_html=1&skip_disambig=1"
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) TrueHour/1.0'})
             
-            # Query DuckDuckGo API with a clean 3.0s timeout
-            with urllib.request.urlopen(req, timeout=3.0) as response:
+            # Create SSL context with certificate verification (matches secure_time.py)
+            ssl_context = ssl.create_default_context()
+            
+            # Query DuckDuckGo API with SSL verification and 3.0s timeout
+            with urllib.request.urlopen(req, timeout=3.0, context=ssl_context) as response:
                 if response.status == 200:
                     data = json.loads(response.read().decode('utf-8'))
                     abstract = data.get("AbstractText", "") or data.get("Abstract", "")
@@ -531,6 +535,8 @@ class TagManager:
                                 self.mappings[key] = matched_tag
                                 self._save_tags()
                             logger.info(f"Online categorization succeeded for '{app_name}' -> '{matched_tag}'")
+        except ssl.SSLCertVerificationError as e:
+            logger.warning(f"SSL certificate verification failed for DuckDuckGo API: {e}")
         except Exception as e:
             logger.debug(f"Online categorization background query failed for {app_name}: {e}")
 
