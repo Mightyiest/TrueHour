@@ -1,4 +1,4 @@
-# True Hours v3.1.0
+# True Hours v3.1.1-beta.2
 
 > **A lightweight, privacy-first desktop time tracker with a modern Fluent Design UI, supporting Windows & macOS.**
 
@@ -245,6 +245,11 @@ A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!
 ---
 
 ## 📅 Changelog
+
+### v3.1.1-beta.2 (2026.06.03)
+- **App List Layout & Elision Fix**: Re-engineered the application usage rows with a custom `ElidedLabel` that automatically truncates long process titles using ellipsis (`...`), preventing layout stretching, hiding of the time and tag columns, or horizontal scrolling.
+- **Dynamic Build Naming**: Upgraded the pre-release build script to dynamically parse the version string directly from `version.py` at compile-time and name the output executable to match (e.g. `TrueHours_3.1.1-beta.2.exe`).
+- **Footer Bug Report Button**: Added a cute grayscale beetle bug button next to the version label in the footer that lets users easily choose between submitting issues via GitHub or a Google feedback form.
 
 ### v3.1.0 (2026.06.02)
 - **Multi-Profile Settings & Database Isolation**: Added native support for creating, selecting, renaming, and deleting multiple distinct user profiles (e.g. `Mightyiest`, `Neil`) with isolated settings, app categories, and SQLite databases.
