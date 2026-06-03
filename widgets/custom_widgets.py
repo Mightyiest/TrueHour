@@ -4,7 +4,7 @@ TrueHour — Custom Reusable UI Widgets & Dialog Component Leaf Nodes
 import os
 from PyQt6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QLineEdit, QCheckBox, QDialog, QLayout, QInputDialog
+    QLineEdit, QCheckBox, QDialog, QLayout, QInputDialog, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QSize, QPoint, QRect, QRectF
 from PyQt6.QtGui import QPixmap, QPainter, QBrush, QColor, QPen, QPainterPath
@@ -540,6 +540,34 @@ class SegmentedAllocationBar(QWidget):
             painter.drawRect(int(current_x), 0, int(segment_w + 1), h)
             current_x += segment_w
 
+# ── Elided Label Component ───────────────────────────────────────────
+class ElidedLabel(QLabel):
+    """A QLabel that automatically elides text that is too long to fit."""
+    def __init__(self, text="", parent=None):
+        super().__init__(text, parent)
+        self.full_text = text
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.setMinimumWidth(50)
+
+    def setText(self, text):
+        self.full_text = text
+        self._update_elided()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_elided()
+
+    def _update_elided(self):
+        fm = self.fontMetrics()
+        elided = fm.elidedText(self.full_text, Qt.TextElideMode.ElideRight, self.width())
+        super().setText(elided)
+
+    def sizeHint(self):
+        fm = self.fontMetrics()
+        width = fm.horizontalAdvance(self.full_text) + 8
+        height = super().sizeHint().height()
+        return QSize(width, height)
+
 # ── Custom List App Usage Row Widget ─────────────────────────────────
 class AppUsageRow(QFrame):
     def __init__(self, app_name, secs, included, tag, exe_path, on_toggle, on_tag_click, parent=None):
@@ -572,7 +600,7 @@ class AppUsageRow(QFrame):
         self.icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.icon_lbl)
         
-        self.name_lbl = QLabel(self.app_name, self)
+        self.name_lbl = ElidedLabel(self.app_name, self)
         self.name_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
         layout.addWidget(self.name_lbl)
         

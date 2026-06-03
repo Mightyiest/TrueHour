@@ -464,6 +464,7 @@ class TrueHourApp(QMainWindow):
         
         self.scroll_area = QScrollArea(self.list_card)
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll_widget = QWidget()
         self.scroll_widget.setObjectName("scroll_widget")
         self.scroll_layout = QVBoxLayout(self.scroll_widget)
