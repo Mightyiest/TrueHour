@@ -7,9 +7,14 @@ def get_db_path() -> str:
 
 def get_connection():
     db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=30.0)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+    except Exception:
+        pass
     conn.row_factory = sqlite3.Row
     return conn
+
 
 def init_db():
     conn = get_connection()
@@ -43,8 +48,32 @@ def init_db():
     );
     """)
     
+    # Create Schema Version Metadata Table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS schema_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    );
+    """)
+    
+    # Insert initial schema version
+    cursor.execute("INSERT OR IGNORE INTO schema_meta (key, value) VALUES ('version', '1');")
+    
     conn.commit()
     conn.close()
 
+def optimize_db():
+    """Runs vacuum and analyze/optimization pragma to clean up fragmentation and optimize query planner."""
+    conn = get_connection()
+    try:
+        conn.execute("PRAGMA optimize;")
+        conn.execute("VACUUM;")
+        conn.commit()
+    except Exception as e:
+        print(f"[TrueHour] Database optimization failed: {e}")
+    finally:
+        conn.close()
+
 # Initialize when imported
 init_db()
+

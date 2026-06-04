@@ -318,6 +318,14 @@ class TrueHourApp(QMainWindow):
         except Exception as e:
             print(f"[TrueHour] Failed to schedule summary rebuild: {e}")
 
+        # Schedule database optimization 3 seconds after startup to clean up database file
+        try:
+            from database.schema import optimize_db
+            QTimer.singleShot(3000, optimize_db)
+        except Exception as e:
+            print(f"[TrueHour] Failed to schedule database optimization: {e}")
+
+
         # ── Background update check ──────────────────────────────────
         # Runs 5 seconds after startup to avoid blocking the UI.
         from core.update_checker import UpdateCheckSignals, check_for_updates_async
