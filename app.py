@@ -111,6 +111,7 @@ from widgets.custom_widgets import (
     InvoicePrivacyOptionsDialog, SegmentedAllocationBar, AppUsageRow
 )
 from widgets.loading_dialog import LoadingDialog
+from widgets.update_label import FadingVersionLabel
 from workers.report_worker import ReportWorker
 from theme import (
     BG_WHITE, BG_SURFACE, BG_HOVER, BG_CARD, ACCENT, ACCENT_HOVER, ACCENT_LIGHT,
@@ -317,6 +318,14 @@ class TrueHourApp(QMainWindow):
         except Exception as e:
             print(f"[TrueHour] Failed to schedule summary rebuild: {e}")
 
+        # ── Background update check ──────────────────────────────────
+        # Runs 5 seconds after startup to avoid blocking the UI.
+        from core.update_checker import UpdateCheckSignals, check_for_updates_async
+        from version import __version__
+        self._update_signals = UpdateCheckSignals()
+        self._update_signals.update_found.connect(self._on_update_found)
+        QTimer.singleShot(5000, lambda: check_for_updates_async(__version__, self._update_signals))
+
     def _toggle_debug_console(self):
         import subprocess
         import sys
@@ -332,6 +341,12 @@ class TrueHourApp(QMainWindow):
     def _update_developer_ui(self):
         self.debug_btn.setVisible(self.developer_mode)
         self.test_btn.setVisible(self.developer_mode)
+
+    def _on_update_found(self, new_version: str, release_url: str):
+        """Callback from the background update checker when a newer release exists."""
+        logger.info(f"[UpdateChecker] Notifying user: {new_version}")
+        if hasattr(self, 'ver_lbl'):
+            self.ver_lbl.set_update_available(True, new_version=new_version, release_url=release_url)
 
     def _on_version_clicked(self, event):
         if event.button() != Qt.MouseButton.LeftButton:
@@ -545,10 +560,9 @@ class TrueHourApp(QMainWindow):
         
         bottom_bar_layout.addStretch()
         
-        ver_lbl = QLabel(VERSION_FULL, self)
-        ver_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 9px; color: #ABABAB;")
-        ver_lbl.mousePressEvent = self._on_version_clicked
-        bottom_bar_layout.addWidget(ver_lbl, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+        self.ver_lbl = FadingVersionLabel(VERSION_FULL, self)
+        self.ver_lbl.set_version_click_handler(self._on_version_clicked)
+        bottom_bar_layout.addWidget(self.ver_lbl, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
         
         self.bug_btn = QPushButton(self)
         self.bug_btn.setFixedSize(16, 16)
@@ -1271,6 +1285,10 @@ class TrueHourApp(QMainWindow):
             else:
                 self.clock_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 36px; font-weight: bold; color: #0F172A;")
                 
+        # Update version/update label theme
+        if hasattr(self, 'ver_lbl'):
+            self.ver_lbl.update_theme(is_dark)
+
         # Trigger dynamic QSS style changes on custom list row widgets
         self._refresh_app_list()
 
