@@ -665,6 +665,97 @@
         .footer-bottom a:hover {
             color: var(--text-primary);
         }
+        /* FAQ Section Styles */
+        .faq-section {
+            padding: 70px 6%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .faq-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .faq-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .faq-card:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.02);
+        }
+
+        .faq-card details {
+            width: 100%;
+        }
+
+        .faq-card summary {
+            padding: 20px 24px;
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            outline: none;
+            user-select: none;
+        }
+
+        .faq-card summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .faq-card summary::after {
+            content: '+';
+            font-size: 20px;
+            font-weight: 400;
+            color: var(--text-muted);
+            transition: transform 0.2s ease;
+        }
+
+        .faq-card details[open] summary::after {
+            content: '−';
+        }
+
+        .faq-content {
+            padding: 0 24px 20px 24px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            border-top: 1px solid transparent;
+        }
+
+        .faq-card details[open] .faq-content {
+            border-top-color: var(--border);
+        }
+
+        .faq-content ul {
+            margin-left: 20px;
+            margin-top: 8px;
+        }
+
+        .faq-content li {
+            margin-bottom: 6px;
+        }
+
+        .faq-content code {
+            font-family: monospace;
+            background: var(--bg-secondary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
 
         @media (max-width: 968px) {
             .hero-title {
@@ -736,6 +827,7 @@
             <a href="#features">Features</a>
             <a href="#security">Security</a>
             <a href="#setup" onclick="switchTab('setup')">Setup</a>
+            <a href="#faq">FAQ</a>
             <a href="#license">License</a>
             <a href="https://github.com/Mightyiest/TrueHour" class="btn btn-secondary" target="_blank" rel="noopener">GitHub</a>
         </nav>
@@ -947,16 +1039,16 @@
                             <button class="copy-btn" id="btnCopyApi" onclick="copyCode('apiCode')">Copy API Code</button>
                         </div>
                         <pre class="code-block" id="apiCode">from secure_time import get_detector, reset_detector
-
+ 
 # Start tracking verification session
 reset_detector()
 detector = get_detector()
 detector.start_session()
-
+ 
 # Log active application switch event
 result = detector.validate_and_record("VS Code", 120.0)
 print(result["integrity_status"])  # Outputs: VALID, SUSPICIOUS, or TAMPER_DETECTED
-
+ 
 # Generate final session cryptographic report
 report = detector.end_session()
 print(f"Session Integrity Level: {detector.get_trust_level()}")
@@ -983,10 +1075,10 @@ print(f"Chain Intact: {detector.verify_chain_integrity()}")</pre>
                                 <pre class="code-block" id="installCode1"># Clone repository and access directory
 git clone https://github.com/yourusername/TrueHour.git
 cd TrueHour
-
+ 
 # Install application requirements
 pip install PyQt6 pywin32 psutil Pillow
-
+ 
 # Launch tracker script
 run.bat</pre>
                             </div>
@@ -1000,10 +1092,10 @@ run.bat</pre>
                                 <pre class="code-block" id="installCodeMac"># Clone repository and access directory
 git clone https://github.com/yourusername/TrueHour.git
 cd TrueHour
-
+ 
 # Install macOS requirements
 pip install PyQt6 pyobjc-framework-AppKit psutil Pillow
-
+ 
 # Grant executable permission and run shell launcher
 chmod +x run.sh
 ./run.sh</pre>
@@ -1027,10 +1119,10 @@ chmod +x run.sh
                                 </div>
                                 <pre class="code-block" id="installCode2"># Install compilation tools
 pip install pyinstaller
-
+ 
 # Run automated assembly script
 build.bat
-
+ 
 # Resulting binary is generated in root:
 # .\TrueHour.exe</pre>
                             </div>
@@ -1043,16 +1135,75 @@ build.bat
                                 </div>
                                 <pre class="code-block" id="installCodeBuildMac"># Install compilation tools
 pip install pyinstaller
-
+ 
 # Grant executable permission and run build script
 chmod +x build.sh
 ./build.sh
-
+ 
 # Standalone double-clickable app bundle is generated in root:
 # ./TrueHour.app</pre>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="section-connector"></div>
+
+        <!-- FAQ Section -->
+        <section id="faq" class="faq-section">
+            <div class="section-header">
+                <span class="section-subtitle">FAQ</span>
+                <h2 class="section-title">Common Questions & Security Details</h2>
+            </div>
+            <div class="faq-grid">
+                <div class="faq-card">
+                    <details>
+                        <summary>Is my data kept private and stored locally?</summary>
+                        <div class="faq-content">
+                            Yes. TrueHour operates under a strict offline-first methodology:
+                            <ul>
+                                <li><strong>100% Local Storage:</strong> All session records and tracked timelines are saved locally inside your user profile directory (<code>%APPDATA%/TrueHour/sessions/*.json</code>).</li>
+                                <li><strong>Self-Contained Files:</strong> Logos, QR codes, and settings are preserved in local directories on-disk.</li>
+                                <li><strong>No Cloud Uplink:</strong> We do not upload your tracking data, activities, or invoices to any database. Any telemetry is restricted to anonymous, diagnostic usage events and can be disabled completely at build time.</li>
+                            </ul>
+                        </div>
+                    </details>
+                </div>
+                <div class="faq-card">
+                    <details>
+                        <summary>How does the billing and bank details security work?</summary>
+                        <div class="faq-content">
+                            We implement a multi-layered local security strategy to safeguard sensitive details:
+                            <ul>
+                                <li><strong>At-Rest Encryption:</strong> Your bank holder, routing numbers, account numbers, and SWIFT codes are encrypted before being written to disk in <code>settings.json</code>.</li>
+                                <li><strong>Machine-Bound Key:</strong> Encryption keys are dynamically derived from a combination of your local user ID and hardware environment variables (like <code>COMPUTERNAME</code>). This SHA-256 key binding makes the configuration file unreadable if transferred to a different computer.</li>
+                                <li><strong>Local Cipher:</strong> Uses XOR base64-encoded ciphers locally, guaranteeing that no plaintext banking data is left readable in standard text editors.</li>
+                            </ul>
+                        </div>
+                    </details>
+                </div>
+                <div class="faq-card">
+                    <details>
+                        <summary>Can I mask sensitive contact details on generated invoices?</summary>
+                        <div class="faq-content">
+                            Yes, TrueHour supports built-in configurable privacy masking filters:
+                            <ul>
+                                <li><strong>Email Masking:</strong> Replaces local parts beyond 2 characters and domains with asterisks (e.g., <code>neil@gmail.com</code> becomes <code>ne**@*****.com</code>).</li>
+                                <li><strong>Phone Masking:</strong> Hides the last 7 digits of your business contact numbers while retaining international code formats (e.g., <code>+1 (555) 123-4567</code> becomes <code>+1 (555) ***-****</code>).</li>
+                                <li><strong>Granular Control:</strong> Masking options can be activated globally in Settings or toggled on/off individually for specific exports using the invoice generation wizard.</li>
+                            </ul>
+                        </div>
+                    </details>
+                </div>
+                <div class="faq-card">
+                    <details>
+                        <summary>What is Monotonic Time Verification?</summary>
+                        <div class="faq-content">
+                            Monotonic Time verification protects timesheets from deliberate manipulation. Unlike the system time-of-day clock, which can be modified backward or forward in system settings, a monotonic clock represents absolute CPU ticks forward since system boot. TrueHour validates that every recorded timeline segment aligns with monotonic progression, instantly spotting discrepancies if a user tries to alter their PC clock to falsify work hours.
+                        </div>
+                    </details>
                 </div>
             </div>
         </section>
@@ -1112,6 +1263,7 @@ chmod +x build.sh
                             <li><a href="#features">Features</a></li>
                             <li><a href="#security">Security</a></li>
                             <li><a href="#setup" onclick="switchTab('setup')">Setup Guides</a></li>
+                            <li><a href="#faq">FAQ</a></li>
                         </ul>
                     </div>
                     <div class="footer-col">

@@ -34,7 +34,7 @@ from report import (
     aggregate_history_data, generate_session_report_html,
 )
 from version import VERSION_SHORT, VERSION_FULL, INFO
-from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG, EDIT_SVG, SUN_SVG, MOON_SVG
+from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG, EDIT_SVG, SUN_SVG, MOON_SVG, BUG_SVG
 
 # Global Constants & Paths
 ICON_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -111,6 +111,7 @@ from widgets.custom_widgets import (
     InvoicePrivacyOptionsDialog, SegmentedAllocationBar, AppUsageRow
 )
 from widgets.loading_dialog import LoadingDialog
+from widgets.update_label import FadingVersionLabel
 from workers.report_worker import ReportWorker
 from theme import (
     BG_WHITE, BG_SURFACE, BG_HOVER, BG_CARD, ACCENT, ACCENT_HOVER, ACCENT_LIGHT,
@@ -317,6 +318,14 @@ class TrueHourApp(QMainWindow):
         except Exception as e:
             print(f"[TrueHour] Failed to schedule summary rebuild: {e}")
 
+        # ── Background update check ──────────────────────────────────
+        # Runs 5 seconds after startup to avoid blocking the UI.
+        from core.update_checker import UpdateCheckSignals, check_for_updates_async
+        from version import __version__
+        self._update_signals = UpdateCheckSignals()
+        self._update_signals.update_found.connect(self._on_update_found)
+        QTimer.singleShot(5000, lambda: check_for_updates_async(__version__, self._update_signals))
+
     def _toggle_debug_console(self):
         import subprocess
         import sys
@@ -332,6 +341,12 @@ class TrueHourApp(QMainWindow):
     def _update_developer_ui(self):
         self.debug_btn.setVisible(self.developer_mode)
         self.test_btn.setVisible(self.developer_mode)
+
+    def _on_update_found(self, new_version: str, release_url: str):
+        """Callback from the background update checker when a newer release exists."""
+        logger.info(f"[UpdateChecker] Notifying user: {new_version}")
+        if hasattr(self, 'ver_lbl'):
+            self.ver_lbl.set_update_available(True, new_version=new_version, release_url=release_url)
 
     def _on_version_clicked(self, event):
         if event.button() != Qt.MouseButton.LeftButton:
@@ -464,6 +479,7 @@ class TrueHourApp(QMainWindow):
         
         self.scroll_area = QScrollArea(self.list_card)
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll_widget = QWidget()
         self.scroll_widget.setObjectName("scroll_widget")
         self.scroll_layout = QVBoxLayout(self.scroll_widget)
@@ -544,10 +560,19 @@ class TrueHourApp(QMainWindow):
         
         bottom_bar_layout.addStretch()
         
-        ver_lbl = QLabel(VERSION_FULL, self)
-        ver_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 9px; color: #ABABAB;")
-        ver_lbl.mousePressEvent = self._on_version_clicked
-        bottom_bar_layout.addWidget(ver_lbl, alignment=Qt.AlignmentFlag.AlignRight)
+        self.ver_lbl = FadingVersionLabel(VERSION_FULL, self)
+        self.ver_lbl.set_version_click_handler(self._on_version_clicked)
+        bottom_bar_layout.addWidget(self.ver_lbl, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+        
+        self.bug_btn = QPushButton(self)
+        self.bug_btn.setFixedSize(16, 16)
+        self.bug_btn.setIconSize(QSize(12, 12))
+        self.bug_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.bug_btn.setToolTip("Report a Bug / Feedback")
+        self.bug_btn.setStyleSheet("QPushButton { background: none; border: none; padding: 0px; }")
+        self.bug_btn.setIcon(get_svg_icon(BUG_SVG, QSize(12, 12)))
+        self.bug_btn.clicked.connect(self._show_bug_report_menu)
+        bottom_bar_layout.addWidget(self.bug_btn, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
         
         body_layout.addLayout(bottom_bar_layout)
 
@@ -762,11 +787,19 @@ class TrueHourApp(QMainWindow):
                 self._clear_list_layout()
                 self._showing_placeholder = False
 
+            # Temporarily remove all widgets and spacers from layout to reorder them without destroying
+            for i in reversed(range(self.scroll_layout.count())):
+                item = self.scroll_layout.itemAt(i)
+                if item:
+                    if item.widget():
+                        self.scroll_layout.removeWidget(item.widget())
+                    elif item.spacerItem():
+                        self.scroll_layout.removeItem(item)
+
             active_apps = set()
-            # Build a map of expected widget order
             new_widgets = {}
             
-            # First pass: update existing widgets and track which ones to keep
+            # Single unified pass to update existing or create new widgets and add them in correct sorted order
             for app_name, secs, included in apps:
                 active_apps.add(app_name)
                 
@@ -779,50 +812,30 @@ class TrueHourApp(QMainWindow):
                     row.update_tag(tag)
                     if exe_path and not row.exe_path:
                         row.exe_path = exe_path
-                    new_widgets[app_name] = row
-                    
-                    # Synchronous robust native system icon loading
-                    if exe_path:
-                        if exe_path in self._icon_cache:
-                            if not getattr(row, '_icon_loaded', False):
-                                row.set_icon(self._icon_cache[exe_path])
-                                row._icon_loaded = True
-                        else:
-                            pixmap = get_native_icon_pixmap(exe_path, size=16)
-                            self._icon_cache[exe_path] = pixmap
-                            row.set_icon(pixmap)
-                            row._icon_loaded = True
-            
-            # Second pass: create new widgets for apps that don't have widgets yet
-            for app_name, secs, included in apps:
-                if app_name not in new_widgets:
-                    exe_path = self.tracker.get_exe_path(app_name)
-                    tag = self.tracker.get_app_tag(app_name)
-                    
+                else:
                     row = AppUsageRow(
                         app_name, secs, included, tag, exe_path,
                         on_toggle=self._toggle_include,
                         on_tag_click=self._show_tag_menu,
                         parent=self.scroll_widget
                     )
-                    
-                    # Insert in vertical list
-                    self.scroll_layout.addWidget(row)
-                    new_widgets[app_name] = row
-                    
-                    # Synchronous robust native system icon loading
-                    if exe_path:
-                        if exe_path in self._icon_cache:
-                            if not getattr(row, '_icon_loaded', False):
-                                row.set_icon(self._icon_cache[exe_path])
-                                row._icon_loaded = True
-                        else:
-                            pixmap = get_native_icon_pixmap(exe_path, size=16)
-                            self._icon_cache[exe_path] = pixmap
-                            row.set_icon(pixmap)
+                
+                self.scroll_layout.addWidget(row)
+                new_widgets[app_name] = row
+                
+                # Synchronous robust native system icon loading
+                if exe_path:
+                    if exe_path in self._icon_cache:
+                        if not getattr(row, '_icon_loaded', False):
+                            row.set_icon(self._icon_cache[exe_path])
                             row._icon_loaded = True
+                    else:
+                        pixmap = get_native_icon_pixmap(exe_path, size=16)
+                        self._icon_cache[exe_path] = pixmap
+                        row.set_icon(pixmap)
+                        row._icon_loaded = True
 
-            # Third pass: clean up removed apps
+            # Clean up removed apps
             to_remove = [name for name in self._row_widgets if name not in active_apps]
             for name in to_remove:
                 self._row_widgets[name].setParent(None)
@@ -1215,7 +1228,16 @@ class TrueHourApp(QMainWindow):
         # Fallback to embedded credentials if running as a prebuilt release (frozen bundle)
         # and no specific API key was configured locally in .env.
         is_frozen = getattr(sys, 'frozen', False)
-        if not api_key and is_frozen:
+        
+        telemetry_allowed = True
+        try:
+            # pyrefly: ignore [missing-import]
+            import telemetry_config
+            telemetry_allowed = getattr(telemetry_config, "TELEMETRY_ENABLED", True)
+        except ImportError:
+            pass
+
+        if not api_key and is_frozen and telemetry_allowed:
             api_key = "phc_nNUNKAHMsXobKfZbD7pJ9X2dM88A5895nyhbJvyWDCHV"
             host = "https://us.i.posthog.com"
             
@@ -1263,6 +1285,10 @@ class TrueHourApp(QMainWindow):
             else:
                 self.clock_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 36px; font-weight: bold; color: #0F172A;")
                 
+        # Update version/update label theme
+        if hasattr(self, 'ver_lbl'):
+            self.ver_lbl.update_theme(is_dark)
+
         # Trigger dynamic QSS style changes on custom list row widgets
         self._refresh_app_list()
 
@@ -1270,6 +1296,29 @@ class TrueHourApp(QMainWindow):
         new_mode = not self.dark_mode
         self.apply_theme(new_mode)
         self._save_app_settings()
+
+    def _show_bug_report_menu(self):
+        import webbrowser
+        logger.info("[Action] Opened Bug Report / Feedback Menu")
+        
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Report a Bug / Feedback")
+        msg.setText("Would you like to report a bug or share feedback?")
+        msg.setInformativeText("If you have a GitHub account, you can open an issue on our GitHub repository. Otherwise, you can submit our feedback form.")
+        
+        github_btn = msg.addButton("Open GitHub Issues", QMessageBox.ButtonRole.AcceptRole)
+        form_btn = msg.addButton("Open Feedback Form", QMessageBox.ButtonRole.AcceptRole)
+        cancel_btn = msg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+        
+        # Apply current stylesheet to the QMessageBox
+        msg.setStyleSheet(self.styleSheet())
+        
+        msg.exec()
+        
+        if msg.clickedButton() == github_btn:
+            webbrowser.open("https://github.com/Mightyiest/TrueHour/issues")
+        elif msg.clickedButton() == form_btn:
+            webbrowser.open("https://forms.gle/Kqqb32i1ZE3d3vY8A")
 
     def _show_settings(self):
         logger.info("[Action] Opened Settings")
