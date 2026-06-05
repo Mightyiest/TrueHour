@@ -875,22 +875,23 @@ def generate_invoice_html(billing_data, settings_data) -> str:
 
     # Header Logo Setup
     logo_html = ""
-    if logo_data_uri:
-        logo_html = f'<img src="{logo_data_uri}" class="invoice-logo" />'
-    else:
-        # High-fidelity dynamic SVG placeholder logo that dynamically shifts with CSS theme variables!
-        logo_html = """<svg class="invoice-logo" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom: 12px; display: block;">
-  <rect width="40" height="40" rx="10" fill="url(#logo-grad)"/>
-  <path d="M20 11V29" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M13 18L20 11L27 18" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M10 29H30" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <defs>
-    <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-      <stop stop-color="var(--accent-gradient-start, #6366F1)"/>
-      <stop offset="1" stop-color="var(--accent-gradient-end, #4F46E5)"/>
-    </linearGradient>
-  </defs>
-</svg>"""
+    if settings_data.get("enable_business_logo", True):
+        if logo_data_uri:
+            logo_html = f'<img src="{logo_data_uri}" class="invoice-logo" />'
+        else:
+            # High-fidelity dynamic SVG placeholder logo that dynamically shifts with CSS theme variables!
+            logo_html = """<svg class="invoice-logo" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom: 12px; display: block;">
+      <rect width="40" height="40" rx="10" fill="url(#logo-grad)"/>
+      <path d="M20 11V29" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M13 18L20 11L27 18" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M10 29H30" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <defs>
+        <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+          <stop stop-color="var(--accent-gradient-start, #6366F1)"/>
+          <stop offset="1" stop-color="var(--accent-gradient-end, #4F46E5)"/>
+        </linearGradient>
+      </defs>
+    </svg>"""
 
     # Calculation Metrics
     hours_counted = billing_data["counted_seconds"] / 3600.0
@@ -1021,42 +1022,63 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-body: #F8FAFC;
-            --bg-card: #FFFFFF;
-            --border: #E2E8F0;
-            --text-main: #0F172A;
-            --text-muted: #64748B;
-            --text-light: #94A3B8;
-            --card-shadow: 0 8px 24px -10px rgba(15, 23, 42, 0.04);
-            --hover-shadow: 0 16px 32px -12px rgba(15, 23, 42, 0.06);
+            /* Common Design Variables (Light Theme) */
+            --bg-body: #f6f6f6;
+            --bg-card: #ffffff;
+            --border: #e8e8e8;
+            --text-main: #1a1a1a;
+            --text-muted: #555555;
+            --text-light: #717171;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
             
-            --accent: #4F46E5;
-            --accent-hover: #4338CA;
-            --accent-gradient-start: #6366F1;
-            --accent-gradient-end: #4F46E5;
+            --accent: #1e3050;
+            --accent-hover: #0f1d35;
+            --accent-gradient-start: #1e3050;
+            --accent-gradient-end: #1e3050;
             --success: #10B981;
         }
 
-        body.theme-indigo {
-            --accent: #4F46E5;
-            --accent-hover: #4338CA;
-            --accent-gradient-start: #6366F1;
-            --accent-gradient-end: #4F46E5;
-            --success: #10B981;
+        body.dark {
+            --bg-body: #141414;
+            --bg-card: #1e1e1e;
+            --border: #333333;
+            --text-main: #e0e0e0;
+            --text-muted: #aaa;
+            --text-light: #888;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            
+            --accent: #6b8bb5;
+            --accent-hover: #7ca1cf;
+            --accent-gradient-start: #6b8bb5;
+            --accent-gradient-end: #6b8bb5;
+            --success: #a8c5b8;
         }
-        body.theme-teal {
-            --accent: #0D9488;
-            --accent-hover: #0F766E;
-            --accent-gradient-start: #14B8A6;
-            --accent-gradient-end: #0D9488;
-            --success: #10B981;
+
+        body.dark .print-actions-bar {
+            background: rgba(30, 30, 30, 0.75);
+            border-color: rgba(51, 51, 51, 0.8);
         }
-        body.theme-slate {
-            --accent: #334155;
-            --accent-hover: #1E293B;
-            --accent-gradient-start: #475569;
-            --accent-gradient-end: #334155;
-            --success: #059669;
+
+        .theme-toggle-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+        .theme-toggle-btn:hover {
+            background-color: var(--bg-body);
+            border-color: var(--accent);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1397,7 +1419,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
             display: flex; 
             flex-direction: column; 
             align-items: center; 
-            background: #FFFFFF; 
+            background: var(--bg-card); 
             border: 1px solid var(--border); 
             border-radius: 8px; 
             padding: 6px; 
@@ -1472,9 +1494,10 @@ def generate_invoice_html(billing_data, settings_data) -> str:
 
         @media print { 
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            body { background-color: white; padding: 8mm 12mm; margin: 0; font-size: 11px; } 
+            body { background-color: #ffffff; color: #1a1a1a; padding: 8mm 12mm; margin: 0; font-size: 11px; } 
+            body.dark { background-color: var(--bg-card); color: var(--text-main); }
             .print-actions-bar { display: none; } 
-            .invoice-container { border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; } 
+            .invoice-container { background-color: transparent !important; border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; } 
             .invoice-header-row { padding-bottom: 14px; margin-bottom: 14px; }
             .invoice-badge { font-size: 20px; margin-bottom: 4px; }
             .invoice-logo { max-height: 40px; margin-bottom: 4px; }
@@ -1493,7 +1516,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
         }
     </style>
 </head>
-<body class="theme-indigo">
+<body>
     <div class="print-actions-bar">
         <div class="action-left-info">
             <div class="status-pill">
@@ -1503,11 +1526,24 @@ def generate_invoice_html(billing_data, settings_data) -> str:
                 </svg>
                 <span>Invoice Generated</span>
             </div>
-            <div class="theme-selector">
-                <button class="theme-pill-btn active" data-theme="indigo" onclick="switchTheme('indigo')" title="Indigo Violet Theme"></button>
-                <button class="theme-pill-btn" data-theme="teal" onclick="switchTheme('teal')" title="Emerald Teal Theme"></button>
-                <button class="theme-pill-btn" data-theme="slate" onclick="switchTheme('slate')" title="Slate Charcoal Theme"></button>
-            </div>
+            <!-- Light/Dark Mode Switcher -->
+            <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
+                <svg id="theme-icon-dark" class="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+                <svg id="theme-icon-light" class="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <span id="theme-text">Dark Mode</span>
+            </button>
         </div>
         
         <button class="print-btn" onclick="window.print()">
@@ -1595,21 +1631,43 @@ def generate_invoice_html(billing_data, settings_data) -> str:
         </div>
     </div>
 
+    <!-- Interactive Theme Changer Scripts -->
     <script>
-        function switchTheme(themeName) {
-            document.body.className = 'theme-' + themeName;
-            document.querySelectorAll('.theme-pill-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.getAttribute('data-theme') === themeName);
-            });
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('dark');
+            const themeText = document.getElementById('theme-text');
+            const iconLight = document.getElementById('theme-icon-light');
+            const iconDark = document.getElementById('theme-icon-dark');
+            
+            if (isDark) {
+                themeText.textContent = 'Light Mode';
+                iconLight.style.display = 'none';
+                iconDark.style.display = 'inline-block';
+            } else {
+                themeText.textContent = 'Dark Mode';
+                iconLight.style.display = 'inline-block';
+                iconDark.style.display = 'none';
+            }
             try {
-                localStorage.setItem('truehour-theme', themeName);
+                localStorage.setItem('truehour-theme', isDark ? 'dark' : 'light');
             } catch(e) {}
         }
         
+        // Auto-load theme preference
         window.addEventListener('DOMContentLoaded', () => {
             try {
-                const savedTheme = localStorage.getItem('truehour-theme') || 'indigo';
-                switchTheme(savedTheme);
+                const savedTheme = localStorage.getItem('truehour-theme') || (document.body.classList.contains('dark') ? 'dark' : 'light');
+                if (savedTheme === 'dark') {
+                    document.body.classList.add('dark');
+                    document.getElementById('theme-text').textContent = 'Light Mode';
+                    document.getElementById('theme-icon-light').style.display = 'none';
+                    document.getElementById('theme-icon-dark').style.display = 'inline-block';
+                } else {
+                    document.body.classList.remove('dark');
+                    document.getElementById('theme-text').textContent = 'Dark Mode';
+                    document.getElementById('theme-icon-light').style.display = 'inline-block';
+                    document.getElementById('theme-icon-dark').style.display = 'none';
+                }
             } catch(e) {}
         });
     </script>
@@ -1620,6 +1678,8 @@ def generate_invoice_html(billing_data, settings_data) -> str:
 
     # Replace all placeholders in HTML template
     html = template_html
+    if settings_data.get("dark_mode", False):
+        html = html.replace("<body>", '<body class="dark">')
     html = html.replace("{{LOGO_HTML}}", logo_html)
     html = html.replace("{{BUSINESS_NAME}}", _esc(settings_data.get("business_name", "TrueHour Invoice")))
     html = html.replace("{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", "")))

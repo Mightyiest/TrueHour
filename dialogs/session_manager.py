@@ -62,12 +62,12 @@ class SessionManagerDialog(QDialog):
         self.tab_widget.setObjectName("SessionTabs")
 
         is_dark = self.settings.get("dark_mode", False)
-        bg_widget = "#161D30" if is_dark else "#FFFFFF"
-        border_color = "#24304F" if is_dark else "#CBD5E1"
-        text_sec = "#9CA3AF" if is_dark else "#475569"
-        bg_hover = "#1F2937" if is_dark else "#F1F5F9"
-        accent = "#38BDF8" if is_dark else "#0078D4"
-        accent_hover = "#0EA5E9" if is_dark else "#106EBE"
+        bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
+        border_color = "#333333" if is_dark else "#CBD5E1"
+        text_sec = "#aaa" if is_dark else "#475569"
+        bg_hover = "#262626" if is_dark else "#F1F5F9"
+        accent = "#6b8bb5" if is_dark else "#0078D4"
+        accent_hover = "#7ca1cf" if is_dark else "#106EBE"
 
         self.edit_btn = QPushButton("Edit", self)
         self.edit_btn.setCheckable(True)
@@ -211,11 +211,11 @@ class SessionManagerDialog(QDialog):
             rel_time = self._get_relative_time(mtime)
             
             is_dark = self.settings.get("dark_mode", False)
-            bg_widget = "#161D30" if is_dark else "#FFFFFF"
-            border_color = "#24304F" if is_dark else "#F3F3F3"
-            bg_hover = "#1F2937" if is_dark else "#E9E9E9"
-            text_primary = "#F3F4F6" if is_dark else "#1A1A1A"
-            text_sec = "#9CA3AF" if is_dark else "#616161"
+            bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
+            border_color = "#333333" if is_dark else "#F3F3F3"
+            bg_hover = "#262626" if is_dark else "#E9E9E9"
+            text_primary = "#e0e0e0" if is_dark else "#1A1A1A"
+            text_sec = "#aaa" if is_dark else "#616161"
 
             row_frame = QFrame()
             row_frame.setStyleSheet(f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_color}; }} QFrame:hover {{ background-color: {bg_hover}; }}")
@@ -256,8 +256,8 @@ class SessionManagerDialog(QDialog):
             
             is_dark = self.settings.get("dark_mode", False)
             if is_dark:
-                tag_bg = "#0C2340" if i == 0 else "#1E293B"
-                tag_fg = "#38BDF8" if i == 0 else "#9CA3AF"
+                tag_bg = "#262626" if i == 0 else "#262626"
+                tag_fg = "#6b8bb5" if i == 0 else "#aaa"
             else:
                 tag_bg = "#E1F5FE" if i == 0 else "#F1F5F9"
                 tag_fg = "#0078D4" if i == 0 else "#475569"
@@ -380,18 +380,18 @@ class SessionManagerDialog(QDialog):
 
             is_dark = self.settings.get("dark_mode", False)
             if is_dark:
-                green_bg = "#064E3B"
-                green_border = "#047857"
-                green_hover = "#059669"
+                green_bg = "#4a6760"
+                green_border = "#5b7d75"
+                green_hover = "#5b7d75"
                 
-                red_bg = "#7F1D1D"
-                red_border = "#B91C1C"
-                red_hover = "#DC2626"
+                red_bg = "#8a4a3d"
+                red_border = "#a1594b"
+                red_hover = "#a1594b"
                 
-                normal_bg = "#161D30"
-                normal_border = "#24304F"
-                normal_hover = "#1F2937"
-                normal_border_hover = "#38BDF8"
+                normal_bg = "#1e1e1e"
+                normal_border = "#333333"
+                normal_hover = "#262626"
+                normal_border_hover = "#6b8bb5"
             else:
                 green_bg = "#F0FDF4"
                 green_border = "#DCFCE7"
@@ -459,8 +459,8 @@ class SessionManagerDialog(QDialog):
                 restore_btn.setVisible(is_edit_active)
                 delete_btn.setVisible(is_edit_active)
             else:
-                ren_icon = get_svg_icon(RENAME_SVG, QSize(16, 16), "#0078D4" if not is_dark else "#38BDF8")
-                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), "#FF0000" if not is_dark else "#FCA5A5")
+                ren_icon = get_svg_icon(RENAME_SVG, QSize(16, 16), "#0078D4" if not is_dark else "#6b8bb5")
+                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), "#FF0000" if not is_dark else "#c27a6e")
 
                 res_btn = QPushButton("▶ Resume", row_frame)
                 res_btn.setObjectName("AccentButton")
@@ -587,6 +587,7 @@ class SessionManagerDialog(QDialog):
                 "client_emails": self.settings.get("client_emails", []),
                 "client_address": self.settings.get("client_address", ""),
                 "business_logo_path": self.settings.get("business_logo_path", ""),
+                "enable_business_logo": self.settings.get("enable_business_logo", True),
                 "hourly_rate": self.settings.get("hourly_rate", 0.0),
                 "currency_symbol": self.settings.get("currency_symbol", "$"),
                 "qr_code_paths": self.settings.get("qr_code_paths", []),
@@ -595,6 +596,7 @@ class SessionManagerDialog(QDialog):
                 "mask_business_emails": mask_biz_email,
                 "mask_business_phone": mask_biz_phone,
                 "mask_client_emails": mask_client_email,
+                "dark_mode": self.settings.get("dark_mode", False),
             }
             
             html_content = generate_invoice_html(billing_data, settings_data)

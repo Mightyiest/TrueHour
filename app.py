@@ -217,11 +217,11 @@ class HeaderBar(QFrame):
         self.update_theme(is_dark=False)
 
     def update_theme(self, is_dark):
-        accent_color = "#38BDF8" if is_dark else "#0078D4"
-        neutral_color = "#9CA3AF" if is_dark else "#475569"
+        accent_color = "#6b8bb5" if is_dark else "#0078D4"
+        neutral_color = "#aaa" if is_dark else "#475569"
         
         if is_dark:
-            self.theme_btn.setIcon(get_svg_icon(SUN_SVG, QSize(16, 16), color_hex="#38BDF8"))
+            self.theme_btn.setIcon(get_svg_icon(SUN_SVG, QSize(16, 16), color_hex="#6b8bb5"))
             self.theme_btn.setToolTip("Switch to Light Mode")
         else:
             self.theme_btn.setIcon(get_svg_icon(MOON_SVG, QSize(16, 16), color_hex="#475569"))
@@ -946,6 +946,7 @@ class TrueHourApp(QMainWindow):
             "client_emails": self.client_emails,
             "client_address": self.client_address,
             "business_logo_path": self.business_logo_path,
+            "enable_business_logo": self.enable_business_logo,
             "qr_code_paths": self.qr_code_paths,
             "qr_code_links": self.qr_code_links,
             "mask_business_emails": self.mask_business_emails,
@@ -1085,6 +1086,7 @@ class TrueHourApp(QMainWindow):
         self.client_emails = []     # NEW: list of client contact emails
         self.client_address = ""
         self.business_logo_path = ""
+        self.enable_business_logo = True
         self.qr_code_paths = []     # NEW: list of payment QR code filenames
         self.qr_code_links = {}     # NEW: mapping of QR code filenames to hyperlink URLs
         self.mask_business_emails = False
@@ -1138,6 +1140,7 @@ class TrueHourApp(QMainWindow):
                     self.client_name = data.get("client_name", "")
                     self.client_address = data.get("client_address", "")
                     self.business_logo_path = data.get("business_logo_path", "")
+                    self.enable_business_logo = data.get("enable_business_logo", True)
                     
                     # Multi-email lists with backward compat migration
                     self.business_emails = data.get("business_emails", [])
@@ -1207,6 +1210,7 @@ class TrueHourApp(QMainWindow):
                 "client_emails": self.client_emails,
                 "client_address": self.client_address,
                 "business_logo_path": self.business_logo_path,
+                "enable_business_logo": self.enable_business_logo,
                 "qr_code_paths": self.qr_code_paths,
                 "qr_code_links": self.qr_code_links,
                 "mask_business_emails": self.mask_business_emails,
@@ -1355,6 +1359,7 @@ class TrueHourApp(QMainWindow):
             "client_emails": self.client_emails,
             "client_address": self.client_address,
             "business_logo_path": self.business_logo_path,
+            "enable_business_logo": self.enable_business_logo,
             "qr_code_paths": self.qr_code_paths,
             "qr_code_links": self.qr_code_links,
             "mask_business_emails": self.mask_business_emails,
@@ -1414,6 +1419,7 @@ class TrueHourApp(QMainWindow):
             self.client_emails = new_settings["client_emails"]
             self.client_address = new_settings["client_address"]
             self.business_logo_path = new_settings["business_logo_path"]
+            self.enable_business_logo = new_settings.get("enable_business_logo", True)
             self.qr_code_paths = new_settings["qr_code_paths"]
             self.qr_code_links = new_settings["qr_code_links"]
             
@@ -1691,12 +1697,12 @@ class TrueHourApp(QMainWindow):
         layout.setSpacing(0)
         
         # Dynamic color tokens
-        bg_widget = "#161D30" if self.dark_mode else "#FFFFFF"
-        border_color = "#24304F" if self.dark_mode else "#E0E0E0"
-        border_f3 = "#24304F" if self.dark_mode else "#F3F3F3"
-        text_primary = "#F3F4F6" if self.dark_mode else "#1A1A1A"
-        text_sec = "#9CA3AF" if self.dark_mode else "#616161"
-        accent_lbl_color = "#38BDF8" if self.dark_mode else "#0078D4"
+        bg_widget = "#1e1e1e" if self.dark_mode else "#FFFFFF"
+        border_color = "#333333" if self.dark_mode else "#E0E0E0"
+        border_f3 = "#333333" if self.dark_mode else "#F3F3F3"
+        text_primary = "#e0e0e0" if self.dark_mode else "#1A1A1A"
+        text_sec = "#aaa" if self.dark_mode else "#616161"
+        accent_lbl_color = "#6b8bb5" if self.dark_mode else "#0078D4"
         
         # Header bar
         hdr = QFrame(dialog)
@@ -1774,7 +1780,7 @@ class TrueHourApp(QMainWindow):
         
         if report.get("total_earned", 0) > 0:
             earned_f = QFrame(card1)
-            earned_f.setStyleSheet(f"QFrame {{ background-color: {'#1F2937' if self.dark_mode else '#E8F1FB'}; border-radius: 4px; }}")
+            earned_f.setStyleSheet(f"QFrame {{ background-color: {'#262626' if self.dark_mode else '#E8F1FB'}; border-radius: 4px; }}")
             ef_layout = QHBoxLayout(earned_f)
             ef_layout.setContentsMargins(10, 6, 10, 6)
             
@@ -1783,7 +1789,7 @@ class TrueHourApp(QMainWindow):
             ef_layout.addWidget(lbl_title)
             
             lbl_val = QLabel(report["total_earned_display"], earned_f)
-            lbl_val.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 18px; font-weight: bold; color: {'#4ADE80' if self.dark_mode else '#0F7B0F'};")
+            lbl_val.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 18px; font-weight: bold; color: {'#a8c5b8' if self.dark_mode else '#0F7B0F'};")
             ef_layout.addWidget(lbl_val)
             
             lbl_rate = QLabel(f"@ {report['currency_symbol']}{report['hourly_rate']:.2f}/hr", earned_f)
@@ -1834,7 +1840,7 @@ class TrueHourApp(QMainWindow):
                 
                 if pb.get("earned_display"):
                     earned_lbl = QLabel(f"({pb['earned_display']})", row_f)
-                    earned_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {'#4ADE80' if self.dark_mode else '#0F7B0F'};")
+                    earned_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {'#a8c5b8' if self.dark_mode else '#0F7B0F'};")
                     row_layout.addWidget(earned_lbl)
                     
                 time_lbl = QLabel(pb["formatted"], row_f)
@@ -1883,7 +1889,7 @@ class TrueHourApp(QMainWindow):
                 table.setItem(i, 3, QTableWidgetItem(f"{app['percent']:.0f}%"))
                 
                 st_text = "✓ Counted" if not app["excluded"] else "✗ Excluded"
-                st_color = ("#4ADE80" if self.dark_mode else "#0F7B0F") if not app["excluded"] else ("#F87171" if self.dark_mode else "#C42B1C")
+                st_color = ("#a8c5b8" if self.dark_mode else "#0F7B0F") if not app["excluded"] else ("#c27a6e" if self.dark_mode else "#C42B1C")
                 st_item = QTableWidgetItem(st_text)
                 st_item.setForeground(QColor(st_color))
                 table.setItem(i, 4, st_item)

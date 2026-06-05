@@ -140,14 +140,14 @@ class FadingVersionLabel(QLabel):
     # ── Styling ──────────────────────────────────────────────────────
 
     def _apply_base_style(self):
-        color = "#6B7280" if self._is_dark else "#ABABAB"
+        color = "#888" if self._is_dark else "#ABABAB"
         self.setStyleSheet(
             f"font-family: 'Segoe UI'; font-size: 9px; color: {color}; "
             f"background: transparent; border: none;"
         )
 
     def _apply_update_style(self):
-        color = "#38BDF8" if self._is_dark else "#0078D4"
+        color = "#6b8bb5" if self._is_dark else "#0078D4"
         self.setStyleSheet(
             f"font-family: 'Segoe UI'; font-size: 9px; font-weight: bold; "
             f"color: {color}; background: transparent; border: none;"

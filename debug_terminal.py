@@ -338,7 +338,7 @@ class DebugTerminalWindow(QDialog):
         elif "warning" in lower_text or "warn" in lower_text:
             return f'<span style="color:#F59E0B; font-weight: 500;">{escaped}</span>'
         elif "info" in lower_text:
-            return f'<span style="color:#38BDF8;">{escaped}</span>'
+            return f'<span style="color:#6b8bb5;">{escaped}</span>'
         elif "debug" in lower_text:
             return f'<span style="color:#94A3B8;">{escaped}</span>'
             
