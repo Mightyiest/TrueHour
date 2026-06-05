@@ -50,3 +50,5 @@ build_telemetry.bat
 telemetry_config.py
 
 
+*.ps1
+worker-invoke.sh

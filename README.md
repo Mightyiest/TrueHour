@@ -1,4 +1,4 @@
-# True Hours v3.1.1-beta.2
+# True Hours v3.2.1-beta
 
 > **A lightweight, privacy-first desktop time tracker with a modern Fluent Design UI, supporting Windows & macOS.**
 
@@ -245,6 +245,10 @@ A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!
 ---
 
 ## 📅 Changelog
+
+### v3.2.0-beta (2026.06.04)
+- **Update Channel & Notification Label**: Replaced the static footer version label with a fade-in/fade-out animated update label that alerts users when a newer release is available and prompts them to download it from GitHub.
+- **Channel-Aware Update Checking**: Built an asynchronous background updater that supports semantic versioning (SemVer) and release channel ranking (Alpha, Beta, RC, Stable). Automatically compares candidate release channels to ensure appropriate pre-release/stable upgrade paths.
 
 ### v3.1.1-beta.2 (2026.06.03)
 - **App List Layout & Elision Fix**: Re-engineered the application usage rows with a custom `ElidedLabel` that automatically truncates long process titles using ellipsis (`...`), preventing layout stretching, hiding of the time and tag columns, or horizontal scrolling.
