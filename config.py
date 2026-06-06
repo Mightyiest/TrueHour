@@ -190,3 +190,4 @@ def send_to_trash(path: str) -> bool:
         print(f"[TrueHour] Permanent deletion fallback failed: {e}")
     return False
 
+
