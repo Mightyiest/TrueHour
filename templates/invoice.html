@@ -174,6 +174,7 @@
 
         /* Invoice Container Overhaul */
         .invoice-container { 
+            position: relative;
             width: 100%; 
             max-width: 850px; 
             background-color: var(--bg-card); 
@@ -557,6 +558,7 @@
     </div>
     
     <div class="invoice-container">
+        {{PAYMENT_CONFIRMATION_STAMP}}
         <div class="invoice-header-row">
             <div>
                 {{LOGO_HTML}}
@@ -567,7 +569,7 @@
                 </div>
             </div>
             <div class="meta-column">
-                <div class="invoice-badge">INVOICE</div>
+                <div class="invoice-badge">{{INVOICE_BADGE}}</div>
                 <div class="meta-item"><strong>Invoice No:</strong> {{INVOICE_NO}}</div>
                 <div class="meta-item"><strong>Date:</strong> {{DATE}}</div>
                 <div class="meta-item"><strong>Sessions:</strong> {{SESSIONS_COMPILED}}</div>
@@ -587,7 +589,7 @@
                 <div class="kpi-val">{{HOURS_COUNTED}} hrs</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Total Amount Due</div>
+                <div class="kpi-label">{{TOTAL_DUE_LABEL}}</div>
                 <div class="kpi-val amount-val">{{TOTAL_AMOUNT_DUE}}</div>
             </div>
         </div>
