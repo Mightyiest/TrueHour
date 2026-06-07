@@ -142,27 +142,55 @@ def get_dark_palette() -> QPalette:
     
     return palette
 
+_GENERATED_CHECKMARKS = set()
+
 # ── Dynamic Checkmark Icon Generator ─────────────────────────────────
 def ensure_checkmark_icon(is_dark: bool = False) -> str:
     from config import get_app_data_dir
     filename = "checkmark_dark.png" if is_dark else "checkmark_light.png"
     checkmark_path = os.path.join(get_app_data_dir(), filename).replace("\\", "/")
-    if not os.path.exists(checkmark_path):
+    
+    global _GENERATED_CHECKMARKS
+    if filename in _GENERATED_CHECKMARKS and os.path.exists(checkmark_path):
+        return checkmark_path
+        
+    # Recreate the checkmark file to ensure any incorrect cached fallbacks are overwritten with the correct color
+    try:
+        from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen
+        from PyQt6.QtCore import Qt
+        
+        pixmap = QPixmap(16, 16)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        fill_color = QColor(20, 20, 20) if is_dark else QColor(255, 255, 255)
+        pen = QPen(fill_color, 2)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        
+        painter.drawLine(4, 8, 7, 11)
+        painter.drawLine(7, 11, 12, 4)
+        painter.end()
+        
+        pixmap.save(checkmark_path, "PNG")
+        _GENERATED_CHECKMARKS.add(filename)
+    except Exception:
         try:
-            from PIL import Image, ImageDraw
-            img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
-            draw = ImageDraw.Draw(img)
-            fill_color = (20, 20, 20, 255) if is_dark else (255, 255, 255, 255)
-            draw.line([(4, 8), (7, 11), (12, 4)], fill=fill_color, width=2, joint="round")
-            img.save(checkmark_path, "PNG")
-        except Exception:
-            try:
-                import base64
+            import base64
+            if is_dark:
+                # Dark checkmark fallback
+                png_base64 = b"iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAADpJREFUOBFjYBgFMMCEw/wnHGaE4D//kXWgm2DCwADCYEDQAWBsICwAGBsYiwfG4oHRcMAoGAWDEAMAANbQDBW/k19vAAAAAElFTkSuQmCC"
+            else:
+                # Light checkmark fallback
                 png_base64 = b"iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAGRJREFUeNpi7OzsfM/AwMAAxIxADEjEwIhFEEUDkI+iCcQnEUTRAOKjCIIo6kBsEEUA1kC4gBEMwAog3gDEm4B4GxCPwWMEWAPEX4F4NhCPBWIjIAby2UA8k4GBgRcggAEA4d86bO+E6JkAAAAASUVORK5CYII="
-                with open(checkmark_path, "wb") as f:
-                    f.write(base64.b64decode(png_base64))
-            except Exception:
-                pass
+            with open(checkmark_path, "wb") as f:
+                f.write(base64.b64decode(png_base64))
+            _GENERATED_CHECKMARKS.add(filename)
+        except Exception:
+            pass
     return checkmark_path
 
 # ── Icon Painters ──────────────────────────────────────────────────
