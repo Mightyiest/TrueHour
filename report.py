@@ -874,6 +874,7 @@ default_receipt_template = """<!DOCTYPE html>
             --accent-gradient-start: #1e3050;
             --accent-gradient-end: #1e3050;
             --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
         }
 
         body.dark {
@@ -885,11 +886,12 @@ default_receipt_template = """<!DOCTYPE html>
             --text-light: #888;
             --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             
-            --accent: #6b8bb5;
-            --accent-hover: #7ca1cf;
-            --accent-gradient-start: #6b8bb5;
-            --accent-gradient-end: #6b8bb5;
-            --success: #a8c5b8;
+            --accent: #e0e0e0;
+            --accent-hover: #ffffff;
+            --accent-gradient-start: #e0e0e0;
+            --accent-gradient-end: #e0e0e0;
+            --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
         }
 
         body.dark .print-actions-bar {
@@ -1173,8 +1175,7 @@ default_receipt_template = """<!DOCTYPE html>
     </div>
     
     <div class="receipt-container">
-        <!-- Confirmed Payment Stamp -->
-        <div style="position: absolute; top: 30px; right: 40px; border: 4px double #10B981; color: #10B981; font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; padding: 4px 14px; border-radius: 8px; transform: rotate(-8deg); text-transform: uppercase; letter-spacing: 0.1em; background-color: rgba(16, 185, 129, 0.05); pointer-events: none; user-select: none; z-index: 10;">PAID RECEIPT</div>
+        <div style="position: absolute; top: 30px; right: 40px; border: 4px double var(--success); color: var(--success); font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; padding: 4px 14px; border-radius: 8px; transform: rotate(-8deg); text-transform: uppercase; letter-spacing: 0.1em; background-color: var(--success-bg); pointer-events: none; user-select: none; z-index: 10;">PAID RECEIPT</div>
 
         <div class="receipt-header-row">
             <div>
@@ -1584,6 +1585,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             --accent-gradient-start: #1e3050;
             --accent-gradient-end: #1e3050;
             --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
         }
 
         body.dark {
@@ -1596,11 +1598,12 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
             
-            --accent: #6b8bb5;
-            --accent-hover: #7ca1cf;
-            --accent-gradient-start: #6b8bb5;
-            --accent-gradient-end: #6b8bb5;
-            --success: #a8c5b8;
+            --accent: #e0e0e0;
+            --accent-hover: #ffffff;
+            --accent-gradient-start: #e0e0e0;
+            --accent-gradient-end: #e0e0e0;
+            --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
         }
 
         body.dark .print-actions-bar {
@@ -2230,10 +2233,10 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
         invoice_badge = "RECEIPT"
         total_due_label = "Total Amount Paid"
         stamp_style = (
-            'position: absolute; top: 30px; right: 40px; border: 4px double #10B981; '
-            'color: #10B981; font-family: "Outfit", sans-serif; font-size: 20px; '
+            'position: absolute; top: 30px; right: 40px; border: 4px double var(--success); '
+            'color: var(--success); font-family: "Outfit", sans-serif; font-size: 20px; '
             'font-weight: 800; padding: 4px 14px; border-radius: 8px; transform: rotate(-8deg); '
-            'text-transform: uppercase; letter-spacing: 0.1em; background-color: rgba(16, 185, 129, 0.05); '
+            'text-transform: uppercase; letter-spacing: 0.1em; background-color: var(--success-bg); '
             'pointer-events: none; user-select: none; z-index: 10;'
         )
         stamp_html = f'<div style="{stamp_style}">PAID RECEIPT</div>'
@@ -2335,6 +2338,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
 
     # Generate Itemized Rows
     items_html = ""
+    is_dark = settings_data.get("dark_mode", False)
     for pb in billing_data.get("project_breakdown", []):
         cat_hours = pb["seconds"] / 3600.0
         tag_color = pb.get("color", "#64748B")
@@ -2421,6 +2425,31 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             --accent-gradient-start: #475569;
             --accent-gradient-end: #334155;
             --success: #059669;
+        }
+
+        body.dark {
+            --bg-body: #141414;
+            --bg-card: #1e1e1e;
+            --border: #333333;
+            --text-main: #e0e0e0;
+            --text-muted: #aaa;
+            --text-light: #888;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            
+            --accent: #e0e0e0;
+            --accent-hover: #ffffff;
+            --accent-gradient-start: #e0e0e0;
+            --accent-gradient-end: #e0e0e0;
+            --success: #10B981;
+            --warning: #F59E0B;
+        }
+        body.dark .print-actions-bar {
+            background: rgba(30, 30, 30, 0.75);
+            border-color: rgba(51, 51, 51, 0.8);
+        }
+        body.dark .theme-selector {
+            display: none !important;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2926,6 +2955,22 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
 
     template_html = get_cached_template(template_path, default_template)
 
+    from config import get_app_data_dir
+    import json
+    settings_path = os.path.join(get_app_data_dir(), "settings.json")
+    dark_mode = False
+    if os.path.exists(settings_path):
+        try:
+            with open(settings_path, "r", encoding="utf-8") as f:
+                settings_data = json.load(f)
+                dark_mode = settings_data.get("dark_mode", False)
+        except Exception:
+            pass
+
+    def get_color(tag):
+        return get_project_color(tag)
+
+
     total_secs = report.get("total_seconds", 0)
     counted_secs = report.get("counted_seconds", 0)
     ratio = (counted_secs / total_secs * 100.0) if total_secs > 0 else 0.0
@@ -2958,8 +3003,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         rows_html = ""
         for a in new_activity:
             raw_tag = a.get("tag", "Unassigned")
-            tag_color = get_project_color(raw_tag)
-            pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" else ""
+            tag_color = get_color(raw_tag)
+            pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" or dark_mode else ""
             escaped_name = _esc(a['name'])
             escaped_tag = _esc(raw_tag)
             initial = _esc(a['name'][0].upper()) if a['name'] else "?"
@@ -3001,7 +3046,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     projects_visual = ""
     for pb in report.get("project_breakdown", []):
         pct = pb.get("percent", 0.0)
-        color = pb.get("color", "#4F46E5")
+        color = get_color(pb['project'])
         projects_visual += f"""
         <div class="project-row">
             <div class="project-info">
@@ -3022,8 +3067,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             continue
         pct = app.get("percent", 0.0)
         raw_tag = app.get("tag", "Unassigned")
-        tag_color = get_project_color(raw_tag)
-        pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" else ""
+        tag_color = get_color(raw_tag)
+        pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" or dark_mode else ""
         escaped_app_name = _esc(app['name'])
         escaped_tag = _esc(raw_tag)
         
@@ -3095,7 +3140,9 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             # Escape quotes safely for HTML attributes
             escaped_fallback = fallback_src.replace("'", "\\'")
             
-            icon_html = f"""<img src="https://cdn.simpleicons.org/{slug}" class="app-icon" onerror="this.onerror=function(){{ this.onerror=function(){{ this.onerror=null; this.src='{escaped_fallback}'; }}; this.src='https://unpkg.com/simple-icons@11.13.0/icons/{slug}.svg'; }}; this.src='https://cdn.jsdelivr.net/npm/simple-icons@11.13.0/icons/{slug}.svg';" />"""
+            si_color = "e0e0e0" if dark_mode else ""
+            si_url_suffix = f"/{si_color}" if si_color else ""
+            icon_html = f"""<img src="https://cdn.simpleicons.org/{slug}{si_url_suffix}" class="app-icon" onerror="this.onerror=function(){{ this.onerror=function(){{ this.onerror=null; this.src='{escaped_fallback}'; }}; this.src='https://unpkg.com/simple-icons@11.13.0/icons/{slug}.svg'; }}; this.src='https://cdn.jsdelivr.net/npm/simple-icons@11.13.0/icons/{slug}.svg';" />"""
         elif local_b64:
             # Use local base64 extracted exe icon
             icon_html = f'<img src="data:image/png;base64,{local_b64}" class="app-icon" />'
@@ -3133,7 +3180,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         
         app_name = t.get("app", "Active Session")
         app_tag = app_tags.get(app_name, "Unassigned")
-        tag_color = get_project_color(app_tag)
+        tag_color = get_color(app_tag)
         
         duration_secs = 0
         if hasattr(t_start, "timestamp") and hasattr(t_end, "timestamp"):
@@ -3172,6 +3219,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     html = html.replace("{{APPS_TABLE_ROWS}}", apps_rows)
     html = html.replace("{{TIMELINE_ITEMS}}", timeline_items)
 
+    if dark_mode:
+        html = html.replace('<body class="theme-indigo">', '<body class="theme-indigo dark">')
     return html
 
 def print_html_to_pdf(html_content: str, output_path: str):

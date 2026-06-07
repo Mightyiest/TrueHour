@@ -28,6 +28,9 @@ class TrueHourDashboard(QDialog):
         
         self.init_ui()
         
+    def get_project_color(self, project_name):
+        return get_tag_color(project_name)
+
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -40,7 +43,7 @@ class TrueHourDashboard(QDialog):
         bg_window = "#141414" if is_dark else "#F8FAFC"
         text_primary = "#e0e0e0" if is_dark else "#0F172A"
         text_secondary = "#aaa" if is_dark else "#475569"
-        accent = "#6b8bb5" if is_dark else "#0078D4"
+        accent = "#d1d5db" if is_dark else "#0078D4"
         
         hdr = QFrame(self)
         hdr.setFixedHeight(46)
@@ -121,7 +124,7 @@ class TrueHourDashboard(QDialog):
         if value_color == "#0F172A" or value_color is None:
             val_color = "#e0e0e0" if is_dark else "#0F172A"
         elif value_color == "#0078D4":
-            val_color = "#6b8bb5" if is_dark else "#0078D4"
+            val_color = "#d1d5db" if is_dark else "#0078D4"
         elif value_color == "#16A34A":
             val_color = "#a8c5b8" if is_dark else "#16A34A"
         else:
@@ -437,7 +440,7 @@ class TrueHourDashboard(QDialog):
                 apps_breakdown.append({
                     "name": app["name"],
                     "seconds": app["seconds"],
-                    "color": get_tag_color(app["tag"])
+                    "color": self.get_project_color(app["tag"])
                 })
         self.live_donut.set_data(apps_breakdown)
         
@@ -460,7 +463,7 @@ class TrueHourDashboard(QDialog):
             # Dynamic styled color dot for baseline alignment
             swatch = QLabel(row_f)
             swatch.setFixedSize(8, 8)
-            swatch.setStyleSheet(f"background-color: {pb['color']}; border-radius: 4px; border: none; margin-top: 1px;")
+            swatch.setStyleSheet(f"background-color: {self.get_project_color(pb['project'])}; border-radius: 4px; border: none; margin-top: 1px;")
             row_layout.addWidget(swatch, alignment=Qt.AlignmentFlag.AlignVCenter)
             
             is_dark = getattr(self.main_app, "dark_mode", False)
@@ -518,7 +521,7 @@ class TrueHourDashboard(QDialog):
                 apps_breakdown.append({
                     "name": app["name"],
                     "seconds": app["seconds"],
-                    "color": get_tag_color(app["tag"])
+                    "color": self.get_project_color(app["tag"])
                 })
         self.hist_donut.set_data(apps_breakdown)
         
@@ -544,7 +547,7 @@ class TrueHourDashboard(QDialog):
             # Dynamic styled color dot for baseline alignment
             swatch = QLabel(row_f)
             swatch.setFixedSize(8, 8)
-            swatch.setStyleSheet(f"background-color: {pb['color']}; border-radius: 4px; border: none; margin-top: 1px;")
+            swatch.setStyleSheet(f"background-color: {self.get_project_color(pb['project'])}; border-radius: 4px; border: none; margin-top: 1px;")
             row_layout.addWidget(swatch, alignment=Qt.AlignmentFlag.AlignVCenter)
             
             is_dark = getattr(self.main_app, "dark_mode", False)

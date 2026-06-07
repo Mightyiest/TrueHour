@@ -43,7 +43,7 @@ class LoadingDialog(QDialog):
         self.progress.setFixedHeight(6)
         
         # Apply specific accent colors
-        accent = "#6b8bb5" if is_dark else "#0078D4"
+        accent = "#d1d5db" if is_dark else "#0078D4"
         bg_bar = "#333333" if is_dark else "#E2E8F0"
         self.progress.setStyleSheet(f"""
             QProgressBar {{

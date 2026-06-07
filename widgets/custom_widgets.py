@@ -167,7 +167,7 @@ class EmailChipWidget(QWidget):
         bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
         border_color = "#333333" if is_dark else "#E2E8F0"
         text_color = "#e0e0e0" if is_dark else "#0F172A"
-        accent = "#6b8bb5" if is_dark else "#0078D4"
+        accent = "#d1d5db" if is_dark else "#0078D4"
         
         self._input.setStyleSheet(f"""
             QLineEdit {{
@@ -219,7 +219,7 @@ class EmailChipWidget(QWidget):
             is_dark = win.palette().color(win.backgroundRole()).value() < 128
         chip_bg = "#262626" if is_dark else "#EEF2FF"
         chip_border = "#333333" if is_dark else "#C7D2FE"
-        chip_text = "#6b8bb5" if is_dark else "#3730A3"
+        chip_text = "#d1d5db" if is_dark else "#3730A3"
         chip_close = "#888" if is_dark else "#6366F1"
 
         chip = QFrame(self._chip_container)
@@ -407,7 +407,7 @@ class InvoicePrivacyOptionsDialog(QDialog):
         
         # Apply dialog-level Fluent Design styling
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(self.is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+        qss = get_qss_style(self.is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.is_dark))
         self.setStyleSheet(qss)
         self.setPalette(get_dark_palette() if self.is_dark else get_light_palette())
 

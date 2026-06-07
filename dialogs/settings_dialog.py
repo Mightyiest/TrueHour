@@ -56,7 +56,7 @@ class SettingsDialog(QDialog):
         # Apply stylesheet and palette on start
         is_dark = self.settings.get("dark_mode", False)
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+        qss = get_qss_style(is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon(is_dark))
         self.setStyleSheet(qss)
         self.setPalette(get_dark_palette() if is_dark else get_light_palette())
         
@@ -159,7 +159,7 @@ class SettingsDialog(QDialog):
             self.settings["dark_mode"] = checked
             # Instantly apply stylesheet to SettingsDialog itself!
             from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-            qss = get_qss_style(checked).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+            qss = get_qss_style(checked).replace("CHECKMARK_PATH", ensure_checkmark_icon(checked))
             self.setStyleSheet(qss)
             self.setPalette(get_dark_palette() if checked else get_light_palette())
             self.theme_toggled.emit(checked)

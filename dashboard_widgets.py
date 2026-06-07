@@ -339,15 +339,15 @@ class BarChartWidget(QWidget):
                 gradient = QLinearGradient(QPointF(bx, by), QPointF(bx, by + bar_h))
                 if idx == self.hovered_index:
                     if is_dark:
-                        gradient.setColorAt(0.0, QColor("#5677a2"))  # Darker accent
-                        gradient.setColorAt(1.0, QColor("#6b8bb5"))  # Accent
+                        gradient.setColorAt(0.0, QColor("#ffffff"))  # Hover top (white)
+                        gradient.setColorAt(1.0, QColor("#e0e0e0"))  # Hover bottom (light gray)
                     else:
                         gradient.setColorAt(0.0, QColor("#1E3A8A"))  # Darker Blue
                         gradient.setColorAt(1.0, QColor("#3B82F6"))  # Brighter Blue
                 else:
                     if is_dark:
-                        gradient.setColorAt(0.0, QColor("#6b8bb5"))  # Accent
-                        gradient.setColorAt(1.0, QColor("#7ca1cf"))  # Accent hover
+                        gradient.setColorAt(0.0, QColor("#d1d5db"))  # Normal top (light gray)
+                        gradient.setColorAt(1.0, QColor("#888888"))  # Normal bottom (medium gray)
                     else:
                         gradient.setColorAt(0.0, QColor("#0078D4"))  # Fluent Primary Accent
                         gradient.setColorAt(1.0, QColor("#60A5FA"))  # Fluent Secondary Accent

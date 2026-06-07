@@ -20,6 +20,7 @@
             --accent-gradient-start: #1e3050;
             --accent-gradient-end: #1e3050;
             --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
         }
 
         body.dark {
@@ -31,11 +32,12 @@
             --text-light: #888;
             --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             
-            --accent: #6b8bb5;
-            --accent-hover: #7ca1cf;
-            --accent-gradient-start: #6b8bb5;
-            --accent-gradient-end: #6b8bb5;
-            --success: #a8c5b8;
+            --accent: #e0e0e0;
+            --accent-hover: #ffffff;
+            --accent-gradient-start: #e0e0e0;
+            --accent-gradient-end: #e0e0e0;
+            --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
         }
 
         body.dark .print-actions-bar {
@@ -319,8 +321,7 @@
     </div>
     
     <div class="receipt-container">
-        <!-- Confirmed Payment Stamp -->
-        <div style="position: absolute; top: 30px; right: 40px; border: 4px double #10B981; color: #10B981; font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; padding: 4px 14px; border-radius: 8px; transform: rotate(-8deg); text-transform: uppercase; letter-spacing: 0.1em; background-color: rgba(16, 185, 129, 0.05); pointer-events: none; user-select: none; z-index: 10;">PAID RECEIPT</div>
+        <div style="position: absolute; top: 30px; right: 40px; border: 4px double var(--success); color: var(--success); font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; padding: 4px 14px; border-radius: 8px; transform: rotate(-8deg); text-transform: uppercase; letter-spacing: 0.1em; background-color: var(--success-bg); pointer-events: none; user-select: none; z-index: 10;">PAID RECEIPT</div>
 
         <div class="receipt-header-row">
             <div>

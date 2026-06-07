@@ -39,7 +39,7 @@ class SessionManagerDialog(QDialog):
         # Apply stylesheet and palette on start
         is_dark = self.settings.get("dark_mode", False)
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+        qss = get_qss_style(is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon(is_dark))
         self.setStyleSheet(qss)
         self.setPalette(get_dark_palette() if is_dark else get_light_palette())
         
@@ -66,8 +66,8 @@ class SessionManagerDialog(QDialog):
         border_color = "#333333" if is_dark else "#CBD5E1"
         text_sec = "#aaa" if is_dark else "#475569"
         bg_hover = "#262626" if is_dark else "#F1F5F9"
-        accent = "#6b8bb5" if is_dark else "#0078D4"
-        accent_hover = "#7ca1cf" if is_dark else "#106EBE"
+        accent = "#d1d5db" if is_dark else "#0078D4"
+        accent_hover = "#ffffff" if is_dark else "#106EBE"
 
         self.edit_btn = QPushButton("Edit", self)
         self.edit_btn.setCheckable(True)
@@ -269,7 +269,7 @@ class SessionManagerDialog(QDialog):
             is_dark = self.settings.get("dark_mode", False)
             if is_dark:
                 tag_bg = "#262626" if i == 0 else "#262626"
-                tag_fg = "#6b8bb5" if i == 0 else "#aaa"
+                tag_fg = "#ffffff" if i == 0 else "#aaa"
             else:
                 tag_bg = "#E1F5FE" if i == 0 else "#F1F5F9"
                 tag_fg = "#0078D4" if i == 0 else "#475569"
@@ -392,18 +392,18 @@ class SessionManagerDialog(QDialog):
 
             is_dark = self.settings.get("dark_mode", False)
             if is_dark:
-                green_bg = "#4a6760"
-                green_border = "#5b7d75"
-                green_hover = "#5b7d75"
+                green_bg = "#262626"
+                green_border = "#444444"
+                green_hover = "#333333"
                 
-                red_bg = "#8a4a3d"
-                red_border = "#a1594b"
-                red_hover = "#a1594b"
+                red_bg = "#262626"
+                red_border = "#444444"
+                red_hover = "#333333"
                 
                 normal_bg = "#1e1e1e"
                 normal_border = "#333333"
                 normal_hover = "#262626"
-                normal_border_hover = "#6b8bb5"
+                normal_border_hover = "#e0e0e0"
             else:
                 green_bg = "#F0FDF4"
                 green_border = "#DCFCE7"
@@ -419,8 +419,8 @@ class SessionManagerDialog(QDialog):
                 normal_border_hover = "#94A3B8"
 
             if is_trash:
-                rest_icon = get_svg_icon(RESTORE_SVG, QSize(16, 16), "#0F7B0F" if not is_dark else "#4ADE80")
-                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), "#FF0000" if not is_dark else "#FCA5A5")
+                rest_icon = get_svg_icon(RESTORE_SVG, QSize(16, 16), "#0F7B0F" if not is_dark else "#d1d5db")
+                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), "#FF0000" if not is_dark else "#d1d5db")
 
                 restore_btn = QPushButton(row_frame)
                 restore_btn.setIcon(rest_icon)
@@ -471,8 +471,8 @@ class SessionManagerDialog(QDialog):
                 restore_btn.setVisible(is_edit_active)
                 delete_btn.setVisible(is_edit_active)
             else:
-                ren_icon = get_svg_icon(RENAME_SVG, QSize(16, 16), "#0078D4" if not is_dark else "#6b8bb5")
-                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), "#FF0000" if not is_dark else "#c27a6e")
+                ren_icon = get_svg_icon(RENAME_SVG, QSize(16, 16), "#0078D4" if not is_dark else "#d1d5db")
+                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), "#FF0000" if not is_dark else "#d1d5db")
 
                 res_btn = QPushButton("▶ Resume", row_frame)
                 res_btn.setObjectName("AccentButton")
@@ -622,12 +622,20 @@ class SessionManagerDialog(QDialog):
             status_btn = QPushButton(status.upper(), row_frame)
             status_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             status_btn.setToolTip("Click to toggle Paid/Unpaid status")
-            if status == "paid":
-                status_color_bg = "#4a6760" if is_dark else "#DCFCE7"
-                status_color_fg = "#4ADE80" if is_dark else "#16A34A"
+            if is_dark:
+                if status == "paid":
+                    status_color_bg = "#333333"
+                    status_color_fg = "#ffffff"
+                else:
+                    status_color_bg = "#222222"
+                    status_color_fg = "#888888"
             else:
-                status_color_bg = "#8a6d3d" if is_dark else "#FEF3C7"
-                status_color_fg = "#FBBF24" if is_dark else "#D97706"
+                if status == "paid":
+                    status_color_bg = "#DCFCE7"
+                    status_color_fg = "#16A34A"
+                else:
+                    status_color_bg = "#FEF3C7"
+                    status_color_fg = "#D97706"
 
             status_btn.setStyleSheet(f"""
                 QPushButton {{
@@ -659,7 +667,7 @@ class SessionManagerDialog(QDialog):
             row_layout.addWidget(view_btn)
 
             from assets import RENAME_SVG
-            ren_icon = get_svg_icon(RENAME_SVG, QSize(16, 16), "#0078D4" if not is_dark else "#6b8bb5")
+            ren_icon = get_svg_icon(RENAME_SVG, QSize(16, 16), "#0078D4" if not is_dark else "#d1d5db")
             rename_invoice_btn = QPushButton(row_frame)
             rename_invoice_btn.setIcon(ren_icon)
             rename_invoice_btn.setIconSize(QSize(16, 16))
@@ -669,7 +677,7 @@ class SessionManagerDialog(QDialog):
             normal_bg = "#1e1e1e" if is_dark else "#FFFFFF"
             normal_border = "#333333" if is_dark else "#CBD5E1"
             normal_hover = "#262626" if is_dark else "#F1F5F9"
-            normal_border_hover = "#6b8bb5" if is_dark else "#94A3B8"
+            normal_border_hover = "#e0e0e0" if is_dark else "#94A3B8"
             rename_invoice_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {normal_bg};
