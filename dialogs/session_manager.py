@@ -27,7 +27,6 @@ from widgets.custom_widgets import InvoicePrivacyOptionsDialog
 class SessionManagerDialog(QDialog):
     resume_requested = pyqtSignal(str)             # filepath to resume
     view_report_requested = pyqtSignal(dict)       # report dict
-    export_csv_history_requested = pyqtSignal()
 
     def __init__(self, settings_data, tracker, parent=None):
         super().__init__(parent)
@@ -153,13 +152,6 @@ class SessionManagerDialog(QDialog):
         layout.addWidget(self.tab_widget)
         
         footer = QHBoxLayout()
-        export_btn = QPushButton("📊 CSV", self)
-        export_btn.setToolTip("Export All manually saved sessions to CSV")
-        export_btn.setObjectName("NormalButton")
-        export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        export_btn.clicked.connect(lambda: self.export_csv_history_requested.emit())
-        footer.addWidget(export_btn)
-        
         html_invoice_btn = QPushButton("📄 View Invoice in Browser", self)
         html_invoice_btn.setObjectName("AccentButton")
         html_invoice_btn.setCursor(Qt.CursorShape.PointingHandCursor)

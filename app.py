@@ -29,7 +29,7 @@ from config import get_app_data_dir, open_file, get_app_data_root, DynamicPath
 from secure_time import get_detector
 from report import (
     format_duration, format_duration_hms, build_report_data,
-    export_txt, export_json, export_csv, export_csv_history,
+    export_txt, export_json,
     save_to_autosave, save_to_history, load_session_json,
     aggregate_history_data, generate_session_report_html,
 )
@@ -967,7 +967,6 @@ class TrueHourApp(QMainWindow):
         # Connect signals
         dialog.resume_requested.connect(self._resume_session)
         dialog.view_report_requested.connect(lambda rep: self._show_report(rep, is_new=False))
-        dialog.export_csv_history_requested.connect(self._export_csv_history)
         
         dialog.exec()
 
@@ -2101,35 +2100,6 @@ class TrueHourApp(QMainWindow):
             except Exception as e:
                 logger.error(f"Failed to generate HTML report: {e}")
                 QMessageBox.critical(self, "Error", f"Failed to generate HTML report:\n{str(e)}")
-
-    def _export_csv_history(self):
-        logger.info("[Action] Commencing CSV history export")
-        sessions_dir = os.path.join(get_app_data_dir(), "sessions")
-        if not os.path.exists(sessions_dir):
-            QMessageBox.warning(self, "No Sessions", "No saved sessions found.")
-            return
-        json_files = [f for f in os.listdir(sessions_dir) if f.endswith('.json')]
-        if not json_files:
-            QMessageBox.warning(self, "No Sessions", "No saved sessions found.")
-            return
-        reports = []
-        for filename in json_files:
-            try: 
-                reports.append(load_session_json(os.path.join(sessions_dir, filename)))
-            except Exception as e: 
-                print(f"Error loading {filename}: {e}")
-        if not reports: 
-            QMessageBox.critical(self, "Error", "Could not load any sessions.")
-            return
-            
-        default_name = f"TrueHour_Export_{datetime.now().strftime('%Y-%m-%d')}.csv"
-        filepath, _ = QFileDialog.getSaveFileName(self, "Export History CSV", default_name, "CSV files (*.csv);;All files (*.*)")
-        if not filepath: 
-            return
-        if export_csv_history(reports, filepath, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol):
-            QMessageBox.information(self, "Success", f"Exported {len(reports)} sessions to:\n{filepath}")
-        else: 
-            QMessageBox.critical(self, "Error", "Failed to export CSV.")
 
     def _show_dashboard(self):
         from dialogs.dashboard_dialog import TrueHourDashboard

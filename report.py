@@ -3171,20 +3171,46 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     # Pre-compile app category mappings in O(N) to allow O(1) lookups inside loop
     app_tags = {app["name"]: app.get("tag", "Unassigned") for app in report.get("apps", [])}
     
+    base_date_str = report.get("date")
+    if not base_date_str or not isinstance(base_date_str, str):
+        base_date_str = datetime.today().strftime("%Y-%m-%d")
+
+    def parse_time(time_val, base_date_str):
+        if isinstance(time_val, datetime):
+            return time_val
+        if not isinstance(time_val, str):
+            return time_val
+        for fmt in ("%H:%M:%S", "%I:%M:%S %p", "%Y-%m-%d %H:%M:%S"):
+            try:
+                if "%Y-%m-%d" in fmt:
+                    return datetime.strptime(time_val, fmt)
+                else:
+                    return datetime.strptime(base_date_str + " " + time_val, "%Y-%m-%d " + fmt)
+            except ValueError:
+                continue
+        return time_val
+
     for t in capped_timeline:
         t_start = t["start"]
         t_end = t["end"]
         
-        start_str = t_start.strftime("%I:%M:%S %p") if hasattr(t_start, "strftime") else str(t_start)
-        end_str = t_end.strftime("%I:%M:%S %p") if hasattr(t_end, "strftime") else str(t_end)
+        t_start_dt = parse_time(t_start, base_date_str)
+        t_end_dt = parse_time(t_end, base_date_str)
+        
+        if isinstance(t_start_dt, datetime) and isinstance(t_end_dt, datetime):
+            if t_end_dt < t_start_dt:
+                t_end_dt += timedelta(days=1)
+            duration_secs = int((t_end_dt - t_start_dt).total_seconds())
+        else:
+            duration_secs = 0
+            
+        start_str = t_start_dt.strftime("%I:%M:%S %p") if hasattr(t_start_dt, "strftime") else str(t_start)
+        end_str = t_end_dt.strftime("%I:%M:%S %p") if hasattr(t_end_dt, "strftime") else str(t_end)
         
         app_name = t.get("app", "Active Session")
         app_tag = app_tags.get(app_name, "Unassigned")
         tag_color = get_color(app_tag)
         
-        duration_secs = 0
-        if hasattr(t_start, "timestamp") and hasattr(t_end, "timestamp"):
-            duration_secs = int(t_end.timestamp() - t_start.timestamp())
         duration_str = format_duration(duration_secs) if duration_secs > 0 else ""
         
         escaped_app_name = _esc(app_name)

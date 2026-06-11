@@ -36,6 +36,8 @@ NTP_SOURCES = [
 SECURITY_LOG_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "security_log.json"))
 TIME_CHAIN_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "time_chain.json"))
 
+DRIFT_THRESHOLD = 5.0
+
 
 def get_last_line(filepath):
     """Retrieve the last non-empty line of a file efficiently using binary seek."""
@@ -314,7 +316,7 @@ class TimeTamperDetector:
                         self.last_network_sync = time.time()
                         
                         # Check for significant drift
-                        if abs(offset) > 10:
+                        if abs(offset) > DRIFT_THRESHOLD:
                             self.trust_score = max(0, self.trust_score - 30)
                             self._log_security_event(
                                 "CLOCK_DRIFT_DETECTED",
@@ -397,7 +399,7 @@ class TimeTamperDetector:
             
             integrity_status = "VALID"
             
-            if discrepancy > 5:
+            if discrepancy > DRIFT_THRESHOLD:
                 integrity_status = "TAMPER_DETECTED"
                 self.trust_score = max(0, self.trust_score - 20)
                 self._log_security_event(
@@ -427,7 +429,7 @@ class TimeTamperDetector:
                             self.last_network_sync = time.time()
                             
                             # Detect manual clock changes
-                            if abs(offset - old_offset) > 5:
+                            if abs(offset - old_offset) > DRIFT_THRESHOLD:
                                 self.trust_score = max(0, self.trust_score - 25)
                                 self._log_security_event(
                                     "NETWORK_TIME_MISMATCH",
