@@ -9,7 +9,7 @@ import socket
 from collections import deque
 import threading
 from datetime import datetime
-from PyQt6.QtCore import QObject, pyqtSignal, Qt, QRectF
+from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPlainTextEdit, QLineEdit,
     QPushButton, QCheckBox, QLabel, QFileDialog, QMessageBox, QApplication

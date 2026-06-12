@@ -7,8 +7,7 @@ import sys
 import os
 import time
 import ctypes
-import threading
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 import io
 import logging
@@ -16,25 +15,21 @@ import traceback
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFrame, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QScrollArea, QCheckBox, QComboBox, QLineEdit,
-    QDialog, QMenu, QMessageBox, QFileDialog, QSizePolicy, QInputDialog,
-    QTableWidget, QTableWidgetItem, QHeaderView
+    QLabel, QPushButton, QScrollArea, QLineEdit, QDialog, QMenu, QMessageBox,
+    QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView
 )
-from PyQt6.QtCore import Qt, QTimer, QSize, QObject, pyqtSignal, QRectF, QPointF, QRect, QPoint
-from PyQt6.QtGui import QColor, QPainter, QBrush, QPen, QImage, QPixmap, QIcon, QPainterPath, QPalette
+from PyQt6.QtCore import Qt, QTimer, QSize, QObject, pyqtSignal, QRectF
+from PyQt6.QtGui import QColor, QPainter, QPen, QImage, QPixmap, QIcon
 
-from tracker import AppTracker, AUTO_EXCLUDE_FILE, create_auto_excluded_if_missing
-from appinfo import get_icon_image, OVERRIDES_FILE
+from tracker import AppTracker
+from appinfo import get_icon_image
 from config import get_app_data_dir, open_file, get_app_data_root, DynamicPath
-from secure_time import get_detector
 from report import (
     format_duration, format_duration_hms, build_report_data,
-    export_txt, export_json,
-    save_to_autosave, save_to_history, load_session_json,
-    aggregate_history_data, generate_session_report_html,
+    export_txt, save_to_autosave, save_to_history, generate_session_report_html,
 )
-from version import VERSION_SHORT, VERSION_FULL, INFO
-from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, GITHUB_SVG, EDIT_SVG, SUN_SVG, MOON_SVG, BUG_SVG
+from version import VERSION_FULL, INFO
+from assets import GITHUB_SVG, SUN_SVG, MOON_SVG, BUG_SVG
 
 # Global Constants & Paths
 ICON_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -106,17 +101,12 @@ def get_native_icon_pixmap(exe_path: str, size: int = 16):
 
 from debug_terminal import LogBufferCollector, DebugTerminalWindow
 from PyQt6.QtGui import QKeySequence, QShortcut
-from widgets.custom_widgets import (
-    QRThumbnailWidget, EmailChipWidget, FlowLayout,
-    InvoicePrivacyOptionsDialog, SegmentedAllocationBar, AppUsageRow
-)
+from widgets.custom_widgets import SegmentedAllocationBar, AppUsageRow
 from widgets.loading_dialog import LoadingDialog
 from widgets.update_label import FadingVersionLabel
 from workers.report_worker import ReportWorker
 from theme import (
-    BG_WHITE, BG_SURFACE, BG_HOVER, BG_CARD, ACCENT, ACCENT_HOVER, ACCENT_LIGHT,
-    GREEN_STATUS, RED_STATUS, ORANGE, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_DISABLED,
-    BORDER, FONT_FAMILY, PROJECT_COLORS, get_tag_color, get_light_palette,
+    FONT_FAMILY, get_tag_color, get_light_palette,
     ensure_checkmark_icon, get_svg_icon, create_minimalist_icon, get_qss_style, get_dark_palette
 )
 
@@ -167,7 +157,6 @@ _force_light_mode()
 # ── Thread-Safe Signals ──────────────────────────────────────────────
 class TrackerSignals(QObject):
     update_signal = pyqtSignal()
-    icon_loaded_signal = pyqtSignal(str, str, object)  # exe_path, app_name, PIL Image (or None)
 
 # create_minimalist_icon moved to theme.py
 
@@ -271,14 +260,12 @@ class TrueHourApp(QMainWindow):
         self._row_widgets = {}
         self._showing_placeholder = True
         
-        # Async icon cache and parameters
+        # Icon cache and parameters
         self._last_app_state_hash = None
         self._icon_cache = {}
-        self._icon_load_queue = set()
 
         self.signals = TrackerSignals()
         self.signals.update_signal.connect(self._schedule_refresh)
-        self.signals.icon_loaded_signal.connect(self._update_icon_for_app)
 
         self.setWindowTitle("TrueHour")
         self._center_window(self, 440, 520)
@@ -394,7 +381,6 @@ class TrueHourApp(QMainWindow):
         logger.info("[INFO] This is a diagnostic info message to test console colorizing.")
         logger.warning("[WARNING] This is a diagnostic warning message to test console colorizing.")
         logger.error("[ERROR] This is a diagnostic error message to test console colorizing.")
-        print("[STDOUT] Direct standard print triggered for verification.")
 
     def _center_window(self, win, width, height):
         win.resize(width, height)
@@ -602,9 +588,8 @@ class TrueHourApp(QMainWindow):
             except Exception as e:
                 print(f"[TrueHour] Closing autosave failed: {e}")
         
-        # Clean up async icon loading resources
+        # Clean up icon loading resources
         self._icon_cache.clear()
-        self._icon_load_queue.clear()
         
         # Safely shut down streams to avoid C++ object deleted crashes
         try:
@@ -880,27 +865,6 @@ class TrueHourApp(QMainWindow):
         self.tracker.set_included(app_name, is_checked)
         self._schedule_refresh()
 
-    def _load_icon_async(self, exe_path: str, app_name: str):
-        try:
-            icon_img = get_icon_image(exe_path, size=16)
-            # Emit PIL image so the conversion to QPixmap happens in the main GUI thread!
-            self.signals.icon_loaded_signal.emit(exe_path, app_name, icon_img)
-        except Exception as e:
-            logger.debug(f"Failed to load icon for {exe_path}: {e}")
-            self.signals.icon_loaded_signal.emit(exe_path, app_name, None)
-
-    def _update_icon_for_app(self, exe_path: str, app_name: str, pil_img):
-        if pil_img:
-            pixmap = pil_to_pixmap(pil_img)
-            self._icon_cache[exe_path] = pixmap
-        else:
-            self._icon_cache[exe_path] = None
-        self._icon_load_queue.discard(exe_path)
-        
-        if app_name in self._row_widgets:
-            row = self._row_widgets[app_name]
-            row.set_icon(self._icon_cache.get(exe_path))
-            row._icon_loaded = True
 
     def _show_tag_menu(self, app_name, button):
         menu = QMenu(self)
@@ -1364,7 +1328,7 @@ class TrueHourApp(QMainWindow):
         
         github_btn = msg.addButton("Open GitHub Issues", QMessageBox.ButtonRole.AcceptRole)
         form_btn = msg.addButton("Open Feedback Form", QMessageBox.ButtonRole.AcceptRole)
-        cancel_btn = msg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+        msg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
         
         # Apply current stylesheet to the QMessageBox
         msg.setStyleSheet(self.styleSheet())
@@ -1427,8 +1391,7 @@ class TrueHourApp(QMainWindow):
         
         def handle_reload():
             from tracker import reload_auto_excluded
-            lock = self.tracker._lock if self.tracker.running else None
-            success = reload_auto_excluded(lock=lock)
+            success = reload_auto_excluded()
             dialog.set_reload_status(success)
             
         dialog.reload_exclusions_requested.connect(handle_reload)
@@ -2205,7 +2168,7 @@ class TrueHourApp(QMainWindow):
             
             # Retry rename loop in case of temporary OS indexer/anti-virus locks on Windows
             rename_success = False
-            for i in range(10):
+            for _ in range(10):
                 try:
                     if os.path.exists(src):
                         os.rename(src, dst)
@@ -2257,7 +2220,7 @@ class TrueHourApp(QMainWindow):
                 gc.collect()
                 
                 # Helper to clear read-only flag on Windows
-                def remove_readonly(func, path, exc_info):
+                def remove_readonly(func, path, _exc_info):
                     try:
                         os.chmod(path, stat.S_IWRITE)
                         func(path)
@@ -2266,7 +2229,7 @@ class TrueHourApp(QMainWindow):
                 
                 # Delete folder aggressively and with retries
                 delete_success = False
-                for i in range(5):
+                for _ in range(5):
                     try:
                         shutil.rmtree(target_dir, onerror=remove_readonly)
                         delete_success = True

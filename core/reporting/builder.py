@@ -1,6 +1,4 @@
 import os
-from datetime import datetime
-from database.schema import get_connection
 from core.reporting.models import ReportStatus
 from core.reporting.queue import update_job, get_report_job
 from core.reporting.statistics import get_daily_summaries, calculate_total_hours, calculate_average_hours, calculate_longest_session, calculate_project_breakdown

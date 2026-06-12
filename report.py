@@ -3,7 +3,6 @@ TrueHour — Report generation and export utilities.
 """
 import json
 import os
-import csv
 from datetime import datetime, timedelta
 from typing import TypedDict, List
 from config import get_app_data_dir
@@ -411,102 +410,6 @@ def load_session_json(filepath):
         "total_earned_display": f"{data.get('currency_symbol','$')}{data.get('total_earned',0.0):,.2f}",
         "project_breakdown": breakdown,
     }
-
-def export_csv(report, filepath):
-    """Export a single session report as CSV."""
-    try:
-        with open(filepath, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            date_str = report['date']
-            session_name = report.get('session_name', 'Unnamed')
-
-            # New activity section (resumed sessions only)
-            new_activity = [a for a in report.get('new_activity', []) if not a['excluded']]
-            if new_activity:
-                writer.writerow(['[RESUMED SESSION] NEW ACTIVITY', '', '', '', '', '', '', ''])
-                writer.writerow(['App Name', 'Category', 'Previous Time (seconds)', 'Previous Time',
-                                 'New Added (seconds)', 'New Added', 'Total (seconds)', 'Total'])
-                for a in new_activity:
-                    writer.writerow([
-                        a['name'], a.get('tag', 'Unassigned'),
-                        a['previous_seconds'], a['previous_formatted'],
-                        a['new_seconds'], a['new_formatted'] if a['new_seconds'] > 0 else '—',
-                        a['total_seconds'], a['total_formatted']
-                    ])
-                writer.writerow([])
-
-            writer.writerow(['Date', 'Session Name', 'App Name', 'Project', 'Duration (seconds)',
-                            'Duration (formatted)', 'Percent of Session'])
-            for app in report['apps']:
-                if app['excluded']:
-                    continue
-                writer.writerow([date_str, session_name, app['name'], app.get('tag', 'Unassigned'), app['seconds'],
-                                app['formatted'], f"{app['percent']:.1f}%"])
-
-            writer.writerow([])
-            writer.writerow(['PROJECT BREAKDOWN', '', '', '', '', '', ''])
-            writer.writerow(['Project', 'Duration (seconds)', 'Duration (formatted)', 'Percent of Total Counted', 'Estimated Earnings'])
-            for pb in report.get('project_breakdown', []):
-                writer.writerow([pb['project'], pb['seconds'], pb['formatted'], f"{pb['percent']:.1f}%", pb['earned_display'] or "N/A"])
-            writer.writerow([])
-            writer.writerow(['TOTAL COUNTED HOURS', '', '', report['counted_seconds'], report['counted_formatted'], '', ''])
-            hourly_rate = report.get('hourly_rate', 0.0)
-            currency_symbol = report.get('currency_symbol', '$')
-            total_earned_display = report.get('total_earned_display') or f"{currency_symbol}0.00"
-            writer.writerow(['TOTAL EARNED', '', '', '', total_earned_display, f"@ {currency_symbol}{hourly_rate:.2f}/hr", ''])
-        return True
-    except Exception as e:
-        print(f"CSV export error: {e}")
-        return False
-
-def export_csv_history(reports_list, filepath, hourly_rate=0.0, currency_symbol="$"):
-    """Export multiple session reports as a single CSV file."""
-    try:
-        with open(filepath, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(['Date', 'Start Time', 'End Time', 'Session Name', 'App Name', 'Project',
-                            'Duration (seconds)', 'Duration (formatted)', 'Percent of Session'])
-            total_counted_seconds = 0
-            historical_projects = {}
-            for report in sorted(reports_list, key=lambda r: r['date']):
-                date_str = report['date']
-                start_time = report['start']
-                end_time = report['end']
-                session_name = report.get('session_name', 'Unnamed')
-                for app in report['apps']:
-                    if app['excluded']:
-                        continue
-                    writer.writerow([date_str, start_time, end_time, session_name, app['name'], app.get('tag', 'Unassigned'),
-                                    app['seconds'], app['formatted'], f"{app['percent']:.1f}%"])
-                total_counted_seconds += report.get('counted_seconds', 0)
-                
-                # Accumulate historical project times
-                for pb in report.get('project_breakdown', []):
-                    historical_projects[pb['project']] = historical_projects.get(pb['project'], 0) + pb['seconds']
-
-            writer.writerow([])
-            h = total_counted_seconds // 3600
-            m = (total_counted_seconds % 3600) // 60
-            s = total_counted_seconds % 60
-            total_formatted = f"{h}h {m:02d}m {s:02d}s"
-            writer.writerow(['TOTAL COUNTED HOURS', '', '', '', '', '', total_counted_seconds, total_formatted, ''])
-            total_earned = (total_counted_seconds / 3600) * hourly_rate
-            total_earned_display = f"{currency_symbol}{total_earned:,.2f}"
-            writer.writerow(['TOTAL EARNED', '', '', '', '', '', '', total_earned_display, f"@ {currency_symbol}{hourly_rate:.2f}/hr"])
-
-            writer.writerow([])
-            writer.writerow(['PROJECT BREAKDOWN SUMMARY', '', '', '', '', '', '', '', ''])
-            writer.writerow(['Project', 'Duration (seconds)', 'Duration (formatted)', 'Percent of Total Counted', 'Estimated Earnings'])
-            total_hist_counted = sum(historical_projects.values())
-            for proj, secs in sorted(historical_projects.items(), key=lambda x: x[1], reverse=True):
-                pct = (secs / total_hist_counted * 100) if total_hist_counted > 0 else 0
-                earned = (secs / 3600) * hourly_rate
-                earned_display = f"{currency_symbol}{earned:,.2f}"
-                writer.writerow([proj, secs, format_duration(secs), f"{pct:.1f}%", earned_display])
-        return True
-    except Exception as e:
-        print(f"CSV export error: {e}")
-        return False
 
 def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate: float = 0.0, currency_symbol: str = "$"):
     """
@@ -2338,7 +2241,6 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
 
     # Generate Itemized Rows
     items_html = ""
-    is_dark = settings_data.get("dark_mode", False)
     for pb in billing_data.get("project_breakdown", []):
         cat_hours = pb["seconds"] / 3600.0
         tag_color = pb.get("color", "#64748B")
@@ -3061,7 +2963,6 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
 
     # Applications rows
     apps_rows = ""
-    app_exe_paths = report.get("app_exe_paths", {})
     for app in report.get("apps", []):
         if app.get("excluded", False):
             continue
@@ -3248,23 +3149,3 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     if dark_mode:
         html = html.replace('<body class="theme-indigo">', '<body class="theme-indigo dark">')
     return html
-
-def print_html_to_pdf(html_content: str, output_path: str):
-    """
-    Natively converts HTML content into a vector PDF file using QPrinter and QTextDocument.
-    """
-    from PyQt6.QtGui import QTextDocument, QPageSize
-    from PyQt6.QtPrintSupport import QPrinter
-    
-    doc = QTextDocument()
-    doc.setHtml(html_content)
-    
-    printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-    printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
-    printer.setOutputFileName(output_path)
-    
-    # Configure page settings
-    printer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
-    
-    doc.print(printer)
-    return True

@@ -302,10 +302,9 @@ def _load_auto_excluded():
         logger.warning(f"Failed to load auto-exclude file: {e}")
 
 
-def reload_auto_excluded(lock=None):
+def reload_auto_excluded():
     """
     Reload auto_excluded_apps.txt into _AUTO_EXCLUDED_EXES.
-    Thread-safe: pass the tracker's _lock if called while session is running.
 
     Changes take effect on the next app switch in _poll_loop.
     The currently tracked app is never interrupted.
@@ -902,62 +901,6 @@ class AppTracker:
             logger.warning(f"Failed to load from report: {e}")
             return False
 
-    def load_crash_data(self):
-        """Loads crash data into the tracker instance without starting the thread."""
-        if not os.path.exists(ACTIVE_SESSION_FILE):
-            return False
-        try:
-            with open(ACTIVE_SESSION_FILE, "r", encoding="utf-8") as f:
-                state = json.load(f)
-            self.session_start = datetime.fromtimestamp(state["session_start"])
-            self.session_name = state.get("session_name", "")
-            self.app_times = state["app_times"]
-            self.app_included = state.get("app_included", {})
-            self.app_exe_paths = state.get("app_exe_paths", {})
-            self.timeline = []
-            for t in state["timeline"]:
-                self.timeline.append({
-                    "app": t["app"],
-                    "start": datetime.fromtimestamp(t["start"]),
-                    "end": datetime.fromtimestamp(t["end"])
-                })
-            
-            # Restore pause data
-            self.paused = state.get("paused", False)
-            self._pause_start = time.time() if self.paused else None
-            self._total_paused_time = state.get("_total_paused_time", 0)
-            
-            # Flush any current app active during the crash
-            c_app = state.get("_current_app")
-            c_start = state.get("_current_start")
-            c_block_start = state.get("_current_block_start")
-            c_block_active = state.get("_current_block_active", 0)
-            if c_app and c_block_start:
-                crash_time = os.path.getmtime(ACTIVE_SESSION_FILE)
-                if c_start:
-                    elapsed = crash_time - c_start
-                    if elapsed > 0:
-                        if elapsed > self.poll_interval + 2.0:
-                            elapsed = self.poll_interval
-                        if self.app_included.get(c_app, True):
-                            self.app_times[c_app] = self.app_times.get(c_app, 0) + elapsed
-                            c_block_active += elapsed
-                
-                if c_block_active >= self.min_track_seconds:
-                    self.timeline.append({
-                        "app": c_app,
-                        "start": datetime.fromtimestamp(c_block_start),
-                        "end": datetime.fromtimestamp(c_block_start + c_block_active)
-                    })
-            
-            self.session_end = datetime.fromtimestamp(os.path.getmtime(ACTIVE_SESSION_FILE))
-            self.is_recovered = True
-            
-            # Initialize security detector for recovered session
-            self.security_detector = get_detector()
-            return True
-        except Exception:
-            return False
 
     def toggle_pause(self):
         with self._lock:
@@ -985,9 +928,6 @@ class AppTracker:
                 self.persistent_excluded.discard(app_name)
             self._save_settings()
 
-    def get_included(self, app_name):
-        with self._lock:
-            return self.app_included.get(app_name, True)
 
     def get_app_times_sorted(self):
         # Fast path: avoid lock if no apps tracked yet
@@ -1019,15 +959,6 @@ class AppTracker:
                 and not _is_auto_excluded(self.app_exe_paths.get(a, ""))
             )
 
-    def get_total_seconds(self):
-        # Fast path: avoid lock if no apps tracked yet
-        if not self.app_times:
-            return 0
-        with self._lock:
-            return sum(
-                s for a, s in self.app_times.items()
-                if not _is_auto_excluded(self.app_exe_paths.get(a, ""))
-            )
 
     def get_elapsed(self):
         """Seconds since session started."""

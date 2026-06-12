@@ -1,13 +1,12 @@
 """
 TrueHour — Custom Reusable UI Widgets & Dialog Component Leaf Nodes
 """
-import os
 from PyQt6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QCheckBox, QDialog, QLayout, QInputDialog, QSizePolicy
 )
-from PyQt6.QtCore import Qt, QSize, QPoint, QRect, QRectF
-from PyQt6.QtGui import QPixmap, QPainter, QBrush, QColor, QPen, QPainterPath
+from PyQt6.QtCore import Qt, QSize, QPoint, QRect
+from PyQt6.QtGui import QPixmap, QPainter, QBrush, QColor, QPainterPath
 
 from theme import get_svg_icon, get_tag_color
 from assets import EDIT_SVG

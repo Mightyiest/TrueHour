@@ -5,12 +5,12 @@ import json
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTabWidget, QWidget,
     QScrollArea, QCheckBox, QFormLayout, QLineEdit, QComboBox, QGroupBox,
-    QPushButton, QMessageBox, QFileDialog, QSizePolicy, QApplication, QInputDialog
+    QPushButton, QMessageBox, QFileDialog, QApplication, QInputDialog
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QSize
 
 from widgets.custom_widgets import EmailChipWidget, QRThumbnailWidget
-from theme import TEXT_SECONDARY, get_tag_color, get_svg_icon
+from theme import get_svg_icon
 from config import get_app_data_dir, open_file, get_app_data_root
 from tracker import AUTO_EXCLUDE_FILE, create_auto_excluded_if_missing
 from appinfo import OVERRIDES_FILE

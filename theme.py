@@ -3,10 +3,9 @@ TrueHour — Unified Theme & Design System
 Houses colors, global stylesheets, palette configurations, and SVG paint utilities.
 """
 import os
-import sys
 import math
 from PyQt6.QtCore import Qt, QSize, QPointF, QRectF
-from PyQt6.QtGui import QColor, QPalette, QIcon, QPixmap, QPainter, QPen, QBrush, QPainterPath
+from PyQt6.QtGui import QColor, QPalette, QIcon, QPixmap, QPainter, QPen, QPainterPath
 
 # ── Design Tokens & Color Palettes ───────────────────────────────────
 BG_WHITE      = "#FFFFFF"

@@ -4,7 +4,6 @@ Test suite for secure_time.py - Anti-tamper time tracking system
 
 import unittest
 import time
-import hashlib
 from unittest.mock import patch, MagicMock
 from secure_time import TimeTamperDetector, get_detector, reset_detector
 

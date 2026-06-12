@@ -3,8 +3,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QPushButton,
     QTabWidget, QWidget, QScrollArea, QComboBox
 )
-from PyQt6.QtCore import Qt, QTimer, QSize
-from PyQt6.QtGui import QColor
+from PyQt6.QtCore import Qt, QTimer
 
 from report import (
     format_duration_hms, build_report_data, aggregate_history_data

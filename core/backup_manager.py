@@ -4,7 +4,6 @@ import json
 import shutil
 import tempfile
 import logging
-from pathlib import Path
 from config import get_app_data_root
 
 logger = logging.getLogger(__name__)
@@ -84,7 +83,7 @@ def import_settings(src_zip_path: str, target_profile_name: str) -> bool:
                     extracted_logo_path = os.path.join(target_profile_dir, "logo", logo_file)
             
             # Copy all files recursively
-            for root, dirs, files in os.walk(tmpdir):
+            for root, _, files in os.walk(tmpdir):
                 # Create corresponding target subdirectories
                 rel_dir = os.path.relpath(root, tmpdir)
                 target_dir = target_profile_dir if rel_dir == "." else os.path.join(target_profile_dir, rel_dir)

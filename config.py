@@ -46,7 +46,7 @@ def get_app_data_root() -> str:
     new_path.mkdir(parents=True, exist_ok=True)
     return str(new_path)
 
-def get_app_data_dir(migrate=False) -> str:
+def get_app_data_dir() -> str:
     root_dir = Path(get_app_data_root())
     
     # Ensure legacy migration from old FocusLog app to TrueHour root

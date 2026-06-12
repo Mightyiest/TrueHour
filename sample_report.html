@@ -50,6 +50,31 @@
             --success: #059669;
         }
 
+        body.dark {
+            --bg-body: #141414;
+            --bg-card: #1e1e1e;
+            --border: #333333;
+            --text-main: #e0e0e0;
+            --text-muted: #aaa;
+            --text-light: #888;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            
+            --accent: #e0e0e0;
+            --accent-hover: #ffffff;
+            --accent-gradient-start: #e0e0e0;
+            --accent-gradient-end: #e0e0e0;
+            --success: #10B981;
+            --warning: #F59E0B;
+        }
+        body.dark .print-actions-bar {
+            background: rgba(30, 30, 30, 0.75);
+            border-color: rgba(51, 51, 51, 0.8);
+        }
+        body.dark .theme-selector {
+            display: none !important;
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
             font-family: 'Inter', system-ui, -apple-system, sans-serif; 
@@ -619,25 +644,25 @@
         <div class="timeline-list">
             
         <div class="timeline-item" style="border-left-color: #4F46E5; --tag-color: #4F46E5;">
-            <span class="timeline-time">08:54:34 AM - 12:54:34 PM</span>
+            <span class="timeline-time">06:17:09 PM - 10:17:09 PM</span>
             <span class="timeline-app">VS Code <span style="font-weight: normal; color: var(--text-muted); font-size: 11px;">(Development)</span></span>
             <span class="timeline-duration">4h 00m 00s</span>
         </div>
         
         <div class="timeline-item" style="border-left-color: #4F46E5; --tag-color: #4F46E5;">
-            <span class="timeline-time">12:54:34 PM - 02:54:34 PM</span>
+            <span class="timeline-time">10:17:09 PM - 12:17:09 AM</span>
             <span class="timeline-app">Command Prompt <span style="font-weight: normal; color: var(--text-muted); font-size: 11px;">(Development)</span></span>
             <span class="timeline-duration">2h 00m 00s</span>
         </div>
         
         <div class="timeline-item" style="border-left-color: #F59E0B; --tag-color: #F59E0B;">
-            <span class="timeline-time">02:54:34 PM - 03:54:34 PM</span>
+            <span class="timeline-time">12:17:09 AM - 01:17:09 AM</span>
             <span class="timeline-app">Notepad <span style="font-weight: normal; color: var(--text-muted); font-size: 11px;">(Documentation)</span></span>
             <span class="timeline-duration">1h 00m 00s</span>
         </div>
         
         <div class="timeline-item" style="border-left-color: #64748B; --tag-color: #64748B;">
-            <span class="timeline-time">03:54:34 PM - 04:54:34 PM</span>
+            <span class="timeline-time">01:17:09 AM - 02:17:09 AM</span>
             <span class="timeline-app">File Explorer <span style="font-weight: normal; color: var(--text-muted); font-size: 11px;">(Unassigned)</span></span>
             <span class="timeline-duration">1h 00m 00s</span>
         </div>

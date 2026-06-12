@@ -1,7 +1,6 @@
 import os
 import glob
 import json
-import sqlite3
 from datetime import datetime
 from database.schema import get_connection
 from config import get_app_data_dir

@@ -3,8 +3,8 @@ TrueHour — Custom Interactive QPainter Chart Widgets.
 Provides a premium, dependency-free visual experience with animations and hover states.
 """
 from PyQt6.QtWidgets import QWidget
-from PyQt6.QtCore import Qt, QRectF, QPointF, QSize
-from PyQt6.QtGui import QColor, QPainter, QBrush, QPen, QPainterPath, QLinearGradient, QFont, QFontMetrics
+from PyQt6.QtCore import Qt, QRectF, QPointF
+from PyQt6.QtGui import QColor, QPainter, QBrush, QPen, QPainterPath, QLinearGradient, QFont
 import math
 
 class DonutChartWidget(QWidget):

@@ -7,10 +7,9 @@ from datetime import datetime
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QTabWidget,
     QScrollArea, QWidget, QFrame, QCheckBox, QLabel, QSizePolicy,
-    QFileDialog, QMessageBox, QInputDialog, QLineEdit, QApplication
+    QMessageBox, QInputDialog, QLineEdit, QApplication
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRectF
-from PyQt6.QtGui import QIcon, QPixmap, QColor, QPainter, QPen
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
 
 from config import get_app_data_dir, open_file, send_to_trash
 
@@ -18,9 +17,7 @@ logger = logging.getLogger(__name__)
 from report import (
     load_session_json, merge_sessions_for_invoice, generate_invoice_html
 )
-from theme import (
-    TEXT_SECONDARY, get_svg_icon
-)
+from theme import get_svg_icon
 from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG
 from widgets.custom_widgets import InvoicePrivacyOptionsDialog
 

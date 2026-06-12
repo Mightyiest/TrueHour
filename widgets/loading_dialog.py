@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QProgressBar, QPushButton, QHBoxLayout
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt
 from theme import get_qss_style, get_dark_palette, get_light_palette
 
 class LoadingDialog(QDialog):

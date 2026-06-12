@@ -5,10 +5,8 @@ Test suite for core/reporting module - Report generation, statistics, and cachin
 import unittest
 import os
 import sys
-import json
 import tempfile
 import shutil
-from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 
 # Adjust path so we can import from local files
