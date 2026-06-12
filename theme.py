@@ -150,7 +150,6 @@ def ensure_checkmark_icon(is_dark: bool = False) -> str:
     filename = "checkmark_dark.png" if is_dark else "checkmark_light.png"
     checkmark_path = os.path.join(get_app_data_dir(), filename).replace("\\", "/")
     
-    global _GENERATED_CHECKMARKS
     if filename in _GENERATED_CHECKMARKS and os.path.exists(checkmark_path):
         return checkmark_path
         
