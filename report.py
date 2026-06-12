@@ -852,12 +852,560 @@ def get_cached_template(template_path: str, default_content: str) -> str:
     _TEMPLATE_CACHE[template_path] = content
     return content
 
-def generate_invoice_html(billing_data, settings_data) -> str:
+default_receipt_template = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Receipt - {{BUSINESS_NAME}}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-body: #f6f6f6;
+            --bg-card: #ffffff;
+            --border: #e8e8e8;
+            --text-main: #1a1a1a;
+            --text-muted: #555555;
+            --text-light: #717171;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            
+            --accent: #1e3050;
+            --accent-hover: #0f1d35;
+            --accent-gradient-start: #1e3050;
+            --accent-gradient-end: #1e3050;
+            --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
+        }
+
+        body.dark {
+            --bg-body: #141414;
+            --bg-card: #1e1e1e;
+            --border: #333333;
+            --text-main: #e0e0e0;
+            --text-muted: #aaa;
+            --text-light: #888;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            
+            --accent: #e0e0e0;
+            --accent-hover: #ffffff;
+            --accent-gradient-start: #e0e0e0;
+            --accent-gradient-end: #e0e0e0;
+            --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
+        }
+
+        body.dark .print-actions-bar {
+            background: rgba(30, 30, 30, 0.75);
+            border-color: rgba(51, 51, 51, 0.8);
+        }
+
+        .theme-toggle-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+        .theme-toggle-btn:hover {
+            background-color: var(--bg-body);
+            border-color: var(--accent);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+            background-color: var(--bg-body); 
+            color: var(--text-main); 
+            line-height: 1.5; 
+            padding: 20px 16px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            transition: background 0.3s ease;
+        }
+
+        .print-actions-bar { 
+            width: 100%; 
+            max-width: 650px; 
+            background: rgba(255, 255, 255, 0.75); 
+            backdrop-filter: blur(16px); 
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(226, 232, 240, 0.8); 
+            border-radius: 10px; 
+            padding: 8px 16px; 
+            margin-bottom: 12px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: var(--card-shadow);
+        }
+        .action-left-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .status-pill {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .print-btn { 
+            background: var(--accent-gradient-start);
+            background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            font-family: 'Outfit', sans-serif;
+            font-size: 13.5px;
+            font-weight: 600; 
+            cursor: pointer; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        .print-btn:hover { 
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.2);
+        }
+
+        .receipt-container { 
+            position: relative;
+            width: 100%; 
+            max-width: 650px; 
+            background-color: var(--bg-card); 
+            border: 1px solid var(--border); 
+            border-radius: 16px; 
+            padding: 32px 40px; 
+            box-shadow: var(--card-shadow); 
+            transition: all 0.3s ease;
+        }
+        
+        .receipt-header-row { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            border-bottom: 2px solid var(--bg-body); 
+            padding-bottom: 20px; 
+            margin-bottom: 24px; 
+        }
+        .receipt-logo { 
+            max-width: 180px; 
+            max-height: 52px; 
+            object-fit: contain; 
+            margin-bottom: 8px; 
+            display: block; 
+        }
+        .profile-title { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px; 
+            font-weight: 700; 
+            color: var(--text-main); 
+            letter-spacing: -0.02em; 
+        }
+        .profile-details { 
+            font-size: 12px; 
+            color: var(--text-muted); 
+            margin-top: 4px; 
+            line-height: 1.4; 
+        }
+        
+        .meta-column { text-align: right; }
+        .receipt-badge { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 24px; 
+            font-weight: 800; 
+            background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.03em; 
+            margin-bottom: 8px; 
+        }
+        .meta-item { 
+            font-size: 12px; 
+            color: var(--text-muted); 
+            margin-bottom: 4px; 
+        }
+        .meta-item strong {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        .section-label { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 10px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            color: var(--accent); 
+            letter-spacing: 0.1em; 
+            margin-bottom: 8px; 
+        }
+        .party-name { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px; 
+            font-weight: 700; 
+            color: var(--text-main); 
+        }
+        .party-address { 
+            font-size: 12px; 
+            color: var(--text-muted); 
+            margin-top: 4px; 
+            line-height: 1.45; 
+        }
+
+        .summary-box { 
+            background-color: var(--bg-body); 
+            border: 1px solid var(--border); 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin-bottom: 24px;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dashed var(--border);
+        }
+        .summary-row:last-child {
+            border-bottom: none;
+            padding-top: 12px;
+        }
+        .summary-label {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .summary-value {
+            font-size: 13px;
+            color: var(--text-main);
+            font-weight: 600;
+        }
+        .summary-value.highlight {
+            font-family: 'Outfit', sans-serif;
+            font-size: 20px;
+            color: var(--success);
+            font-weight: 800;
+        }
+
+        .receipt-footer { 
+            margin-top: 12px; 
+            text-align: center; 
+            padding: 10px; 
+            font-size: 11px;
+            color: var(--text-light);
+        }
+
+        @page {
+            size: auto;
+            margin: 0; 
+        }
+
+        @media print { 
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background-color: #ffffff; color: #1a1a1a; padding: 8mm 12mm; margin: 0; font-size: 11px; } 
+            body.dark { background-color: var(--bg-card); color: var(--text-main); }
+            .print-actions-bar { display: none; } 
+            .receipt-container { background-color: transparent !important; border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; } 
+            .receipt-header-row { padding-bottom: 14px; margin-bottom: 14px; }
+            .receipt-badge { font-size: 20px; margin-bottom: 4px; }
+            .receipt-logo { max-height: 40px; margin-bottom: 4px; }
+            .summary-box { padding: 12px; }
+            .receipt-footer { margin-top: 14px; padding: 6px 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-actions-bar">
+        <div class="action-left-info">
+            <div class="status-pill">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <span>Receipt Confirmed</span>
+            </div>
+            
+            <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
+                <svg id="theme-icon-dark" class="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+                <svg id="theme-icon-light" class="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <span id="theme-text">Dark Mode</span>
+            </button>
+        </div>
+        
+        <button class="print-btn" onclick="window.print()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            Print / Save PDF
+        </button>
+    </div>
+    
+    <div class="receipt-container">
+        <div style="position: absolute; top: 30px; right: 40px; border: 4px double var(--success); color: var(--success); font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; padding: 4px 14px; border-radius: 8px; transform: rotate(-8deg); text-transform: uppercase; letter-spacing: 0.1em; background-color: var(--success-bg); pointer-events: none; user-select: none; z-index: 10;">PAID RECEIPT</div>
+
+        <div class="receipt-header-row">
+            <div>
+                {{LOGO_HTML}}
+                <div class="profile-title">{{BUSINESS_NAME}}</div>
+                <div class="profile-details">
+                    {{BUSINESS_ADDRESS}}<br>
+                    {{BUSINESS_CONTACT}}
+                </div>
+            </div>
+            <div class="meta-column">
+                <div class="receipt-badge">RECEIPT</div>
+                <div class="meta-item"><strong>Receipt No:</strong> {{RECEIPT_NO}}</div>
+                <div class="meta-item"><strong>Date:</strong> {{DATE}}</div>
+            </div>
+        </div>
+        
+        <div class="details-grid">
+            <div>
+                <div class="section-label">Issued By</div>
+                <div class="party-name">{{BUSINESS_NAME}}</div>
+                <div class="party-address">{{BUSINESS_ADDRESS}}</div>
+            </div>
+            <div>
+                <div class="section-label">Billed To</div>
+                <div class="party-name">{{CLIENT_NAME}}</div>
+                <div class="party-address">{{CLIENT_ADDRESS}}</div>
+                {{CLIENT_EMAILS_HTML}}
+            </div>
+        </div>
+        
+        <div class="summary-box">
+            <div class="section-label" style="margin-bottom: 12px;">Payment Summary</div>
+            <div class="summary-row">
+                <span class="summary-label">Total Time Tracked</span>
+                <span class="summary-value">{{HOURS_COUNTED}} hrs</span>
+            </div>
+            <div class="summary-row">
+                <span class="summary-label">Hourly Billing Rate</span>
+                <span class="summary-value">{{HOURLY_RATE}}</span>
+            </div>
+            <div class="summary-row">
+                <span class="summary-label">Total Amount Paid</span>
+                <span class="summary-value highlight">{{TOTAL_AMOUNT_PAID}}</span>
+            </div>
+        </div>
+        
+        <div class="receipt-footer">
+            Thank you for your business! Powered by TrueHour.
+        </div>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('dark');
+            const themeText = document.getElementById('theme-text');
+            const iconLight = document.getElementById('theme-icon-light');
+            const iconDark = document.getElementById('theme-icon-dark');
+            
+            if (isDark) {
+                themeText.textContent = 'Light Mode';
+                iconLight.style.display = 'none';
+                iconDark.style.display = 'inline-block';
+            } else {
+                themeText.textContent = 'Dark Mode';
+                iconLight.style.display = 'inline-block';
+                iconDark.style.display = 'none';
+            }
+            try {
+                localStorage.setItem('truehour-theme', isDark ? 'dark' : 'light');
+            } catch(e) {}
+        }
+        
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                const savedTheme = localStorage.getItem('truehour-theme') || (document.body.classList.contains('dark') ? 'dark' : 'light');
+                if (savedTheme === 'dark') {
+                    document.body.classList.add('dark');
+                    document.getElementById('theme-text').textContent = 'Light Mode';
+                    document.getElementById('theme-icon-light').style.display = 'none';
+                    document.getElementById('theme-icon-dark').style.display = 'inline-block';
+                } else {
+                    document.body.classList.remove('dark');
+                    document.getElementById('theme-text').textContent = 'Dark Mode';
+                    document.getElementById('theme-icon-light').style.display = 'inline-block';
+                    document.getElementById('theme-icon-dark').style.display = 'none';
+                }
+            } catch(e) {}
+        });
+    </script>
+</body>
+</html>"""
+
+def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
+    """
+    Generates a stunning, premium, modern A4 HTML payment receipt with simplified details.
+    Loads templates/receipt.html from disk, auto-creating it if missing.
+    """
+    import base64
+    import os
+    import sys
+    from html import escape as _esc
+    from datetime import datetime
+    
+    logo_path = settings_data.get("business_logo_path", "")
+    logo_data_uri = ""
+    if logo_path and os.path.exists(logo_path):
+        try:
+            ext = os.path.splitext(logo_path)[1].lower().replace(".", "")
+            if ext in ["png", "jpg", "jpeg"]:
+                with open(logo_path, "rb") as f:
+                    encoded = base64.b64encode(f.read()).decode("utf-8")
+                logo_data_uri = f"data:image/{ext};base64,{encoded}"
+        except Exception:
+            pass
+
+    # Header Logo Setup
+    logo_html = ""
+    if settings_data.get("enable_business_logo", True):
+        if logo_data_uri:
+            logo_html = f'<img src="{logo_data_uri}" class="receipt-logo" />'
+        else:
+            logo_html = """<svg class="receipt-logo" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom: 12px; display: block;">
+      <rect width="40" height="40" rx="10" fill="url(#logo-grad)"/>
+      <path d="M20 11V29" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M13 18L20 11L27 18" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M10 29H30" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <defs>
+        <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+          <stop stop-color="var(--accent-gradient-start, #6366F1)"/>
+          <stop offset="1" stop-color="var(--accent-gradient-end, #4F46E5)"/>
+        </linearGradient>
+      </defs>
+    </svg>"""
+
+    # Calculation Metrics
+    hours_counted = billing_data["counted_seconds"] / 3600.0
+    hourly_rate = settings_data.get("hourly_rate", 0.0)
+    curr_sym = settings_data.get("currency_symbol", "$")
+
+    # Email & Phone Masking & Multi-Email Processing
+    mask_biz_emails = settings_data.get("mask_business_emails", settings_data.get("mask_sensitive_data", False))
+    mask_biz_phone = settings_data.get("mask_business_phone", settings_data.get("mask_sensitive_data", False))
+    mask_client_emails = settings_data.get("mask_client_emails", settings_data.get("mask_sensitive_data", False))
+    
+    biz_emails = settings_data.get("business_emails", [])
+    if not biz_emails:
+        legacy_email = settings_data.get("business_email", "")
+        if legacy_email:
+            biz_emails = [e.strip() for e in legacy_email.split(",") if e.strip()]
+            
+    if mask_biz_emails:
+        biz_emails_processed = [_esc(mask_email(e)) for e in biz_emails]
+    else:
+        biz_emails_processed = [_esc(e) for e in biz_emails]
+    biz_email_str = ", ".join(biz_emails_processed)
+    
+    biz_phone = settings_data.get("business_phone", "")
+    if biz_phone:
+        if mask_biz_phone:
+            biz_phone = _esc(mask_phone(biz_phone))
+        else:
+            biz_phone = _esc(biz_phone)
+        
+    biz_contact_parts = []
+    if biz_email_str:
+        biz_contact_parts.append(biz_email_str)
+    if biz_phone:
+        biz_contact_parts.append(biz_phone)
+    biz_contact_html = " &nbsp;&bull;&nbsp; ".join(biz_contact_parts)
+
+    client_emails = settings_data.get("client_emails", [])
+    if mask_client_emails:
+        client_emails_processed = [_esc(mask_email(e)) for e in client_emails]
+    else:
+        client_emails_processed = [_esc(e) for e in client_emails]
+
+    client_emails_html = ""
+    if client_emails_processed:
+        emails_joined = ", ".join(client_emails_processed)
+        client_emails_html = f'<div class="party-address">{emails_joined}</div>'
+
+    # Self-healing logic for receipt.html
+    if getattr(sys, 'frozen', False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        try:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        except Exception:
+            base_dir = os.getcwd()
+
+    templates_dir = os.path.join(base_dir, "templates")
+    template_path = os.path.join(templates_dir, "receipt.html")
+    
+    template_html = get_cached_template(template_path, default_receipt_template)
+
+    html = template_html
+    if settings_data.get("dark_mode", False):
+        html = html.replace("<body>", '<body class="dark">')
+    html = html.replace("{{LOGO_HTML}}", logo_html)
+    html = html.replace("{{BUSINESS_NAME}}", _esc(settings_data.get("business_name", "TrueHour Business")))
+    html = html.replace("{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", "")))
+    html = html.replace("{{BUSINESS_CONTACT}}", biz_contact_html)
+    
+    final_receipt_no = invoice_no if invoice_no else f"REC-{datetime.now().strftime('%Y%m%d%H%M')}"
+    html = html.replace("{{RECEIPT_NO}}", final_receipt_no)
+    html = html.replace("{{DATE}}", datetime.now().strftime("%B %d, %Y"))
+    html = html.replace("{{CLIENT_NAME}}", _esc(settings_data.get("client_name", "Valued Client")))
+    html = html.replace("{{CLIENT_ADDRESS}}", _esc(settings_data.get("client_address", "")))
+    html = html.replace("{{CLIENT_EMAILS_HTML}}", client_emails_html)
+    
+    html = html.replace("{{HOURS_COUNTED}}", f"{hours_counted:.2f}")
+    html = html.replace("{{HOURLY_RATE}}", f"{curr_sym}{hourly_rate:.2f}/hr")
+    
+    total_earned_display = billing_data.get("total_earned_display")
+    if not total_earned_display:
+        total_earned = billing_data.get("total_earned", 0.0)
+        total_earned_display = f"{curr_sym}{total_earned:,.2f}"
+    html = html.replace("{{TOTAL_AMOUNT_PAID}}", _esc(total_earned_display))
+
+    return html
+
+def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_no=None) -> str:
     """
     Generates a stunning, premium, modern A4 HTML invoice.
     Optimized for high-fidelity web viewing and perfect browser-based PDF printing.
     Loads templates/invoice.html from disk, auto-creating it if missing.
     """
+    if status == 'paid':
+        return generate_receipt_html(billing_data, settings_data, invoice_no=invoice_no)
     import base64
     import sys
     from html import escape as _esc
@@ -875,22 +1423,23 @@ def generate_invoice_html(billing_data, settings_data) -> str:
 
     # Header Logo Setup
     logo_html = ""
-    if logo_data_uri:
-        logo_html = f'<img src="{logo_data_uri}" class="invoice-logo" />'
-    else:
-        # High-fidelity dynamic SVG placeholder logo that dynamically shifts with CSS theme variables!
-        logo_html = """<svg class="invoice-logo" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom: 12px; display: block;">
-  <rect width="40" height="40" rx="10" fill="url(#logo-grad)"/>
-  <path d="M20 11V29" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M13 18L20 11L27 18" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M10 29H30" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <defs>
-    <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-      <stop stop-color="var(--accent-gradient-start, #6366F1)"/>
-      <stop offset="1" stop-color="var(--accent-gradient-end, #4F46E5)"/>
-    </linearGradient>
-  </defs>
-</svg>"""
+    if settings_data.get("enable_business_logo", True):
+        if logo_data_uri:
+            logo_html = f'<img src="{logo_data_uri}" class="invoice-logo" />'
+        else:
+            # High-fidelity dynamic SVG placeholder logo that dynamically shifts with CSS theme variables!
+            logo_html = """<svg class="invoice-logo" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom: 12px; display: block;">
+      <rect width="40" height="40" rx="10" fill="url(#logo-grad)"/>
+      <path d="M20 11V29" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M13 18L20 11L27 18" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M10 29H30" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <defs>
+        <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+          <stop stop-color="var(--accent-gradient-start, #6366F1)"/>
+          <stop offset="1" stop-color="var(--accent-gradient-end, #4F46E5)"/>
+        </linearGradient>
+      </defs>
+    </svg>"""
 
     # Calculation Metrics
     hours_counted = billing_data["counted_seconds"] / 3600.0
@@ -1021,42 +1570,65 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-body: #F8FAFC;
-            --bg-card: #FFFFFF;
-            --border: #E2E8F0;
-            --text-main: #0F172A;
-            --text-muted: #64748B;
-            --text-light: #94A3B8;
-            --card-shadow: 0 8px 24px -10px rgba(15, 23, 42, 0.04);
-            --hover-shadow: 0 16px 32px -12px rgba(15, 23, 42, 0.06);
+            /* Common Design Variables (Light Theme) */
+            --bg-body: #f6f6f6;
+            --bg-card: #ffffff;
+            --border: #e8e8e8;
+            --text-main: #1a1a1a;
+            --text-muted: #555555;
+            --text-light: #717171;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
             
-            --accent: #4F46E5;
-            --accent-hover: #4338CA;
-            --accent-gradient-start: #6366F1;
-            --accent-gradient-end: #4F46E5;
+            --accent: #1e3050;
+            --accent-hover: #0f1d35;
+            --accent-gradient-start: #1e3050;
+            --accent-gradient-end: #1e3050;
             --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
         }
 
-        body.theme-indigo {
-            --accent: #4F46E5;
-            --accent-hover: #4338CA;
-            --accent-gradient-start: #6366F1;
-            --accent-gradient-end: #4F46E5;
+        body.dark {
+            --bg-body: #141414;
+            --bg-card: #1e1e1e;
+            --border: #333333;
+            --text-main: #e0e0e0;
+            --text-muted: #aaa;
+            --text-light: #888;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            
+            --accent: #e0e0e0;
+            --accent-hover: #ffffff;
+            --accent-gradient-start: #e0e0e0;
+            --accent-gradient-end: #e0e0e0;
             --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
         }
-        body.theme-teal {
-            --accent: #0D9488;
-            --accent-hover: #0F766E;
-            --accent-gradient-start: #14B8A6;
-            --accent-gradient-end: #0D9488;
-            --success: #10B981;
+
+        body.dark .print-actions-bar {
+            background: rgba(30, 30, 30, 0.75);
+            border-color: rgba(51, 51, 51, 0.8);
         }
-        body.theme-slate {
-            --accent: #334155;
-            --accent-hover: #1E293B;
-            --accent-gradient-start: #475569;
-            --accent-gradient-end: #334155;
-            --success: #059669;
+
+        .theme-toggle-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+        .theme-toggle-btn:hover {
+            background-color: var(--bg-body);
+            border-color: var(--accent);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1162,6 +1734,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
         }
 
         .invoice-container { 
+            position: relative;
             width: 100%; 
             max-width: 850px; 
             background-color: var(--bg-card); 
@@ -1397,7 +1970,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
             display: flex; 
             flex-direction: column; 
             align-items: center; 
-            background: #FFFFFF; 
+            background: var(--bg-card); 
             border: 1px solid var(--border); 
             border-radius: 8px; 
             padding: 6px; 
@@ -1472,9 +2045,10 @@ def generate_invoice_html(billing_data, settings_data) -> str:
 
         @media print { 
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            body { background-color: white; padding: 8mm 12mm; margin: 0; font-size: 11px; } 
+            body { background-color: #ffffff; color: #1a1a1a; padding: 8mm 12mm; margin: 0; font-size: 11px; } 
+            body.dark { background-color: var(--bg-card); color: var(--text-main); }
             .print-actions-bar { display: none; } 
-            .invoice-container { border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; } 
+            .invoice-container { background-color: transparent !important; border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; } 
             .invoice-header-row { padding-bottom: 14px; margin-bottom: 14px; }
             .invoice-badge { font-size: 20px; margin-bottom: 4px; }
             .invoice-logo { max-height: 40px; margin-bottom: 4px; }
@@ -1493,7 +2067,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
         }
     </style>
 </head>
-<body class="theme-indigo">
+<body>
     <div class="print-actions-bar">
         <div class="action-left-info">
             <div class="status-pill">
@@ -1503,11 +2077,24 @@ def generate_invoice_html(billing_data, settings_data) -> str:
                 </svg>
                 <span>Invoice Generated</span>
             </div>
-            <div class="theme-selector">
-                <button class="theme-pill-btn active" data-theme="indigo" onclick="switchTheme('indigo')" title="Indigo Violet Theme"></button>
-                <button class="theme-pill-btn" data-theme="teal" onclick="switchTheme('teal')" title="Emerald Teal Theme"></button>
-                <button class="theme-pill-btn" data-theme="slate" onclick="switchTheme('slate')" title="Slate Charcoal Theme"></button>
-            </div>
+            <!-- Light/Dark Mode Switcher -->
+            <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
+                <svg id="theme-icon-dark" class="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+                <svg id="theme-icon-light" class="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <span id="theme-text">Dark Mode</span>
+            </button>
         </div>
         
         <button class="print-btn" onclick="window.print()">
@@ -1521,6 +2108,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
     </div>
     
     <div class="invoice-container">
+        {{PAYMENT_CONFIRMATION_STAMP}}
         <div class="invoice-header-row">
             <div>
                 {{LOGO_HTML}}
@@ -1531,7 +2119,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
                 </div>
             </div>
             <div class="meta-column">
-                <div class="invoice-badge">INVOICE</div>
+                <div class="invoice-badge">{{INVOICE_BADGE}}</div>
                 <div class="meta-item"><strong>Invoice No:</strong> {{INVOICE_NO}}</div>
                 <div class="meta-item"><strong>Date:</strong> {{DATE}}</div>
                 <div class="meta-item"><strong>Sessions:</strong> {{SESSIONS_COMPILED}}</div>
@@ -1551,7 +2139,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
                 <div class="kpi-val">{{HOURS_COUNTED}} hrs</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Total Amount Due</div>
+                <div class="kpi-label">{{TOTAL_DUE_LABEL}}</div>
                 <div class="kpi-val amount-val">{{TOTAL_AMOUNT_DUE}}</div>
             </div>
         </div>
@@ -1595,21 +2183,43 @@ def generate_invoice_html(billing_data, settings_data) -> str:
         </div>
     </div>
 
+    <!-- Interactive Theme Changer Scripts -->
     <script>
-        function switchTheme(themeName) {
-            document.body.className = 'theme-' + themeName;
-            document.querySelectorAll('.theme-pill-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.getAttribute('data-theme') === themeName);
-            });
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('dark');
+            const themeText = document.getElementById('theme-text');
+            const iconLight = document.getElementById('theme-icon-light');
+            const iconDark = document.getElementById('theme-icon-dark');
+            
+            if (isDark) {
+                themeText.textContent = 'Light Mode';
+                iconLight.style.display = 'none';
+                iconDark.style.display = 'inline-block';
+            } else {
+                themeText.textContent = 'Dark Mode';
+                iconLight.style.display = 'inline-block';
+                iconDark.style.display = 'none';
+            }
             try {
-                localStorage.setItem('truehour-theme', themeName);
+                localStorage.setItem('truehour-theme', isDark ? 'dark' : 'light');
             } catch(e) {}
         }
         
+        // Auto-load theme preference
         window.addEventListener('DOMContentLoaded', () => {
             try {
-                const savedTheme = localStorage.getItem('truehour-theme') || 'indigo';
-                switchTheme(savedTheme);
+                const savedTheme = localStorage.getItem('truehour-theme') || (document.body.classList.contains('dark') ? 'dark' : 'light');
+                if (savedTheme === 'dark') {
+                    document.body.classList.add('dark');
+                    document.getElementById('theme-text').textContent = 'Light Mode';
+                    document.getElementById('theme-icon-light').style.display = 'none';
+                    document.getElementById('theme-icon-dark').style.display = 'inline-block';
+                } else {
+                    document.body.classList.remove('dark');
+                    document.getElementById('theme-text').textContent = 'Dark Mode';
+                    document.getElementById('theme-icon-light').style.display = 'inline-block';
+                    document.getElementById('theme-icon-dark').style.display = 'none';
+                }
             } catch(e) {}
         });
     </script>
@@ -1618,13 +2228,37 @@ def generate_invoice_html(billing_data, settings_data) -> str:
 
     template_html = get_cached_template(template_path, default_template)
 
+    # Define labels based on status
+    if status == 'paid':
+        invoice_badge = "RECEIPT"
+        total_due_label = "Total Amount Paid"
+        stamp_style = (
+            'position: absolute; top: 30px; right: 40px; border: 4px double var(--success); '
+            'color: var(--success); font-family: "Outfit", sans-serif; font-size: 20px; '
+            'font-weight: 800; padding: 4px 14px; border-radius: 8px; transform: rotate(-8deg); '
+            'text-transform: uppercase; letter-spacing: 0.1em; background-color: var(--success-bg); '
+            'pointer-events: none; user-select: none; z-index: 10;'
+        )
+        stamp_html = f'<div style="{stamp_style}">PAID RECEIPT</div>'
+    else:
+        invoice_badge = "INVOICE"
+        total_due_label = "Total Amount Due"
+        stamp_html = ""
+
+    final_invoice_no = invoice_no if invoice_no else f"INV-{datetime.now().strftime('%Y%m%d%H%M')}"
+
     # Replace all placeholders in HTML template
     html = template_html
+    if settings_data.get("dark_mode", False):
+        html = html.replace("<body>", '<body class="dark">')
     html = html.replace("{{LOGO_HTML}}", logo_html)
     html = html.replace("{{BUSINESS_NAME}}", _esc(settings_data.get("business_name", "TrueHour Invoice")))
     html = html.replace("{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", "")))
     html = html.replace("{{BUSINESS_CONTACT}}", biz_contact_html)
-    html = html.replace("{{INVOICE_NO}}", f"INV-{datetime.now().strftime('%Y%m%d%H%M')}")
+    html = html.replace("{{INVOICE_NO}}", final_invoice_no)
+    html = html.replace("{{INVOICE_BADGE}}", invoice_badge)
+    html = html.replace("{{TOTAL_DUE_LABEL}}", total_due_label)
+    html = html.replace("{{PAYMENT_CONFIRMATION_STAMP}}", stamp_html)
     html = html.replace("{{DATE}}", datetime.now().strftime("%B %d, %Y"))
     html = html.replace("{{SESSIONS_COMPILED}}", str(billing_data.get("session_count", 1)))
     html = html.replace("{{CLIENT_NAME}}", _esc(settings_data.get("client_name", "Valued Client")))
@@ -1704,6 +2338,7 @@ def generate_invoice_html(billing_data, settings_data) -> str:
 
     # Generate Itemized Rows
     items_html = ""
+    is_dark = settings_data.get("dark_mode", False)
     for pb in billing_data.get("project_breakdown", []):
         cat_hours = pb["seconds"] / 3600.0
         tag_color = pb.get("color", "#64748B")
@@ -1790,6 +2425,31 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             --accent-gradient-start: #475569;
             --accent-gradient-end: #334155;
             --success: #059669;
+        }
+
+        body.dark {
+            --bg-body: #141414;
+            --bg-card: #1e1e1e;
+            --border: #333333;
+            --text-main: #e0e0e0;
+            --text-muted: #aaa;
+            --text-light: #888;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            
+            --accent: #e0e0e0;
+            --accent-hover: #ffffff;
+            --accent-gradient-start: #e0e0e0;
+            --accent-gradient-end: #e0e0e0;
+            --success: #10B981;
+            --warning: #F59E0B;
+        }
+        body.dark .print-actions-bar {
+            background: rgba(30, 30, 30, 0.75);
+            border-color: rgba(51, 51, 51, 0.8);
+        }
+        body.dark .theme-selector {
+            display: none !important;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2295,6 +2955,22 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
 
     template_html = get_cached_template(template_path, default_template)
 
+    from config import get_app_data_dir
+    import json
+    settings_path = os.path.join(get_app_data_dir(), "settings.json")
+    dark_mode = False
+    if os.path.exists(settings_path):
+        try:
+            with open(settings_path, "r", encoding="utf-8") as f:
+                settings_data = json.load(f)
+                dark_mode = settings_data.get("dark_mode", False)
+        except Exception:
+            pass
+
+    def get_color(tag):
+        return get_project_color(tag)
+
+
     total_secs = report.get("total_seconds", 0)
     counted_secs = report.get("counted_seconds", 0)
     ratio = (counted_secs / total_secs * 100.0) if total_secs > 0 else 0.0
@@ -2327,8 +3003,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         rows_html = ""
         for a in new_activity:
             raw_tag = a.get("tag", "Unassigned")
-            tag_color = get_project_color(raw_tag)
-            pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" else ""
+            tag_color = get_color(raw_tag)
+            pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" or dark_mode else ""
             escaped_name = _esc(a['name'])
             escaped_tag = _esc(raw_tag)
             initial = _esc(a['name'][0].upper()) if a['name'] else "?"
@@ -2370,7 +3046,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     projects_visual = ""
     for pb in report.get("project_breakdown", []):
         pct = pb.get("percent", 0.0)
-        color = pb.get("color", "#4F46E5")
+        color = get_color(pb['project'])
         projects_visual += f"""
         <div class="project-row">
             <div class="project-info">
@@ -2391,8 +3067,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             continue
         pct = app.get("percent", 0.0)
         raw_tag = app.get("tag", "Unassigned")
-        tag_color = get_project_color(raw_tag)
-        pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" else ""
+        tag_color = get_color(raw_tag)
+        pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" or dark_mode else ""
         escaped_app_name = _esc(app['name'])
         escaped_tag = _esc(raw_tag)
         
@@ -2464,7 +3140,9 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             # Escape quotes safely for HTML attributes
             escaped_fallback = fallback_src.replace("'", "\\'")
             
-            icon_html = f"""<img src="https://cdn.simpleicons.org/{slug}" class="app-icon" onerror="this.onerror=function(){{ this.onerror=function(){{ this.onerror=null; this.src='{escaped_fallback}'; }}; this.src='https://unpkg.com/simple-icons@11.13.0/icons/{slug}.svg'; }}; this.src='https://cdn.jsdelivr.net/npm/simple-icons@11.13.0/icons/{slug}.svg';" />"""
+            si_color = "e0e0e0" if dark_mode else ""
+            si_url_suffix = f"/{si_color}" if si_color else ""
+            icon_html = f"""<img src="https://cdn.simpleicons.org/{slug}{si_url_suffix}" class="app-icon" onerror="this.onerror=function(){{ this.onerror=function(){{ this.onerror=null; this.src='{escaped_fallback}'; }}; this.src='https://unpkg.com/simple-icons@11.13.0/icons/{slug}.svg'; }}; this.src='https://cdn.jsdelivr.net/npm/simple-icons@11.13.0/icons/{slug}.svg';" />"""
         elif local_b64:
             # Use local base64 extracted exe icon
             icon_html = f'<img src="data:image/png;base64,{local_b64}" class="app-icon" />'
@@ -2493,20 +3171,46 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     # Pre-compile app category mappings in O(N) to allow O(1) lookups inside loop
     app_tags = {app["name"]: app.get("tag", "Unassigned") for app in report.get("apps", [])}
     
+    base_date_str = report.get("date")
+    if not base_date_str or not isinstance(base_date_str, str):
+        base_date_str = datetime.today().strftime("%Y-%m-%d")
+
+    def parse_time(time_val, base_date_str):
+        if isinstance(time_val, datetime):
+            return time_val
+        if not isinstance(time_val, str):
+            return time_val
+        for fmt in ("%H:%M:%S", "%I:%M:%S %p", "%Y-%m-%d %H:%M:%S"):
+            try:
+                if "%Y-%m-%d" in fmt:
+                    return datetime.strptime(time_val, fmt)
+                else:
+                    return datetime.strptime(base_date_str + " " + time_val, "%Y-%m-%d " + fmt)
+            except ValueError:
+                continue
+        return time_val
+
     for t in capped_timeline:
         t_start = t["start"]
         t_end = t["end"]
         
-        start_str = t_start.strftime("%I:%M:%S %p") if hasattr(t_start, "strftime") else str(t_start)
-        end_str = t_end.strftime("%I:%M:%S %p") if hasattr(t_end, "strftime") else str(t_end)
+        t_start_dt = parse_time(t_start, base_date_str)
+        t_end_dt = parse_time(t_end, base_date_str)
+        
+        if isinstance(t_start_dt, datetime) and isinstance(t_end_dt, datetime):
+            if t_end_dt < t_start_dt:
+                t_end_dt += timedelta(days=1)
+            duration_secs = int((t_end_dt - t_start_dt).total_seconds())
+        else:
+            duration_secs = 0
+            
+        start_str = t_start_dt.strftime("%I:%M:%S %p") if hasattr(t_start_dt, "strftime") else str(t_start)
+        end_str = t_end_dt.strftime("%I:%M:%S %p") if hasattr(t_end_dt, "strftime") else str(t_end)
         
         app_name = t.get("app", "Active Session")
         app_tag = app_tags.get(app_name, "Unassigned")
-        tag_color = get_project_color(app_tag)
+        tag_color = get_color(app_tag)
         
-        duration_secs = 0
-        if hasattr(t_start, "timestamp") and hasattr(t_end, "timestamp"):
-            duration_secs = int(t_end.timestamp() - t_start.timestamp())
         duration_str = format_duration(duration_secs) if duration_secs > 0 else ""
         
         escaped_app_name = _esc(app_name)
@@ -2541,6 +3245,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     html = html.replace("{{APPS_TABLE_ROWS}}", apps_rows)
     html = html.replace("{{TIMELINE_ITEMS}}", timeline_items)
 
+    if dark_mode:
+        html = html.replace('<body class="theme-indigo">', '<body class="theme-indigo dark">')
     return html
 
 def print_html_to_pdf(html_content: str, output_path: str):

@@ -33,7 +33,6 @@ OVERRIDES_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "name_over
 _NAME_OVERRIDES = {}
 
 def _load_name_overrides():
-    global _NAME_OVERRIDES, _name_cache
     _NAME_OVERRIDES.clear()
     _name_cache.clear()
     if not os.path.exists(OVERRIDES_FILE):

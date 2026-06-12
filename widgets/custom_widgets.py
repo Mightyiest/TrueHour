@@ -164,10 +164,10 @@ class EmailChipWidget(QWidget):
         win = self.window()
         if win:
             is_dark = win.palette().color(win.backgroundRole()).value() < 128
-        bg_widget = "#161D30" if is_dark else "#FFFFFF"
-        border_color = "#24304F" if is_dark else "#E2E8F0"
-        text_color = "#F3F4F6" if is_dark else "#0F172A"
-        accent = "#38BDF8" if is_dark else "#0078D4"
+        bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
+        border_color = "#333333" if is_dark else "#E2E8F0"
+        text_color = "#e0e0e0" if is_dark else "#0F172A"
+        accent = "#d1d5db" if is_dark else "#0078D4"
         
         self._input.setStyleSheet(f"""
             QLineEdit {{
@@ -217,10 +217,10 @@ class EmailChipWidget(QWidget):
         win = self.window()
         if win:
             is_dark = win.palette().color(win.backgroundRole()).value() < 128
-        chip_bg = "#1E293B" if is_dark else "#EEF2FF"
-        chip_border = "#334155" if is_dark else "#C7D2FE"
-        chip_text = "#38BDF8" if is_dark else "#3730A3"
-        chip_close = "#94A3B8" if is_dark else "#6366F1"
+        chip_bg = "#262626" if is_dark else "#EEF2FF"
+        chip_border = "#333333" if is_dark else "#C7D2FE"
+        chip_text = "#d1d5db" if is_dark else "#3730A3"
+        chip_close = "#888" if is_dark else "#6366F1"
 
         chip = QFrame(self._chip_container)
         chip.setStyleSheet(f"""
@@ -407,7 +407,7 @@ class InvoicePrivacyOptionsDialog(QDialog):
         
         # Apply dialog-level Fluent Design styling
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(self.is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+        qss = get_qss_style(self.is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.is_dark))
         self.setStyleSheet(qss)
         self.setPalette(get_dark_palette() if self.is_dark else get_light_palette())
 
@@ -478,11 +478,11 @@ class InvoicePrivacyOptionsDialog(QDialog):
         is_dark = self.is_dark
             
         if is_dark:
-            title_color = "#F3F4F6"
-            desc_color = "#94A3B8"
-            box_bg = "#1E293B"
-            box_border = "#334155"
-            cb_color = "#F3F4F6"
+            title_color = "#e0e0e0"
+            desc_color = "#aaa"
+            box_bg = "#262626"
+            box_border = "#333333"
+            cb_color = "#e0e0e0"
         else:
             title_color = "#1A1A1A"
             desc_color = "#64748B"

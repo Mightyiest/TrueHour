@@ -303,7 +303,7 @@ class BarChartWidget(QWidget):
             
             # Gridline
             if i > 0:
-                pen = QPen(QColor("#24304F") if is_dark else QColor("#E2E8F0"))
+                pen = QPen(QColor("#333333") if is_dark else QColor("#E2E8F0"))
                 pen.setStyle(Qt.PenStyle.DashLine)
                 pen.setWidth(1)
                 painter.setPen(pen)
@@ -339,15 +339,15 @@ class BarChartWidget(QWidget):
                 gradient = QLinearGradient(QPointF(bx, by), QPointF(bx, by + bar_h))
                 if idx == self.hovered_index:
                     if is_dark:
-                        gradient.setColorAt(0.0, QColor("#0284C7"))  # Darker Sky Blue
-                        gradient.setColorAt(1.0, QColor("#38BDF8"))  # Brighter Sky Blue
+                        gradient.setColorAt(0.0, QColor("#ffffff"))  # Hover top (white)
+                        gradient.setColorAt(1.0, QColor("#e0e0e0"))  # Hover bottom (light gray)
                     else:
                         gradient.setColorAt(0.0, QColor("#1E3A8A"))  # Darker Blue
                         gradient.setColorAt(1.0, QColor("#3B82F6"))  # Brighter Blue
                 else:
                     if is_dark:
-                        gradient.setColorAt(0.0, QColor("#38BDF8"))  # Sky Blue Accent
-                        gradient.setColorAt(1.0, QColor("#0EA5E9"))  # Sky Blue Hover Accent
+                        gradient.setColorAt(0.0, QColor("#d1d5db"))  # Normal top (light gray)
+                        gradient.setColorAt(1.0, QColor("#888888"))  # Normal bottom (medium gray)
                     else:
                         gradient.setColorAt(0.0, QColor("#0078D4"))  # Fluent Primary Accent
                         gradient.setColorAt(1.0, QColor("#60A5FA"))  # Fluent Secondary Accent
@@ -370,7 +370,7 @@ class BarChartWidget(QWidget):
             painter.drawText(x_lbl_rect, Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignTop, d["label"])
 
         # 3. Draw Bottom Axis Line
-        pen_axis = QPen(QColor("#24304F") if is_dark else QColor("#CBD5E1"))
+        pen_axis = QPen(QColor("#333333") if is_dark else QColor("#CBD5E1"))
         pen_axis.setWidth(1)
         painter.setPen(pen_axis)
         painter.drawLine(QPointF(padding_left, h - padding_bottom), QPointF(w - padding_right, h - padding_bottom))

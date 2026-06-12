@@ -56,7 +56,7 @@ class SettingsDialog(QDialog):
         # Apply stylesheet and palette on start
         is_dark = self.settings.get("dark_mode", False)
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+        qss = get_qss_style(is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon(is_dark))
         self.setStyleSheet(qss)
         self.setPalette(get_dark_palette() if is_dark else get_light_palette())
         
@@ -159,7 +159,7 @@ class SettingsDialog(QDialog):
             self.settings["dark_mode"] = checked
             # Instantly apply stylesheet to SettingsDialog itself!
             from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-            qss = get_qss_style(checked).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+            qss = get_qss_style(checked).replace("CHECKMARK_PATH", ensure_checkmark_icon(checked))
             self.setStyleSheet(qss)
             self.setPalette(get_dark_palette() if checked else get_light_palette())
             self.theme_toggled.emit(checked)
@@ -451,6 +451,10 @@ class SettingsDialog(QDialog):
         logo_layout = QVBoxLayout(logo_box)
         logo_layout.setSpacing(4)
         
+        self.enable_logo_cb = QCheckBox("Enable Business Logo on Invoices", logo_box)
+        self.enable_logo_cb.setChecked(self.settings.get("enable_business_logo", True))
+        logo_layout.addWidget(self.enable_logo_cb)
+        
         logo_row = QHBoxLayout()
         self.logo_path_entry = QLineEdit(logo_box)
         self.logo_path_entry.setText(self.settings.get("business_logo_path", ""))
@@ -462,17 +466,20 @@ class SettingsDialog(QDialog):
             if path:
                 self.logo_path_entry.setText(path)
                 
-        browse_logo_btn = QPushButton("Browse...", logo_box)
-        browse_logo_btn.setObjectName("NormalButton")
-        browse_logo_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        browse_logo_btn.clicked.connect(_browse_logo)
-        logo_row.addWidget(browse_logo_btn)
+        self.browse_logo_btn = QPushButton("Browse...", logo_box)
+        self.browse_logo_btn.setObjectName("NormalButton")
+        self.browse_logo_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.browse_logo_btn.clicked.connect(_browse_logo)
+        logo_row.addWidget(self.browse_logo_btn)
         logo_layout.addLayout(logo_row)
         
-        logo_spec_lbl = QLabel("Image Spec: PNG, JPG, or JPEG. Max size: 250px (w) x 80px (h). Proportionally resized automatically.", logo_box)
-        logo_spec_lbl.setWordWrap(True)
-        logo_spec_lbl.setStyleSheet("color: #64748B; font-size: 10px; font-family: 'Segoe UI';")
-        logo_layout.addWidget(logo_spec_lbl)
+        self.logo_spec_lbl = QLabel("Image Spec: PNG, JPG, or JPEG. Max size: 250px (w) x 80px (h). Proportionally resized automatically.", logo_box)
+        self.logo_spec_lbl.setWordWrap(True)
+        self.logo_spec_lbl.setStyleSheet("color: #64748B; font-size: 10px; font-family: 'Segoe UI';")
+        logo_layout.addWidget(self.logo_spec_lbl)
+        
+        self.enable_logo_cb.toggled.connect(self._toggle_logo_inputs)
+        self._toggle_logo_inputs(self.enable_logo_cb.isChecked())
         
         scroll_invoice_layout.addWidget(logo_box)
         
@@ -582,6 +589,11 @@ class SettingsDialog(QDialog):
         self.bank_name_entry.setEnabled(checked)
         self.bank_address_entry.setEnabled(checked)
 
+    def _toggle_logo_inputs(self, checked):
+        self.logo_path_entry.setEnabled(checked)
+        self.browse_logo_btn.setEnabled(checked)
+        self.logo_spec_lbl.setEnabled(checked)
+
     def _refresh_qr_thumbnails(self):
         """Rebuild QR thumbnail strip from _qr_paths_local."""
         while self.qr_thumbs_layout.count() > 0:
@@ -665,6 +677,7 @@ class SettingsDialog(QDialog):
             self.settings["client_emails"] = self.client_email_chips.get_emails()
             self.settings["client_address"] = self.client_address_entry.text().strip()
             
+            self.settings["enable_business_logo"] = self.enable_logo_cb.isChecked()
             self.settings["business_logo_path"] = self.logo_path_entry.text().strip()
             self.settings["qr_code_paths"] = list(self._qr_paths_local)
             self.settings["qr_code_links"] = dict(self._qr_links_local)

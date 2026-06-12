@@ -29,7 +29,7 @@ from config import get_app_data_dir, open_file, get_app_data_root, DynamicPath
 from secure_time import get_detector
 from report import (
     format_duration, format_duration_hms, build_report_data,
-    export_txt, export_json, export_csv, export_csv_history,
+    export_txt, export_json,
     save_to_autosave, save_to_history, load_session_json,
     aggregate_history_data, generate_session_report_html,
 )
@@ -217,11 +217,11 @@ class HeaderBar(QFrame):
         self.update_theme(is_dark=False)
 
     def update_theme(self, is_dark):
-        accent_color = "#38BDF8" if is_dark else "#0078D4"
-        neutral_color = "#9CA3AF" if is_dark else "#475569"
+        accent_color = "#d1d5db" if is_dark else "#0078D4"
+        neutral_color = "#aaa" if is_dark else "#475569"
         
         if is_dark:
-            self.theme_btn.setIcon(get_svg_icon(SUN_SVG, QSize(16, 16), color_hex="#38BDF8"))
+            self.theme_btn.setIcon(get_svg_icon(SUN_SVG, QSize(16, 16), color_hex="#d1d5db"))
             self.theme_btn.setToolTip("Switch to Light Mode")
         else:
             self.theme_btn.setIcon(get_svg_icon(MOON_SVG, QSize(16, 16), color_hex="#475569"))
@@ -371,7 +371,7 @@ class TrueHourApp(QMainWindow):
         remaining = 7 - self._version_clicks
         if remaining > 0 and remaining <= 4:
             self.active_label.setText(f"🛠️ You are now {remaining} steps away from being a developer.")
-            self.active_label.setStyleSheet("color: #CA5010; font-size: 10px;")
+            self.active_label.setStyleSheet("color: #ffffff; font-size: 10px;" if self.dark_mode else "color: #CA5010; font-size: 10px;")
             # Safely restore state label after 2.5 seconds
             QTimer.singleShot(2500, lambda: self.active_label.setText(
                 f"Active: {self.tracker.get_current_app()}" if (self.tracker.running and not self.tracker.paused) else ("Ready to track" if not self.tracker.running else "⏸ Session paused")
@@ -387,7 +387,7 @@ class TrueHourApp(QMainWindow):
                 "Congratulations! You have enabled Developer Options.\nThe Debug Console and Test Logs button are now visible."
             )
             self.active_label.setText("🛠️ Developer Options enabled!")
-            self.active_label.setStyleSheet("color: #0F7B0F; font-size: 10px;")
+            self.active_label.setStyleSheet("color: #ffffff; font-size: 10px;" if self.dark_mode else "color: #0F7B0F; font-size: 10px;")
 
     def _trigger_diagnostic_logs(self):
         logger.debug("[DEBUG] This is a diagnostic debug message to test console colorizing.")
@@ -642,7 +642,7 @@ class TrueHourApp(QMainWindow):
         
         if self.hourly_rate > 0:
             self.earnings_label.setText(f"💰 {self.currency_symbol}0.00 earned")
-            self.earnings_label.setStyleSheet("color: #0F7B0F; font-size: 13px; font-weight: bold;")
+            self.earnings_label.setStyleSheet("color: #ffffff; font-size: 13px; font-weight: bold;" if self.dark_mode else "color: #0F7B0F; font-size: 13px; font-weight: bold;")
         self.clock_timer.start(250)
 
     def _on_stop(self):
@@ -689,9 +689,13 @@ class TrueHourApp(QMainWindow):
         logger.info(f"[Action] Clicked {'Pause' if is_paused else 'Resume'}")
         if is_paused:
             self.pause_btn.setText("▶ Resume")
-            self.pause_btn.setStyleSheet("color: #0078D4; background-color: #E8F1FB; font-weight: bold;")
+            if self.dark_mode:
+                self.pause_btn.setStyleSheet("color: #ffffff; background-color: #262626; font-weight: bold;")
+                self.active_label.setStyleSheet("color: #ffffff; font-size: 10px;")
+            else:
+                self.pause_btn.setStyleSheet("color: #0078D4; background-color: #E8F1FB; font-weight: bold;")
+                self.active_label.setStyleSheet("color: #CA5010; font-size: 10px;")
             self.active_label.setText("⏸ Session paused")
-            self.active_label.setStyleSheet("color: #CA5010; font-size: 10px;")
         else:
             self.pause_btn.setText("⏸ Pause")
             self.pause_btn.setStyleSheet("")
@@ -733,7 +737,7 @@ class TrueHourApp(QMainWindow):
                 self.earnings_label.setStyleSheet("color: #616161; font-size: 13px; font-weight: bold;")
             else:
                 self.earnings_label.setText(f"💰 {display_symbol}{earned:,.2f} earned")
-                self.earnings_label.setStyleSheet("color: #0F7B0F; font-size: 13px; font-weight: bold;")
+                self.earnings_label.setStyleSheet("color: #ffffff; font-size: 13px; font-weight: bold;" if self.dark_mode else "color: #0F7B0F; font-size: 13px; font-weight: bold;")
         else:
             self.earnings_label.setText("")
             
@@ -743,7 +747,7 @@ class TrueHourApp(QMainWindow):
             self.active_label.setStyleSheet("color: #616161; font-size: 10px;")
         elif getattr(self.tracker, '_idle_paused', False):
             self.active_label.setText("💤 Idle — auto paused")
-            self.active_label.setStyleSheet("color: #CA5010; font-size: 10px;")
+            self.active_label.setStyleSheet("color: #ffffff; font-size: 10px;" if self.dark_mode else "color: #CA5010; font-size: 10px;")
             
         name = getattr(self.tracker, "session_name", "")
         self.setWindowTitle(f"TrueHour | {name}" if name else "TrueHour")
@@ -946,6 +950,7 @@ class TrueHourApp(QMainWindow):
             "client_emails": self.client_emails,
             "client_address": self.client_address,
             "business_logo_path": self.business_logo_path,
+            "enable_business_logo": self.enable_business_logo,
             "qr_code_paths": self.qr_code_paths,
             "qr_code_links": self.qr_code_links,
             "mask_business_emails": self.mask_business_emails,
@@ -962,7 +967,6 @@ class TrueHourApp(QMainWindow):
         # Connect signals
         dialog.resume_requested.connect(self._resume_session)
         dialog.view_report_requested.connect(lambda rep: self._show_report(rep, is_new=False))
-        dialog.export_csv_history_requested.connect(self._export_csv_history)
         
         dialog.exec()
 
@@ -997,7 +1001,7 @@ class TrueHourApp(QMainWindow):
             if self.hourly_rate > 0:
                 self.earnings_label.setText(f"💰 {self.currency_symbol}0.00 earned")
             self.active_label.setText(f"▶ Resumed: {self.tracker.session_name}")
-            self.active_label.setStyleSheet("color: #0F7B0F; font-size: 10px;")
+            self.active_label.setStyleSheet("color: #ffffff; font-size: 10px;" if self.dark_mode else "color: #0F7B0F; font-size: 10px;")
             
             self.clock_timer.start(250)
             
@@ -1037,7 +1041,7 @@ class TrueHourApp(QMainWindow):
                     if self.hourly_rate > 0:
                         self.earnings_label.setText(f"💰 {self.currency_symbol}0.00 earned")
                     self.active_label.setText(f"▶ Recovered: {self.tracker.session_name}")
-                    self.active_label.setStyleSheet("color: #0F7B0F; font-size: 10px;")
+                    self.active_label.setStyleSheet("color: #ffffff; font-size: 10px;" if self.dark_mode else "color: #0F7B0F; font-size: 10px;")
                     
                     self.clock_timer.start(250)
                     
@@ -1085,6 +1089,7 @@ class TrueHourApp(QMainWindow):
         self.client_emails = []     # NEW: list of client contact emails
         self.client_address = ""
         self.business_logo_path = ""
+        self.enable_business_logo = True
         self.qr_code_paths = []     # NEW: list of payment QR code filenames
         self.qr_code_links = {}     # NEW: mapping of QR code filenames to hyperlink URLs
         self.mask_business_emails = False
@@ -1138,6 +1143,7 @@ class TrueHourApp(QMainWindow):
                     self.client_name = data.get("client_name", "")
                     self.client_address = data.get("client_address", "")
                     self.business_logo_path = data.get("business_logo_path", "")
+                    self.enable_business_logo = data.get("enable_business_logo", True)
                     
                     # Multi-email lists with backward compat migration
                     self.business_emails = data.get("business_emails", [])
@@ -1207,6 +1213,7 @@ class TrueHourApp(QMainWindow):
                 "client_emails": self.client_emails,
                 "client_address": self.client_address,
                 "business_logo_path": self.business_logo_path,
+                "enable_business_logo": self.enable_business_logo,
                 "qr_code_paths": self.qr_code_paths,
                 "qr_code_links": self.qr_code_links,
                 "mask_business_emails": self.mask_business_emails,
@@ -1277,7 +1284,7 @@ class TrueHourApp(QMainWindow):
         # Set stylesheet and system palette of the main application!
         app = QApplication.instance()
         if app:
-            checkmark_path = ensure_checkmark_icon()
+            checkmark_path = ensure_checkmark_icon(is_dark)
             qss = get_qss_style(is_dark).replace("CHECKMARK_PATH", checkmark_path)
             app.setStyleSheet(qss)
             app.setPalette(get_dark_palette() if is_dark else get_light_palette())
@@ -1293,6 +1300,47 @@ class TrueHourApp(QMainWindow):
             else:
                 self.clock_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 36px; font-weight: bold; color: #0F172A;")
                 
+        # Update total label style to fit the theme
+        if hasattr(self, 'total_label'):
+            if is_dark:
+                self.total_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #d1d5db;")
+            else:
+                self.total_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #0078D4;")
+
+        # Update debug and test button hover colors to fit the theme
+        if hasattr(self, 'debug_btn'):
+            debug_hover = "#ffffff" if is_dark else "#0078D4"
+            self.debug_btn.setStyleSheet(f"""
+                QPushButton {{
+                    color: #ABABAB;
+                    font-size: 9px;
+                    font-family: 'Segoe UI';
+                    background: none;
+                    border: none;
+                    padding: 0px;
+                }}
+                QPushButton:hover {{
+                    color: {debug_hover};
+                    text-decoration: underline;
+                }}
+            """)
+        if hasattr(self, 'test_btn'):
+            test_hover = "#ffffff" if is_dark else "#F59E0B"
+            self.test_btn.setStyleSheet(f"""
+                QPushButton {{
+                    color: #ABABAB;
+                    font-size: 9px;
+                    font-family: 'Segoe UI';
+                    background: none;
+                    border: none;
+                    padding: 0px;
+                }}
+                QPushButton:hover {{
+                    color: {test_hover};
+                    text-decoration: underline;
+                }}
+            """)
+
         # Update version/update label theme
         if hasattr(self, 'ver_lbl'):
             self.ver_lbl.update_theme(is_dark)
@@ -1355,6 +1403,7 @@ class TrueHourApp(QMainWindow):
             "client_emails": self.client_emails,
             "client_address": self.client_address,
             "business_logo_path": self.business_logo_path,
+            "enable_business_logo": self.enable_business_logo,
             "qr_code_paths": self.qr_code_paths,
             "qr_code_links": self.qr_code_links,
             "mask_business_emails": self.mask_business_emails,
@@ -1414,6 +1463,7 @@ class TrueHourApp(QMainWindow):
             self.client_emails = new_settings["client_emails"]
             self.client_address = new_settings["client_address"]
             self.business_logo_path = new_settings["business_logo_path"]
+            self.enable_business_logo = new_settings.get("enable_business_logo", True)
             self.qr_code_paths = new_settings["qr_code_paths"]
             self.qr_code_links = new_settings["qr_code_links"]
             
@@ -1621,14 +1671,16 @@ class TrueHourApp(QMainWindow):
                 row_layout.addWidget(dot, alignment=Qt.AlignmentFlag.AlignVCenter)
                 
                 lbl = QLabel(proj, row)
-                lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; color: #1A1A1A;")
+                lbl_color = "#e0e0e0" if self.dark_mode else "#1A1A1A"
+                lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; color: {lbl_color};")
                 row_layout.addWidget(lbl, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
                 
                 if proj != "Unassigned":
                     del_btn = QPushButton("❌", row)
                     del_btn.setFixedSize(20, 20)
                     del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                    del_btn.setStyleSheet("QPushButton { background: none; border: none; font-size: 10px; } QPushButton:hover { background-color: #E9E9E9; border-radius: 3px; }")
+                    del_btn_hover = "#333333" if self.dark_mode else "#E9E9E9"
+                    del_btn.setStyleSheet(f"QPushButton {{ background: none; border: none; font-size: 10px; }} QPushButton:hover {{ background-color: {del_btn_hover}; border-radius: 3px; }}")
                     del_btn.clicked.connect(lambda checked, p=proj: delete_project(p))
                     row_layout.addWidget(del_btn)
                     
@@ -1682,7 +1734,7 @@ class TrueHourApp(QMainWindow):
         
         # Apply stylesheet and palette on start
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(self.dark_mode).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+        qss = get_qss_style(self.dark_mode).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.dark_mode))
         dialog.setStyleSheet(qss)
         dialog.setPalette(get_dark_palette() if self.dark_mode else get_light_palette())
         
@@ -1691,12 +1743,12 @@ class TrueHourApp(QMainWindow):
         layout.setSpacing(0)
         
         # Dynamic color tokens
-        bg_widget = "#161D30" if self.dark_mode else "#FFFFFF"
-        border_color = "#24304F" if self.dark_mode else "#E0E0E0"
-        border_f3 = "#24304F" if self.dark_mode else "#F3F3F3"
-        text_primary = "#F3F4F6" if self.dark_mode else "#1A1A1A"
-        text_sec = "#9CA3AF" if self.dark_mode else "#616161"
-        accent_lbl_color = "#38BDF8" if self.dark_mode else "#0078D4"
+        bg_widget = "#1e1e1e" if self.dark_mode else "#FFFFFF"
+        border_color = "#333333" if self.dark_mode else "#E0E0E0"
+        border_f3 = "#333333" if self.dark_mode else "#F3F3F3"
+        text_primary = "#e0e0e0" if self.dark_mode else "#1A1A1A"
+        text_sec = "#aaa" if self.dark_mode else "#616161"
+        accent_lbl_color = "#d1d5db" if self.dark_mode else "#0078D4"
         
         # Header bar
         hdr = QFrame(dialog)
@@ -1774,7 +1826,7 @@ class TrueHourApp(QMainWindow):
         
         if report.get("total_earned", 0) > 0:
             earned_f = QFrame(card1)
-            earned_f.setStyleSheet(f"QFrame {{ background-color: {'#1F2937' if self.dark_mode else '#E8F1FB'}; border-radius: 4px; }}")
+            earned_f.setStyleSheet(f"QFrame {{ background-color: {'#262626' if self.dark_mode else '#E8F1FB'}; border-radius: 4px; }}")
             ef_layout = QHBoxLayout(earned_f)
             ef_layout.setContentsMargins(10, 6, 10, 6)
             
@@ -1783,7 +1835,7 @@ class TrueHourApp(QMainWindow):
             ef_layout.addWidget(lbl_title)
             
             lbl_val = QLabel(report["total_earned_display"], earned_f)
-            lbl_val.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 18px; font-weight: bold; color: {'#4ADE80' if self.dark_mode else '#0F7B0F'};")
+            lbl_val.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 18px; font-weight: bold; color: {'#ffffff' if self.dark_mode else '#0F7B0F'};")
             ef_layout.addWidget(lbl_val)
             
             lbl_rate = QLabel(f"@ {report['currency_symbol']}{report['hourly_rate']:.2f}/hr", earned_f)
@@ -1834,7 +1886,7 @@ class TrueHourApp(QMainWindow):
                 
                 if pb.get("earned_display"):
                     earned_lbl = QLabel(f"({pb['earned_display']})", row_f)
-                    earned_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {'#4ADE80' if self.dark_mode else '#0F7B0F'};")
+                    earned_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {'#ffffff' if self.dark_mode else '#0F7B0F'};")
                     row_layout.addWidget(earned_lbl)
                     
                 time_lbl = QLabel(pb["formatted"], row_f)
@@ -1883,7 +1935,7 @@ class TrueHourApp(QMainWindow):
                 table.setItem(i, 3, QTableWidgetItem(f"{app['percent']:.0f}%"))
                 
                 st_text = "✓ Counted" if not app["excluded"] else "✗ Excluded"
-                st_color = ("#4ADE80" if self.dark_mode else "#0F7B0F") if not app["excluded"] else ("#F87171" if self.dark_mode else "#C42B1C")
+                st_color = ("#ffffff" if self.dark_mode else "#0F7B0F") if not app["excluded"] else ("#888888" if self.dark_mode else "#C42B1C")
                 st_item = QTableWidgetItem(st_text)
                 st_item.setForeground(QColor(st_color))
                 table.setItem(i, 4, st_item)
@@ -2048,35 +2100,6 @@ class TrueHourApp(QMainWindow):
             except Exception as e:
                 logger.error(f"Failed to generate HTML report: {e}")
                 QMessageBox.critical(self, "Error", f"Failed to generate HTML report:\n{str(e)}")
-
-    def _export_csv_history(self):
-        logger.info("[Action] Commencing CSV history export")
-        sessions_dir = os.path.join(get_app_data_dir(), "sessions")
-        if not os.path.exists(sessions_dir):
-            QMessageBox.warning(self, "No Sessions", "No saved sessions found.")
-            return
-        json_files = [f for f in os.listdir(sessions_dir) if f.endswith('.json')]
-        if not json_files:
-            QMessageBox.warning(self, "No Sessions", "No saved sessions found.")
-            return
-        reports = []
-        for filename in json_files:
-            try: 
-                reports.append(load_session_json(os.path.join(sessions_dir, filename)))
-            except Exception as e: 
-                print(f"Error loading {filename}: {e}")
-        if not reports: 
-            QMessageBox.critical(self, "Error", "Could not load any sessions.")
-            return
-            
-        default_name = f"TrueHour_Export_{datetime.now().strftime('%Y-%m-%d')}.csv"
-        filepath, _ = QFileDialog.getSaveFileName(self, "Export History CSV", default_name, "CSV files (*.csv);;All files (*.*)")
-        if not filepath: 
-            return
-        if export_csv_history(reports, filepath, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol):
-            QMessageBox.information(self, "Success", f"Exported {len(reports)} sessions to:\n{filepath}")
-        else: 
-            QMessageBox.critical(self, "Error", "Failed to export CSV.")
 
     def _show_dashboard(self):
         from dialogs.dashboard_dialog import TrueHourDashboard
