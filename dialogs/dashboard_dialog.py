@@ -11,7 +11,7 @@ from report import (
 from theme import (
     get_tag_color
 )
-from dashboard_widgets import DonutChartWidget, BarChartWidget
+from dashboard_widgets import DonutChartWidget, BarChartWidget, ContributionMapWidget
 
 class TrueHourDashboard(QDialog):
     def __init__(self, parent=None):
@@ -101,8 +101,13 @@ class TrueHourDashboard(QDialog):
         self.history_tab = QWidget()
         self.build_history_tab()
         
+        # Create Tab 3: Weekly Focus Goals
+        self.goals_tab = QWidget()
+        self.build_goals_tab()
+        
         self.tabs.addTab(self.live_tab, "Live Tracker Insights")
         self.tabs.addTab(self.history_tab, "Historical Insights")
+        self.tabs.addTab(self.goals_tab, "Weekly Focus Goals")
         self.tabs.currentChanged.connect(self.on_tab_changed)
         
         layout.addWidget(self.tabs)
@@ -383,25 +388,111 @@ class TrueHourDashboard(QDialog):
         
         self.hc_layout.addLayout(right_col, 5)
         self.history_layout.addWidget(self.history_content)
+
+        # Bottom: GitHub-Style Activity Heatmap card
+        self.heatmap_card = QFrame(self.history_tab)
+        self.heatmap_card.setObjectName("MainCard")
+        self.heatmap_card.setFixedHeight(165)
+        hm_layout = QVBoxLayout(self.heatmap_card)
+        hm_layout.setContentsMargins(12, 10, 12, 10)
+        hm_layout.setSpacing(2)
+        
+        hm_title = QLabel("Activity History (Past 365 Days)", self.heatmap_card)
+        hm_title.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_sec}; background: transparent; border: none;")
+        hm_layout.addWidget(hm_title)
+        self.hist_heatmap = ContributionMapWidget(self.heatmap_card)
+        hm_layout.addWidget(self.hist_heatmap, 1)
+        
+        self.history_layout.addWidget(self.heatmap_card)
  
-    def adjust_dialog_size(self, is_live):
-        self.setMinimumSize(0, 0)
-        if is_live:
-            self.resize(760, 480)
-        else:
-            self.resize(800, 520)
+    def build_goals_tab(self):
+        is_dark = getattr(self.main_app, "dark_mode", False)
+        bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
+        border_color = "#333333" if is_dark else "#E2E8F0"
+        text_primary = "#e0e0e0" if is_dark else "#0F172A"
+        text_sec = "#aaa" if is_dark else "#475569"
+        
+        self.goals_layout = QVBoxLayout(self.goals_tab)
+        self.goals_layout.setContentsMargins(30, 40, 30, 40)
+        self.goals_layout.setSpacing(20)
+        self.goals_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Illustration / Large Icon
+        icon_lbl = QLabel("🎯", self.goals_tab)
+        icon_lbl.setStyleSheet("font-size: 64px; border: none; background: transparent;")
+        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.goals_layout.addWidget(icon_lbl)
+        
+        # Title
+        title_lbl = QLabel("Focus Goals Studio", self.goals_tab)
+        title_lbl.setStyleSheet(f"font-family: 'Outfit', 'Segoe UI'; font-size: 20px; font-weight: bold; color: {text_primary}; border: none; background: transparent;")
+        title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.goals_layout.addWidget(title_lbl)
+        
+        # Subtitle
+        sub_lbl = QLabel("We've created a fun, interactive web dashboard to set and track your goals.\nAdjust category hours with sliders, check milestones, and toggle notifications instantly.", self.goals_tab)
+        sub_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_sec}; border: none; background: transparent; line-height: 18px;")
+        sub_lbl.setWordWrap(True)
+        sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.goals_layout.addWidget(sub_lbl)
+        
+        # Divider or spacing
+        self.goals_layout.addSpacing(10)
+        
+        # Launch Button
+        launch_btn = QPushButton("🚀 Open Web Goals Studio", self.goals_tab)
+        launch_btn.setObjectName("AccentButton")
+        launch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        launch_btn.setFixedHeight(40)
+        launch_btn.setMinimumWidth(240)
+        launch_btn.setStyleSheet("""
+            QPushButton {
+                font-family: 'Segoe UI';
+                font-size: 13px;
+                font-weight: bold;
+                border-radius: 8px;
+                padding: 0px 24px;
+            }
+        """)
+        
+        def launch_web_console():
+            import webbrowser
+            if hasattr(self.main_app, "web_server_mgr") and self.main_app.web_server_mgr:
+                port = self.main_app.web_server_mgr.port
+                webbrowser.open(f"http://localhost:{port}/")
+            else:
+                webbrowser.open("http://localhost:5080/") # fallback
+                
+        launch_btn.clicked.connect(launch_web_console)
+        self.goals_layout.addWidget(launch_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        # Footer server status
+        status_lbl = QLabel("Local Web Console is secure, lightweight, and offline.", self.goals_tab)
+        status_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 10px; color: #64748B; border: none; background: transparent;")
+        status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.goals_layout.addWidget(status_lbl)
+        
+        self.goals_layout.addStretch()
+ 
+    def adjust_dialog_size(self, is_live, is_goals=False):
+        # Enforce a stable 800x680 size for all tabs to prevent jarring jumps and setGeometry warnings
+        self.setMinimumSize(800, 680)
+        self.resize(800, 680)
         if self.main_app:
-            self.main_app._center_window(self, self.width(), self.height())
+            self.main_app._center_window(self, 800, 680)
 
     def on_tab_changed(self, index):
         if index == 0:
             self.live_timer.start(1000)
             self.update_live_data()
             self.adjust_dialog_size(is_live=True)
-        else:
+        elif index == 1:
             self.live_timer.stop()
             self.update_historical_data()
             self.adjust_dialog_size(is_live=False)
+        else:
+            self.live_timer.stop()
+            self.adjust_dialog_size(is_live=False, is_goals=True)
  
     def update_history_range(self, text):
         self.update_historical_data()
@@ -534,40 +625,134 @@ class TrueHourDashboard(QDialog):
             if w:
                 w.deleteLater()
                 
+        # Calculate weekly focus seconds for categories
+        weekly_project_seconds = {}
+        try:
+            from datetime import datetime as dt_class, timedelta as td_class
+            now_dt = dt_class.now()
+            today_start = now_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+            start_of_week = today_start - td_class(days=today_start.weekday())
+            
+            exclude_key = None
+            if self.main_app and self.main_app.tracker.running and self.main_app.tracker.session_start:
+                s_date = self.main_app.tracker.session_start.strftime("%Y-%m-%d")
+                s_start = self.main_app.tracker.session_start.strftime("%H:%M:%S")
+                exclude_key = (s_date, s_start)
+                
+            data_w = aggregate_history_data(start_of_week, now_dt, exclude_key=exclude_key)
+            for item in data_w.get("project_breakdown", []):
+                weekly_project_seconds[item["project"]] = item["seconds"]
+                
+            if self.main_app and self.main_app.tracker.running:
+                report_l = build_report_data(self.main_app.tracker, hourly_rate=self.main_app.hourly_rate)
+                for item in report_l.get("project_breakdown", []):
+                    proj = item["project"]
+                    weekly_project_seconds[proj] = weekly_project_seconds.get(proj, 0.0) + item["seconds"]
+        except Exception as e:
+            print(f"[TrueHour] Failed to compute weekly progress data: {e}")
+
         project_breakdown = data.get("project_breakdown", [])
+        weekly_goals = getattr(self.main_app, "weekly_goals", {})
+        
         for pb in project_breakdown:
             row_f = QFrame()
-            row_f.setFixedHeight(22)
-            row_layout = QHBoxLayout(row_f)
-            row_layout.setContentsMargins(4, 0, 4, 0)
-            row_layout.setSpacing(6)
-            row_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
             
             # Dynamic styled color dot for baseline alignment
             swatch = QLabel(row_f)
             swatch.setFixedSize(8, 8)
             swatch.setStyleSheet(f"background-color: {self.get_project_color(pb['project'])}; border-radius: 4px; border: none; margin-top: 1px;")
-            row_layout.addWidget(swatch, alignment=Qt.AlignmentFlag.AlignVCenter)
             
             is_dark = getattr(self.main_app, "dark_mode", False)
             text_primary = "#e0e0e0" if is_dark else "#1A1A1A"
             
-            lbl = QLabel(pb["project"], row_f)
-            lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_primary}; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
-            lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-            row_layout.addWidget(lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
-            
-            pct_lbl = QLabel(f"{pb['percent']:.1f}%", row_f)
-            pct_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: #64748B; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
-            pct_lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-            row_layout.addWidget(pct_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
-            
-            row_layout.addStretch()
-            
-            time_lbl = QLabel(pb["formatted"], row_f)
-            time_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: 500; color: {text_primary}; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
-            time_lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
-            row_layout.addWidget(time_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
-            
+            goal_hours = weekly_goals.get(pb["project"], 0.0)
+            if goal_hours > 0:
+                row_f.setFixedHeight(34)
+                row_layout = QVBoxLayout(row_f)
+                row_layout.setContentsMargins(4, 2, 4, 2)
+                row_layout.setSpacing(4)
+                
+                # Top text row
+                top_layout = QHBoxLayout()
+                top_layout.setContentsMargins(0, 0, 0, 0)
+                top_layout.setSpacing(6)
+                
+                top_layout.addWidget(swatch, alignment=Qt.AlignmentFlag.AlignVCenter)
+                
+                lbl = QLabel(pb["project"], row_f)
+                lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_primary}; border: none; background: transparent; padding: 0px;")
+                top_layout.addWidget(lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
+                
+                goal_seconds = goal_hours * 3600.0
+                tracked_seconds = weekly_project_seconds.get(pb["project"], 0.0)
+                progress_pct = (tracked_seconds / goal_seconds) * 100.0
+                
+                pct_lbl = QLabel(f"({progress_pct:.1f}% of {goal_hours:.1f}h weekly goal)", row_f)
+                pct_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 10px; color: #64748B; border: none; background: transparent; padding: 0px;")
+                top_layout.addWidget(pct_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
+                
+                top_layout.addStretch()
+                
+                time_lbl = QLabel(pb["formatted"], row_f)
+                time_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: 500; color: {text_primary}; border: none; background: transparent; padding: 0px;")
+                top_layout.addWidget(time_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
+                
+                row_layout.addLayout(top_layout)
+                
+                # Bottom progress bar row
+                pbar = QFrame(row_f)
+                pbar.setFixedHeight(4)
+                pbar.setStyleSheet(f"background-color: {'#333333' if is_dark else '#E2E8F0'}; border-radius: 2px; border: none;")
+                pbar_layout = QHBoxLayout(pbar)
+                pbar_layout.setContentsMargins(0, 0, 0, 0)
+                pbar_layout.setSpacing(0)
+                
+                pfill = QFrame(pbar)
+                pfill.setFixedHeight(4)
+                fill_pct = max(0, min(100, round(progress_pct)))
+                pfill.setStyleSheet(f"background-color: {self.get_project_color(pb['project'])}; border-radius: 2px; border: none;")
+                pbar_layout.addWidget(pfill, fill_pct)
+                pbar_layout.addStretch(100 - fill_pct)
+                
+                row_layout.addWidget(pbar)
+            else:
+                row_f.setFixedHeight(22)
+                row_layout = QHBoxLayout(row_f)
+                row_layout.setContentsMargins(4, 0, 4, 0)
+                row_layout.setSpacing(6)
+                row_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+                
+                row_layout.addWidget(swatch, alignment=Qt.AlignmentFlag.AlignVCenter)
+                
+                lbl = QLabel(pb["project"], row_f)
+                lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_primary}; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
+                lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+                row_layout.addWidget(lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
+                
+                pct_lbl = QLabel(f"{pb['percent']:.1f}%", row_f)
+                pct_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: #64748B; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
+                pct_lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+                row_layout.addWidget(pct_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
+                
+                row_layout.addStretch()
+                
+                time_lbl = QLabel(pb["formatted"], row_f)
+                time_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: 500; color: {text_primary}; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
+                time_lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+                row_layout.addWidget(time_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
+                
             self.hist_legend_list_layout.addWidget(row_f)
         self.hist_legend_list_layout.addStretch()
+
+        # Update heatmap (always query past 365 days)
+        try:
+            from core.reporting.statistics import get_daily_summaries
+            hm_start = today - timedelta(days=364)
+            hm_start_str = hm_start.strftime("%Y-%m-%d")
+            hm_end_str = datetime.now().strftime("%Y-%m-%d")
+            summaries = get_daily_summaries(hm_start_str, hm_end_str)
+            heatmap_data = {s["date"]: s["total_seconds"] for s in summaries}
+            self.hist_heatmap.set_data(heatmap_data)
+        except Exception as e:
+            print(f"[TrueHour] Failed to load heatmap data: {e}")
+            self.hist_heatmap.set_data({})

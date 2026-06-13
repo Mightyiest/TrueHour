@@ -422,3 +422,254 @@ class BarChartWidget(QWidget):
             for i, line in enumerate(lines):
                 text_rect = QRectF(tx + 10, ty + 6 + (i * fm.height()), tw - 20, fm.height())
                 painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, line)
+
+
+class ContributionMapWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.data = {}  # dict of date_str (YYYY-MM-DD) -> seconds (int)
+        self.hovered_date = None
+        self.hovered_cell = None  # tuple of (col, row)
+        self.mouse_pos = QPointF()
+        self.setMouseTracking(True)
+        self.setMinimumSize(680, 130)
+
+    def set_data(self, data):
+        self.data = data if data else {}
+        self.hovered_date = None
+        self.hovered_cell = None
+        self.update()
+
+    def mouseMoveEvent(self, event):
+        import datetime
+        self.mouse_pos = event.position()
+        mx = self.mouse_pos.x()
+        my = self.mouse_pos.y()
+        
+        left_padding = 35.0
+        top_padding = 25.0
+        cell_size = 10.0
+        cell_spacing = 2.0
+        
+        col = int((mx - left_padding) // (cell_size + cell_spacing))
+        row = int((my - top_padding) // (cell_size + cell_spacing))
+        
+        new_hover_date = None
+        new_hover_cell = None
+        
+        if 0 <= col < 53 and 0 <= row < 7:
+            cx = left_padding + col * (cell_size + cell_spacing)
+            cy = top_padding + row * (cell_size + cell_spacing)
+            cell_rect = QRectF(cx, cy, cell_size, cell_size)
+            if cell_rect.contains(self.mouse_pos):
+                today = datetime.date.today()
+                start_date = today - datetime.timedelta(days=364)
+                start_wday = (start_date.weekday() + 1) % 7
+                offset = col * 7 + row - start_wday
+                if 0 <= offset < 365:
+                    d = start_date + datetime.timedelta(days=offset)
+                    if d <= today:
+                        new_hover_date = d.strftime("%Y-%m-%d")
+                        new_hover_cell = (col, row)
+                    
+        if new_hover_date != self.hovered_date:
+            self.hovered_date = new_hover_date
+            self.hovered_cell = new_hover_cell
+            self.update()
+            
+        super().mouseMoveEvent(event)
+
+    def leaveEvent(self, event):
+        self.hovered_date = None
+        self.hovered_cell = None
+        self.update()
+        super().leaveEvent(event)
+
+    def paintEvent(self, event):
+        import datetime
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        w = self.width()
+        h = self.height()
+        
+        is_dark = False
+        win = self.window()
+        if win:
+            is_dark = win.palette().color(win.backgroundRole()).value() < 128
+            
+        # Set up color tokens
+        accent_color = QColor("#d1d5db") if is_dark else QColor("#0078D4")
+        bg_level0 = QColor("#21262D") if is_dark else QColor("#EBEDF0")
+        
+        # Pre-blend accent against card background for crisp cell rendering
+        card_bg = QColor("#1e1e1e") if is_dark else QColor("#FFFFFF")
+        def blend(accent, alpha, bg):
+            t = alpha / 255.0
+            r = int(accent.red() * t + bg.red() * (1 - t))
+            g = int(accent.green() * t + bg.green() * (1 - t))
+            b = int(accent.blue() * t + bg.blue() * (1 - t))
+            return QColor(r, g, b)
+        
+        level1_color = blend(accent_color, 50, card_bg)
+        level2_color = blend(accent_color, 110, card_bg)
+        level3_color = blend(accent_color, 170, card_bg)
+        level4_color = blend(accent_color, 255, card_bg)
+        
+        left_padding = 35.0
+        top_padding = 25.0
+        cell_size = 10.0
+        cell_spacing = 2.0
+        
+        today = datetime.date.today()
+        start_date = today - datetime.timedelta(days=364)
+        start_wday = (start_date.weekday() + 1) % 7
+        
+        max_secs = max(self.data.values()) if self.data else 0
+        max_limit = max(float(max_secs), 14400.0)  # 4 hours baseline ceiling
+        
+        # Draw cells
+        for i in range(365):
+            d = start_date + datetime.timedelta(days=i)
+            if d > today:
+                break  # Don't draw future dates
+            d_str = d.strftime("%Y-%m-%d")
+            col = (start_wday + i) // 7
+            row = (start_wday + i) % 7
+            
+            cx = left_padding + col * (cell_size + cell_spacing)
+            cy = top_padding + row * (cell_size + cell_spacing)
+            cell_rect = QRectF(cx, cy, cell_size, cell_size)
+            
+            secs = self.data.get(d_str, 0)
+            
+            if secs <= 0:
+                color = bg_level0
+            elif secs <= 0.25 * max_limit:
+                color = level1_color
+            elif secs <= 0.50 * max_limit:
+                color = level2_color
+            elif secs <= 0.75 * max_limit:
+                color = level3_color
+            else:
+                color = level4_color
+                
+            if d_str == self.hovered_date:
+                painter.setPen(QPen(QColor("#FFFFFF") if is_dark else QColor("#0F172A"), 1.2))
+            else:
+                painter.setPen(Qt.PenStyle.NoPen)
+                
+            painter.setBrush(QBrush(color))
+            painter.drawRoundedRect(cell_rect, 2.0, 2.0)
+            
+        # Draw month labels on top
+        months_labels = []
+        prev_month = -1
+        temp_labels = []
+        for i in range(365):
+            d = start_date + datetime.timedelta(days=i)
+            col = (start_wday + i) // 7
+            if d.month != prev_month:
+                temp_labels.append((col, d.strftime("%b")))
+                prev_month = d.month
+                
+        last_col = -10
+        for idx, (col, name) in enumerate(temp_labels):
+            if idx == 0 and len(temp_labels) > 1:
+                next_col = temp_labels[1][0]
+                if next_col - col < 3:
+                    continue
+            if col - last_col >= 3:
+                months_labels.append((col, name))
+                last_col = col
+                
+        painter.setFont(QFont("Segoe UI", 8))
+        painter.setPen(QColor("#9CA3AF") if is_dark else QColor("#64748B"))
+        for col, month_name in months_labels:
+            mx = left_padding + col * (cell_size + cell_spacing)
+            painter.drawText(QRectF(mx, top_padding - 16, 40, 12), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, month_name)
+            
+        # Draw weekday labels on the left: "Mon", "Wed", "Fri"
+        y_mon = top_padding + 1 * (cell_size + cell_spacing) + (cell_size / 2.0) - 6.0
+        painter.drawText(QRectF(5, y_mon, 25, 12), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, "Mon")
+        
+        y_wed = top_padding + 3 * (cell_size + cell_spacing) + (cell_size / 2.0) - 6.0
+        painter.drawText(QRectF(5, y_wed, 25, 12), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, "Wed")
+        
+        y_fri = top_padding + 5 * (cell_size + cell_spacing) + (cell_size / 2.0) - 6.0
+        painter.drawText(QRectF(5, y_fri, 25, 12), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, "Fri")
+        
+        # Draw legend in the bottom right
+        legend_y = top_padding + 7 * (cell_size + cell_spacing) + 6
+        legend_start_x = left_padding + 53 * (cell_size + cell_spacing) - 130
+        
+        painter.drawText(QRectF(legend_start_x - 30, legend_y - 2, 25, 12), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, "Less")
+        
+        for level in range(5):
+            lx = legend_start_x + level * (8 + 2)
+            ly = legend_y
+            l_rect = QRectF(lx, ly, 8, 8)
+            
+            if level == 0:
+                l_color = bg_level0
+            elif level == 1:
+                l_color = level1_color
+            elif level == 2:
+                l_color = level2_color
+            elif level == 3:
+                l_color = level3_color
+            else:
+                l_color = level4_color
+                
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(l_color))
+            painter.drawRoundedRect(l_rect, 1.5, 1.5)
+            
+        painter.drawText(QRectF(legend_start_x + 50, legend_y - 2, 30, 12), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, "More")
+        
+        # Draw floating tooltip when hovered
+        if self.hovered_date and self.hovered_cell:
+            secs = self.data.get(self.hovered_date, 0)
+            h_val = secs // 3600
+            m_val = (secs % 3600) // 60
+            
+            try:
+                date_obj = datetime.datetime.strptime(self.hovered_date, "%Y-%m-%d").date()
+                date_str = date_obj.strftime("%b %d, %Y")
+            except Exception:
+                date_str = self.hovered_date
+                
+            if secs > 0:
+                if h_val > 0:
+                    time_str = f"{h_val}h {m_val}m"
+                else:
+                    time_str = f"{m_val}m" if m_val > 0 else f"{secs}s"
+                tooltip_txt = f"{time_str} on {date_str}"
+            else:
+                tooltip_txt = f"No tracked time on {date_str}"
+                
+            painter.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+            fm = painter.fontMetrics()
+            tw = fm.horizontalAdvance(tooltip_txt) + 20
+            th = fm.height() + 12
+            
+            tx = self.mouse_pos.x() + 15
+            ty = self.mouse_pos.y() - th - 5
+            
+            if tx + tw > w:
+                tx = self.mouse_pos.x() - tw - 15
+            if ty < 0:
+                ty = self.mouse_pos.y() + 15
+                
+            tooltip_rect = QRectF(tx, ty, tw, th)
+            
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(QColor(15, 23, 42, 35)))
+            painter.drawRoundedRect(tooltip_rect.translated(1, 1), 6, 6)
+            
+            painter.setBrush(QBrush(QColor("#0F172A")))
+            painter.drawRoundedRect(tooltip_rect, 6, 6)
+            
+            painter.setPen(QColor("#FFFFFF"))
+            painter.drawText(tooltip_rect, Qt.AlignmentFlag.AlignCenter, tooltip_txt)
+

@@ -411,7 +411,7 @@ def load_session_json(filepath):
         "project_breakdown": breakdown,
     }
 
-def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate: float = 0.0, currency_symbol: str = "$"):
+def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate: float = 0.0, currency_symbol: str = "$", exclude_key=None):
     """
     Scans and aggregates manual saved sessions and autosaved backups for a specific date range.
     Deduplicates sessions found in both folders using (date, start) as a unique key.
@@ -467,13 +467,24 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
     start_d = start_date.date()
     end_d = end_date.date()
     
-    for session in unique_sessions.values():
+    for key, session in unique_sessions.items():
+        if exclude_key and key == exclude_key:
+            continue
         try:
-            s_date = datetime.strptime(session["date"], "%Y-%m-%d").date()
-            if start_d <= s_date <= end_d:
+            s_date_obj = datetime.strptime(session["date"], "%Y-%m-%d").date()
+            start_time_str = session.get("start", "00:00:00")
+            s_time_obj = datetime.strptime(start_time_str.split('.')[0], "%H:%M:%S").time()
+            s_dt = datetime.combine(s_date_obj, s_time_obj)
+            
+            if start_date <= s_dt <= end_date:
                 filtered_sessions.append(session)
         except Exception:
-            continue
+            try:
+                s_date = datetime.strptime(session["date"], "%Y-%m-%d").date()
+                if start_d <= s_date <= end_d:
+                    filtered_sessions.append(session)
+            except Exception:
+                continue
             
     # Accumulate results
     total_seconds = 0
@@ -1933,13 +1944,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             background-color: var(--bg-body); 
             border: 1px solid var(--border);
         }
-        .footer-link:hover { 
-            background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
-            color: white; 
-            border-color: transparent;
-            transform: translateY(-1px); 
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15); 
-        }
+
 
         @page {
             size: auto;

@@ -16,7 +16,7 @@ import traceback
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFrame, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QScrollArea, QLineEdit, QDialog, QMenu, QMessageBox,
-    QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView
+    QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView, QSystemTrayIcon
 )
 from PyQt6.QtCore import Qt, QTimer, QSize, QObject, pyqtSignal, QRectF
 from PyQt6.QtGui import QColor, QPainter, QPen, QImage, QPixmap, QIcon
@@ -277,6 +277,29 @@ class TrueHourApp(QMainWindow):
             except Exception:
                 pass
 
+        # Initialize System Tray Icon
+        self.tray_icon = QSystemTrayIcon(self)
+        if os.path.exists(ICON_PATH):
+            self.tray_icon.setIcon(QIcon(ICON_PATH))
+        else:
+            self.tray_icon.setIcon(self.windowIcon())
+            
+        self.tray_menu = QMenu()
+        show_action = self.tray_menu.addAction("Show/Restore")
+        show_action.triggered.connect(self.showNormal)
+        
+        self.tray_pause_action = self.tray_menu.addAction("Pause Tracking")
+        self.tray_pause_action.triggered.connect(self._on_pause)
+        self.tray_pause_action.setEnabled(False)
+        
+        self.tray_menu.addSeparator()
+        quit_action = self.tray_menu.addAction("Exit")
+        quit_action.triggered.connect(self.close)
+        
+        self.tray_icon.setContextMenu(self.tray_menu)
+        self.tray_icon.activated.connect(self._on_tray_icon_activated)
+        self.tray_icon.show()
+
         # Standalone debug console is launched as an independent process on demand.
 
         self._build_ui()
@@ -302,8 +325,22 @@ class TrueHourApp(QMainWindow):
         try:
             from core.reporting.aggregator import rebuild_all_summaries
             QTimer.singleShot(2500, rebuild_all_summaries)
+            QTimer.singleShot(3500, self._recalculate_weekly_base_focus_seconds)
         except Exception as e:
             print(f"[TrueHour] Failed to schedule summary rebuild: {e}")
+
+        # Start local web server for Focus Goals dashboard
+        try:
+            from core.reporting.web_server import WebServerManager
+            self.web_server_mgr = WebServerManager(self._get_web_goals_state, self)
+            self.web_server_mgr.signals.goals_updated.connect(self._on_web_goals_updated)
+            self.web_server_mgr.signals.alerts_toggled.connect(self._on_web_alerts_toggled)
+            self.web_server_mgr.signals.theme_toggled.connect(self._on_web_theme_toggled)
+            self.web_server_mgr.signals.test_notification_requested.connect(self._trigger_test_notification)
+            self.web_server_mgr.signals.reset_requested.connect(self._on_web_goals_reset)
+            self.web_server_mgr.start()
+        except Exception as e:
+            print(f"[TrueHour] Failed to initialize web server: {e}")
 
         # Schedule database optimization 3 seconds after startup to clean up database file
         try:
@@ -597,6 +634,9 @@ class TrueHourApp(QMainWindow):
         except Exception:
             pass
             
+        if hasattr(self, "web_server_mgr"):
+            self.web_server_mgr.stop()
+            
         event.accept()
 
     def _on_start(self):
@@ -616,6 +656,9 @@ class TrueHourApp(QMainWindow):
         self.pause_btn.setEnabled(True)
         self.pause_btn.setText("⏸ Pause")
         self.stop_btn.setEnabled(True)
+        
+        self.tray_pause_action.setEnabled(True)
+        self.tray_pause_action.setText("Pause Tracking")
         
         # Trigger dynamic QSS style changes
         self.start_btn.setObjectName("AccentButton")
@@ -642,6 +685,10 @@ class TrueHourApp(QMainWindow):
         self.clock_label.setText("00:00:00")
         self.earnings_label.setText("")
         self.setWindowTitle("TrueHour")
+        
+        self.tray_pause_action.setEnabled(False)
+        self.tray_pause_action.setText("Pause Tracking")
+        self._recalculate_weekly_base_focus_seconds()
 
         # Initialize background worker (offloading tracker stop to background thread to prevent UI freeze)
         worker = ReportWorker(
@@ -672,6 +719,7 @@ class TrueHourApp(QMainWindow):
     def _on_pause(self):
         is_paused = self.tracker.toggle_pause()
         logger.info(f"[Action] Clicked {'Pause' if is_paused else 'Resume'}")
+        self.tray_pause_action.setText("Resume Tracking" if is_paused else "Pause Tracking")
         if is_paused:
             self.pause_btn.setText("▶ Resume")
             if self.dark_mode:
@@ -736,7 +784,262 @@ class TrueHourApp(QMainWindow):
             
         name = getattr(self.tracker, "session_name", "")
         self.setWindowTitle(f"TrueHour | {name}" if name else "TrueHour")
+        self._check_weekly_goal_milestones()
 
+    def _on_tray_icon_activated(self, reason):
+        if reason in (QSystemTrayIcon.ActivationReason.DoubleClick, QSystemTrayIcon.ActivationReason.Trigger):
+            if self.isVisible():
+                self.hide()
+            else:
+                self.showNormal()
+                self.activateWindow()
+
+    def _show_tray_notification(self, title, message):
+        if hasattr(self, "tray_icon") and self.tray_icon.isVisible():
+            self.tray_icon.showMessage(title, message, QSystemTrayIcon.MessageIcon.Information, 5000)
+
+    def _trigger_test_notification(self):
+        self._show_tray_notification(
+            "TrueHour Goals", 
+            "This is a test notification from TrueHour! Tray alerts are functioning properly."
+        )
+
+    def _recalculate_weekly_base_focus_seconds(self):
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        period = getattr(self, "earnings_goal_period", "weekly")
+        if period == "daily":
+            start_date = today
+            self.last_week_start_date = today
+        else:
+            start_of_week = today - timedelta(days=today.weekday())
+            start_date = start_of_week
+            self.last_week_start_date = start_of_week
+            
+        reset_ts_str = getattr(self, "earnings_goal_reset_timestamp", "")
+        if reset_ts_str:
+            try:
+                reset_ts = datetime.fromisoformat(reset_ts_str)
+                if reset_ts > start_date:
+                    start_date = reset_ts
+            except Exception:
+                pass
+            
+        exclude_key = None
+        if self.tracker.running and self.tracker.session_start:
+            s_date = self.tracker.session_start.strftime("%Y-%m-%d")
+            s_start = self.tracker.session_start.strftime("%H:%M:%S")
+            exclude_key = (s_date, s_start)
+            
+        try:
+            from report import aggregate_history_data
+            data = aggregate_history_data(start_date, now, exclude_key=exclude_key)
+            self.weekly_base_focus_seconds = {}
+            for item in data.get("project_breakdown", []):
+                self.weekly_base_focus_seconds[item["project"]] = item["seconds"]
+        except Exception as e:
+            print(f"[TrueHour] Failed to recalculate base focus seconds: {e}")
+            self.weekly_base_focus_seconds = {}
+        finally:
+            self._goals_initialized = True
+
+    def _check_weekly_goal_milestones(self, force=False):
+        if not getattr(self, "enable_goal_tray_alerts", True):
+            return
+            
+        weekly_goals = getattr(self, "weekly_goals", {})
+        weekly_earnings_goal = getattr(self, "weekly_earnings_goal", 0.0)
+        if not weekly_goals and weekly_earnings_goal <= 0:
+            return
+            
+        if not force and not getattr(self, "_goals_initialized", False):
+            return
+            
+        if not force:
+            import time
+            now_ts = time.time()
+            if now_ts - getattr(self, "_last_goal_check", 0.0) < 30.0:
+                return
+            self._last_goal_check = now_ts
+            
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        period = getattr(self, "earnings_goal_period", "weekly")
+        if period == "daily":
+            expected_start = today
+        else:
+            expected_start = today - timedelta(days=today.weekday())
+            
+        if getattr(self, "last_week_start_date", None) != expected_start:
+            self.last_week_start_date = expected_start
+            self._recalculate_weekly_base_focus_seconds()
+            if hasattr(self, "notified_goals"):
+                self.notified_goals.clear()
+            if hasattr(self, "notified_earnings_goal"):
+                self.notified_earnings_goal.clear()
+            
+        project_seconds = dict(getattr(self, "weekly_base_focus_seconds", {}))
+        
+        if self.tracker.running:
+            from tracker import _is_auto_excluded
+            with self.tracker._lock:
+                for app_name, secs in self.tracker.app_times.items():
+                    if self.tracker.app_included.get(app_name, True) and not _is_auto_excluded(self.tracker.app_exe_paths.get(app_name, "")):
+                        tag = self.tracker.tag_manager.get_tag(app_name, self.tracker.app_exe_paths.get(app_name, ""))
+                        project_seconds[tag] = project_seconds.get(tag, 0.0) + secs
+                        
+        total_seconds = sum(project_seconds.values())
+        total_hours = total_seconds / 3600.0
+        total_earnings = total_hours * getattr(self, "hourly_rate", 0.0)
+        
+        # Check weekly earnings goal milestones
+        if weekly_earnings_goal > 0 and getattr(self, "hourly_rate", 0.0) > 0:
+            if not hasattr(self, "notified_earnings_goal"):
+                self.notified_earnings_goal = set()
+                if total_earnings >= weekly_earnings_goal:
+                    self.notified_earnings_goal.add(100)
+                    self.notified_earnings_goal.add(50)
+                elif total_earnings >= 0.5 * weekly_earnings_goal:
+                    self.notified_earnings_goal.add(50)
+            else:
+                curr_sym = getattr(self, "currency_symbol", "$")
+                if 50 not in self.notified_earnings_goal and total_earnings >= 0.5 * weekly_earnings_goal:
+                    self.notified_earnings_goal.add(50)
+                    self._show_tray_notification(
+                        "Earnings Goal Milestone",
+                        f"Reached 50% of your weekly earnings goal ({curr_sym}{total_earnings:.2f} / {curr_sym}{weekly_earnings_goal:.2f})!"
+                    )
+                if 100 not in self.notified_earnings_goal and total_earnings >= weekly_earnings_goal:
+                    self.notified_earnings_goal.add(100)
+                    self._show_tray_notification(
+                        "Earnings Goal Completed!",
+                        f"Congratulations! Reached 100% of your weekly earnings goal ({curr_sym}{total_earnings:.2f} / {curr_sym}{weekly_earnings_goal:.2f})!"
+                    )
+                    
+        # Check project goals
+        if weekly_goals:
+            if not hasattr(self, "notified_goals"):
+                self.notified_goals = {}
+                for proj, goal_hours in weekly_goals.items():
+                    if goal_hours <= 0:
+                        continue
+                    goal_secs = goal_hours * 3600.0
+                    curr_secs = project_seconds.get(proj, 0.0)
+                    self.notified_goals[proj] = set()
+                    if curr_secs >= goal_secs:
+                        self.notified_goals[proj].add(100)
+                        self.notified_goals[proj].add(50)
+                    elif curr_secs >= 0.5 * goal_secs:
+                        self.notified_goals[proj].add(50)
+            else:
+                for proj, goal_hours in weekly_goals.items():
+                    if goal_hours <= 0:
+                        continue
+                    goal_secs = goal_hours * 3600.0
+                    curr_secs = project_seconds.get(proj, 0.0)
+                    
+                    if proj not in self.notified_goals:
+                        self.notified_goals[proj] = set()
+                        
+                    if 50 not in self.notified_goals[proj] and curr_secs >= 0.5 * goal_secs:
+                        self.notified_goals[proj].add(50)
+                        self._show_tray_notification(
+                            "Focus Goal Milestone",
+                            f"Reached 50% of your weekly goal for '{proj}' ({curr_secs/3600.0:.1f}h / {goal_hours:.1f}h)!"
+                        )
+                        
+                    if 100 not in self.notified_goals[proj] and curr_secs >= goal_secs:
+                        self.notified_goals[proj].add(100)
+                        self._show_tray_notification(
+                            "Focus Goal Completed!",
+                            f"Congratulations! Reached 100% of your weekly goal for '{proj}' ({curr_secs/3600.0:.1f}h / {goal_hours:.1f}h)!"
+                        )
+
+    def _get_web_goals_state(self):
+        active_seconds = {}
+        if self.tracker.running:
+            from tracker import _is_auto_excluded
+            with self.tracker._lock:
+                for app_name, secs in self.tracker.app_times.items():
+                    if self.tracker.app_included.get(app_name, True) and not _is_auto_excluded(self.tracker.app_exe_paths.get(app_name, "")):
+                        tag = self.tracker.tag_manager.get_tag(app_name, self.tracker.app_exe_paths.get(app_name, ""))
+                        active_seconds[tag] = active_seconds.get(tag, 0.0) + secs
+        
+        from theme import PROJECT_COLORS
+        from config import get_app_data_dir
+        import os
+        return {
+            "weekly_goals": getattr(self, "weekly_goals", {}),
+            "enable_goal_tray_alerts": getattr(self, "enable_goal_tray_alerts", True),
+            "weekly_base_focus_seconds": getattr(self, "weekly_base_focus_seconds", {}),
+            "active_seconds": active_seconds,
+            "project_colors": PROJECT_COLORS,
+            "dark_mode": getattr(self, "dark_mode", False),
+            "weekly_earnings_goal": getattr(self, "weekly_earnings_goal", 0.0),
+            "hourly_rate": getattr(self, "hourly_rate", 0.0),
+            "currency_symbol": getattr(self, "currency_symbol", "$"),
+            "earnings_goal_period": getattr(self, "earnings_goal_period", "weekly"),
+            "active_profile": os.path.basename(get_app_data_dir()),
+            "earnings_goal_reset_timestamp": getattr(self, "earnings_goal_reset_timestamp", "")
+        }
+
+    def _on_web_goals_reset(self):
+        logger.info("[Web Server] Goals reset requested")
+        tracker_was_running = self.tracker.running
+        session_name = getattr(self.tracker, "session_name", "")
+        if tracker_was_running:
+            self.tracker.stop()
+        self.earnings_goal_reset_timestamp = datetime.now().isoformat()
+        if hasattr(self, "notified_goals"):
+            self.notified_goals.clear()
+        if hasattr(self, "notified_earnings_goal"):
+            self.notified_earnings_goal.clear()
+        self._recalculate_weekly_base_focus_seconds()
+        self._save_app_settings()
+        if tracker_was_running:
+            self.tracker.start(session_name=session_name)
+        for widget in QApplication.topLevelWidgets():
+            if widget.inherits("QDialog") and widget.metaObject().className() == "TrueHourDashboard":
+                if hasattr(widget, "update_historical_data"):
+                    widget.update_historical_data()
+
+    def _on_web_goals_updated(self, goals_data):
+        logger.info(f"[Web Server] Weekly goals updated: {goals_data}")
+        if "weekly_goals" in goals_data:
+            self.weekly_goals = goals_data["weekly_goals"]
+            if hasattr(self, "notified_goals"):
+                self.notified_goals.clear()
+        if "weekly_earnings_goal" in goals_data:
+            self.weekly_earnings_goal = goals_data["weekly_earnings_goal"]
+            if hasattr(self, "notified_earnings_goal"):
+                self.notified_earnings_goal.clear()
+        if "earnings_goal_period" in goals_data:
+            self.earnings_goal_period = str(goals_data["earnings_goal_period"])
+            if hasattr(self, "notified_earnings_goal"):
+                self.notified_earnings_goal.clear()
+        self._recalculate_weekly_base_focus_seconds()
+        self._save_app_settings()
+        
+        # Sync with open dashboard dialogs
+        for widget in QApplication.topLevelWidgets():
+            if widget.inherits("QDialog") and widget.metaObject().className() == "TrueHourDashboard":
+                if hasattr(widget, "update_historical_data"):
+                    widget.update_historical_data()
+
+    def _on_web_alerts_toggled(self, enabled):
+        logger.info(f"[Web Server] Milestone notifications toggled: {enabled}")
+        self.enable_goal_tray_alerts = enabled
+        self._save_app_settings()
+
+    def _on_web_theme_toggled(self, is_dark):
+        logger.info(f"[Web Server] Dark mode toggled: {is_dark}")
+        self.apply_theme(is_dark)
+        self._save_app_settings()
+ 
     def _schedule_refresh(self):
         # The background thread emits `update_signal`, which wakes this up in the main GUI thread!
         # Rate limit UI updates to max 2 Hz for better performance
@@ -1030,6 +1333,13 @@ class TrueHourApp(QMainWindow):
                 pass
 
     def _load_app_settings(self):
+        self.weekly_goals = {}
+        self.weekly_earnings_goal = 0.0
+        self.earnings_goal_period = "weekly"
+        self.enable_goal_tray_alerts = True
+        self.weekly_base_focus_seconds = {}
+        self.earnings_goal_reset_timestamp = ""
+        self._goals_initialized = False
         self.confirm_on_close = True
         self.min_track_seconds = 2
         self.auto_save_seconds = 10
@@ -1129,6 +1439,11 @@ class TrueHourApp(QMainWindow):
                     self.mask_sensitive_data = legacy_mask
                     self.developer_mode = data.get("developer_mode", False)
                     self.dark_mode = data.get("dark_mode", False)
+                    self.weekly_goals = data.get("weekly_goals", {})
+                    self.weekly_earnings_goal = float(data.get("weekly_earnings_goal", 0.0))
+                    self.earnings_goal_period = data.get("earnings_goal_period", "weekly")
+                    self.enable_goal_tray_alerts = data.get("enable_goal_tray_alerts", True)
+                    self.earnings_goal_reset_timestamp = data.get("earnings_goal_reset_timestamp", "")
                     self.anonymous_user_id = data.get("anonymous_user_id", "")
             except Exception as e:
                 print(f"[TrueHour] Failed to load app settings: {e}")
@@ -1186,6 +1501,11 @@ class TrueHourApp(QMainWindow):
                 "mask_sensitive_data": self.mask_business_emails or self.mask_business_phone or self.mask_client_emails,
                 "developer_mode": self.developer_mode,
                 "dark_mode": self.dark_mode,
+                "weekly_goals": self.weekly_goals,
+                "weekly_earnings_goal": self.weekly_earnings_goal,
+                "earnings_goal_period": self.earnings_goal_period,
+                "enable_goal_tray_alerts": self.enable_goal_tray_alerts,
+                "earnings_goal_reset_timestamp": getattr(self, "earnings_goal_reset_timestamp", ""),
                 "anonymous_user_id": self.anonymous_user_id,
             }
             with open(APP_SETTINGS_FILE, "w", encoding="utf-8") as f:
@@ -1376,6 +1696,10 @@ class TrueHourApp(QMainWindow):
             "enable_bank_details": self.enable_bank_details,
             "developer_mode": self.developer_mode,
             "dark_mode": self.dark_mode,
+            "weekly_goals": self.weekly_goals,
+            "weekly_earnings_goal": getattr(self, "weekly_earnings_goal", 0.0),
+            "earnings_goal_period": getattr(self, "earnings_goal_period", "weekly"),
+            "enable_goal_tray_alerts": self.enable_goal_tray_alerts,
         }
         
         dialog = SettingsDialog(current_settings, self)
@@ -1388,6 +1712,7 @@ class TrueHourApp(QMainWindow):
         dialog.profile_renamed.connect(self._handle_profile_renamed)
         dialog.profile_deleted.connect(self._handle_profile_deleted)
         dialog.settings_imported.connect(self._handle_settings_imported)
+        dialog.test_notification_requested.connect(self._trigger_test_notification)
         
         def handle_reload():
             from tracker import reload_auto_excluded
@@ -1440,6 +1765,17 @@ class TrueHourApp(QMainWindow):
             )
             self.developer_mode = new_settings["developer_mode"]
             self.dark_mode = new_settings["dark_mode"]
+            
+            self.weekly_goals = new_settings.get("weekly_goals", {})
+            self.weekly_earnings_goal = new_settings.get("weekly_earnings_goal", 0.0)
+            self.earnings_goal_period = new_settings.get("earnings_goal_period", "weekly")
+            self.enable_goal_tray_alerts = new_settings.get("enable_goal_tray_alerts", True)
+            if hasattr(self, "notified_goals"):
+                self.notified_goals.clear()
+            if hasattr(self, "notified_earnings_goal"):
+                self.notified_earnings_goal.clear()
+            self._recalculate_weekly_base_focus_seconds()
+            
             self.apply_theme(self.dark_mode)
             self._update_developer_ui()
             self._save_app_settings()

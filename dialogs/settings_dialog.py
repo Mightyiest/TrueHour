@@ -28,6 +28,7 @@ class SettingsDialog(QDialog):
     profile_renamed = pyqtSignal(str, str)
     profile_deleted = pyqtSignal(str)
     settings_imported = pyqtSignal(str)
+    test_notification_requested = pyqtSignal()
 
     def __init__(self, current_settings, parent=None):
         super().__init__(parent)
@@ -343,6 +344,8 @@ class SettingsDialog(QDialog):
         scroll_general.setWidget(scroll_general_content)
         tg_main_layout.addWidget(scroll_general)
         
+        # (Focus goals configuration moved directly to the Web Dashboard)
+        
         # ── Tab 2: Billing & Invoicing Details ────────────────────────
         tab_invoice = QWidget()
         ti_layout = QVBoxLayout(tab_invoice)
@@ -558,7 +561,6 @@ class SettingsDialog(QDialog):
         scroll_invoice.setWidget(scroll_invoice_content)
         ti_layout.addWidget(scroll_invoice)
         
-        # Add Tabs to Widget
         settings_tabs.addTab(tab_general, "General && Controls")
         settings_tabs.addTab(tab_invoice, "Billing && Invoices")
         layout.addWidget(settings_tabs)
@@ -650,6 +652,8 @@ class SettingsDialog(QDialog):
             self.settings["confirm_on_close"] = self.cb_confirm.isChecked()
             self.settings["min_track_seconds"] = int(self.min_sec_entry.text())
             self.settings["auto_save_seconds"] = int(self.auto_save_entry.text())
+            
+            # (Focus goals settings are managed directly in the Web Dashboard)
             
             raw_symbol = self.curr_combo.currentText().strip()
             self.settings["currency_symbol"] = raw_symbol.split()[0].split('(')[0].strip() if raw_symbol else "$"

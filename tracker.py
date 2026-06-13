@@ -466,28 +466,88 @@ class TagManager:
         return False
 
     def _match_offline(self, app_name: str, exe_path: str) -> Optional[str]:
-        """Offline keyword heuristic matching."""
-        # Clean terms to search
-        search_terms = [app_name.lower()]
+        """Offline token-based scoring heuristic matching."""
+        app_name_lower = app_name.lower().strip()
+        exe_name = ""
+        desc_lower = ""
+        company_lower = ""
+        product_lower = ""
+        
         if exe_path:
             exe_name = os.path.basename(exe_path).lower()
             if exe_name.endswith(".exe"):
                 exe_name = exe_name[:-4]
-            search_terms.append(exe_name)
             
-            # Fetch FileDescription locally
-            from appinfo import _get_file_description
+            # Local imports to prevent circular dependency
+            from appinfo import _get_file_description, get_company_name, get_product_name
             desc = _get_file_description(exe_path)
             if desc:
-                search_terms.append(desc.lower())
+                desc_lower = desc.lower().strip()
                 
-        # Match search terms against keywords
+            comp = get_company_name(exe_path)
+            if comp:
+                company_lower = comp.lower().strip()
+                
+            prod = get_product_name(exe_path)
+            if prod:
+                product_lower = prod.lower().strip()
+                
+        scores = {cat: 0.0 for cat in self.KEYWORDS}
+        
+        # 1. High priority company/brand mappings
+        if "adobe" in company_lower or "adobe" in product_lower or "photoshop" in app_name_lower or "illustrator" in app_name_lower:
+            scores["Design"] += 5.0
+        if "jetbrains" in company_lower or "intellij" in product_lower or "pycharm" in product_lower or "webstorm" in product_lower:
+            scores["Development"] += 5.0
+        if "autodesk" in company_lower or "autocad" in product_lower:
+            scores["Design"] += 5.0
+        if "slack" in app_name_lower or "slack" in exe_name:
+            scores["Communication"] += 5.0
+        if "discord" in app_name_lower or "discord" in exe_name:
+            scores["Communication"] += 5.0
+        if "zoom" in app_name_lower or "zoom" in exe_name:
+            scores["Communication"] += 5.0
+        if "figma" in app_name_lower or "figma" in exe_name:
+            scores["Design"] += 5.0
+        if "github" in company_lower or "github" in product_lower or "git" in exe_name:
+            scores["Development"] += 5.0
+            
+        # 2. Tokenize all input strings
+        all_texts = [app_name_lower, exe_name, desc_lower, product_lower, company_lower]
+        all_tokens = set()
+        for text in all_texts:
+            if text:
+                clean_text = "".join(c if c.isalnum() else " " for c in text)
+                all_tokens.update(clean_text.split())
+                
+        # 3. Check tokens against KEYWORDS
         for category, words in self.KEYWORDS.items():
-            for term in search_terms:
-                for word in words:
-                    if word in term:
-                        return category
+            for word in words:
+                # Exact token match
+                if word in all_tokens:
+                    scores[category] += 3.0
+                else:
+                    # Substring match within individual tokens
+                    for token in all_tokens:
+                        if len(token) > len(word) and word in token:
+                            scores[category] += 1.0
+                            break
+                            
+        # 4. Find category with the maximum score using tie-breaker priority order
+        max_score = 0.0
+        best_category = None
+        priority = ["Development", "Design", "Documentation", "Communication", "Research", "Management"]
+        
+        for category in priority:
+            if scores.get(category, 0.0) > max_score:
+                max_score = scores[category]
+                best_category = category
+                
+        if max_score > 0.0:
+            return best_category
+            
         return None
+
 
     def _fetch_and_update_tag_online(self, app_name: str, exe_path: str):
         """Asynchronously query DuckDuckGo and update mapping on success."""

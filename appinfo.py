@@ -128,6 +128,34 @@ def _get_file_description(exe_path):
         logger.debug(f"Failed to get file description for {exe_path}: {e}")
     return None
 
+def get_company_name(exe_path):
+    """Extract CompanyName from an executable's version info."""
+    if SYSTEM != "Windows":
+        return None
+    try:
+        lang, codepage = win32api.GetFileVersionInfo(exe_path, '\\VarFileInfo\\Translation')[0]
+        path = f'\\StringFileInfo\\{lang:04X}{codepage:04X}\\CompanyName'
+        desc = win32api.GetFileVersionInfo(exe_path, path)
+        if desc and desc.strip():
+            return desc.strip()
+    except Exception as e:
+        logger.debug(f"Failed to get company name for {exe_path}: {e}")
+    return None
+
+def get_product_name(exe_path):
+    """Extract ProductName from an executable's version info."""
+    if SYSTEM != "Windows":
+        return None
+    try:
+        lang, codepage = win32api.GetFileVersionInfo(exe_path, '\\VarFileInfo\\Translation')[0]
+        path = f'\\StringFileInfo\\{lang:04X}{codepage:04X}\\ProductName'
+        desc = win32api.GetFileVersionInfo(exe_path, path)
+        if desc and desc.strip():
+            return desc.strip()
+    except Exception as e:
+        logger.debug(f"Failed to get product name for {exe_path}: {e}")
+    return None
+
 @lru_cache(maxsize=128)
 def get_icon_image(exe_path: str, size: int = 16):
     if not exe_path: return None
