@@ -15,9 +15,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from core.reporting.models import ReportStatus, ReportJob
 from core.reporting.cache import get_cache_dir, compute_cache_key, get_cached_report, save_to_cache
 from core.reporting.statistics import (
-    calculate_total_hours, 
-    calculate_average_hours, 
-    calculate_most_active_day, 
+    calculate_total_hours,
+    calculate_average_hours,
+    calculate_most_active_day,
     calculate_longest_session
 )
 
@@ -48,7 +48,7 @@ class TestReportJob(unittest.TestCase):
             output_path=None,
             error_message=None
         )
-        
+
         self.assertEqual(job.id, "test-id-123")
         self.assertEqual(job.status, "pending")
         self.assertEqual(job.progress, 0)
@@ -70,7 +70,7 @@ class TestReportJob(unittest.TestCase):
             output_path="/path/to/report.html",
             error_message=None
         )
-        
+
         self.assertEqual(job.output_path, "/path/to/report.html")
 
 
@@ -80,7 +80,7 @@ class TestCacheFunctions(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures"""
         self.test_cache_dir = tempfile.mkdtemp()
-        
+
     def tearDown(self):
         """Clean up test fixtures"""
         shutil.rmtree(self.test_cache_dir, ignore_errors=True)
@@ -89,9 +89,9 @@ class TestCacheFunctions(unittest.TestCase):
     def test_get_cache_dir_creates_directory(self, mock_get_dir):
         """Test that get_cache_dir creates the directory if it doesn't exist"""
         mock_get_dir.return_value = self.test_cache_dir
-        
+
         cache_dir = get_cache_dir()
-        
+
         self.assertTrue(os.path.exists(cache_dir))
         self.assertTrue(os.path.isdir(cache_dir))
 
@@ -99,7 +99,7 @@ class TestCacheFunctions(unittest.TestCase):
         """Test that compute_cache_key generates consistent hashes"""
         key1 = compute_cache_key("weekly", "2026-05-01", "2026-05-07", "html")
         key2 = compute_cache_key("weekly", "2026-05-01", "2026-05-07", "html")
-        
+
         self.assertEqual(key1, key2)
         self.assertEqual(len(key1), 64)  # SHA256 hex length
 
@@ -109,7 +109,7 @@ class TestCacheFunctions(unittest.TestCase):
         key2 = compute_cache_key("monthly", "2026-05-01", "2026-05-07", "html")
         key3 = compute_cache_key("weekly", "2026-06-01", "2026-06-30", "html")
         key4 = compute_cache_key("weekly", "2026-05-01", "2026-05-07", "csv")
-        
+
         self.assertNotEqual(key1, key2)
         self.assertNotEqual(key1, key3)
         self.assertNotEqual(key1, key4)
@@ -118,9 +118,9 @@ class TestCacheFunctions(unittest.TestCase):
     def test_get_cached_report_returns_none_when_not_exists(self, mock_get_dir):
         """Test that get_cached_report returns None when cache file doesn't exist"""
         mock_get_dir.return_value = self.test_cache_dir
-        
+
         result = get_cached_report("weekly", "2026-05-01", "2026-05-07", "html")
-        
+
         self.assertIsNone(result)
 
     @patch('core.reporting.cache.get_app_data_dir')
@@ -128,15 +128,15 @@ class TestCacheFunctions(unittest.TestCase):
     def test_save_to_cache_copies_file(self, mock_copy, mock_get_dir):
         """Test that save_to_cache copies the file to cache directory"""
         mock_get_dir.return_value = self.test_cache_dir
-        
+
         # Create a temp source file
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.html') as f:
             f.write("<html>test</html>")
             source_path = f.name
-        
+
         try:
             save_to_cache("weekly", "2026-05-01", "2026-05-07", "html", source_path)
-            
+
             mock_copy.assert_called_once()
             args = mock_copy.call_args[0]
             self.assertEqual(args[0], source_path)
@@ -148,15 +148,15 @@ class TestCacheFunctions(unittest.TestCase):
     def test_get_cached_report_returns_path_when_exists(self, mock_get_cache_dir):
         """Test that get_cached_report returns path when cache file exists"""
         mock_get_cache_dir.return_value = self.test_cache_dir
-        
+
         # Create cache file manually
         key = compute_cache_key("weekly", "2026-05-01", "2026-05-07", "html")
         cache_file = os.path.join(self.test_cache_dir, f"{key}.html")
         with open(cache_file, 'w') as f:
             f.write("<html>cached</html>")
-        
+
         result = get_cached_report("weekly", "2026-05-01", "2026-05-07", "html")
-        
+
         self.assertEqual(result, cache_file)
 
 
@@ -267,22 +267,22 @@ class TestIntegration(unittest.TestCase):
             output_path=None,
             error_message=None
         )
-        
+
         self.assertEqual(job.status, ReportStatus.PENDING)
         self.assertEqual(job.progress, 0)
-        
+
         # Simulate running state
         job.status = ReportStatus.RUNNING
         job.progress = 50
-        
+
         self.assertEqual(job.status, ReportStatus.RUNNING)
         self.assertEqual(job.progress, 50)
-        
+
         # Simulate completion
         job.status = ReportStatus.COMPLETE
         job.progress = 100
         job.output_path = "/output/report.html"
-        
+
         self.assertEqual(job.status, ReportStatus.COMPLETE)
         self.assertEqual(job.progress, 100)
         self.assertEqual(job.output_path, "/output/report.html")
@@ -294,12 +294,12 @@ class TestIntegration(unittest.TestCase):
             {"date": "2026-05-02", "total_seconds": 10800, "longest_session": 5400},
             {"date": "2026-05-03", "total_seconds": 3600, "longest_session": 1800}
         ]
-        
+
         total = calculate_total_hours(days)
         avg = calculate_average_hours(days)
         most_active = calculate_most_active_day(days)
         longest = calculate_longest_session(days)
-        
+
         self.assertEqual(total, 6.0)  # 21600 / 3600
         self.assertEqual(avg, 2.0)    # 6.0 / 3
         self.assertEqual(most_active, "2026-05-02")

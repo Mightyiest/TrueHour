@@ -31,14 +31,14 @@ mock_report = {
     "counted_seconds": 24312, # 6h 45m 12s
     "total_formatted": "8h 30m 00s",
     "counted_formatted": "6h 45m 12s",
-    
+
     # Project & Category Breakdown
     "project_breakdown": [
         {"project": "Development", "formatted": "4h 15m 00s", "percent": 62.9, "color": "#4F46E5"},
         {"project": "Design", "formatted": "1h 45m 12s", "percent": 25.9, "color": "#EC4899"},
         {"project": "Documentation", "formatted": "0h 45m 00s", "percent": 11.2, "color": "#F59E0B"}
     ],
-    
+
     # App usage list
     "apps": [
         {"name": "VS Code", "tag": "Development", "formatted": "4h 15m 00s", "percent": 50.0},
@@ -46,7 +46,7 @@ mock_report = {
         {"name": "Notepad", "tag": "Documentation", "formatted": "0h 45m 00s", "percent": 8.8},
         {"name": "File Explorer", "tag": "Unassigned", "formatted": "1h 44m 48s", "percent": 21.2}
     ],
-    
+
     # Map app names to local executable paths for icon extraction
     "app_exe_paths": {
         "VS Code": get_existing_path(taskmgr_path),  # Using Task Manager as a stand-in for VS Code icon
@@ -54,7 +54,7 @@ mock_report = {
         "Notepad": get_existing_path(notepad_path),
         "File Explorer": get_existing_path(explorer_path)
     },
-    
+
     # Timeline logs
     "timeline": [
         {
@@ -83,11 +83,11 @@ mock_report = {
 print("Compiling report HTML using generate_session_report_html function...")
 try:
     html_output = generate_session_report_html(mock_report, hourly_rate=45.0, currency_symbol="$")
-    
+
     output_path = "sample_report.html"
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html_output)
-        
+
     print(f"Success! Sample report generated successfully as '{output_path}'.")
     print("Open this file in your browser to verify the app icons render next to names!")
 except Exception as e:

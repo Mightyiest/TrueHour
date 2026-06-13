@@ -47,17 +47,17 @@ def calculate_project_breakdown(start_date_str: str, end_date_str: str):
     """
     days = get_daily_summaries(start_date_str, end_date_str)
     active_dates = [day["date"] for day in days if day["session_count"] > 0]
-    
+
     project_times = {}
     total_seconds = 0
-    
+
     sessions_folder = os.path.join(get_app_data_dir(), "sessions")
     autosave_folder = os.path.join(get_app_data_dir(), "autosave")
-    
+
     for date_str in active_dates:
         # Load unique sessions for this date
         unique_sessions = {}
-        
+
         # First, collect all finalized session keys to ignore orphaned/discarded autosaves
         finalized_keys = set()
         if os.path.exists(sessions_folder):
@@ -96,7 +96,7 @@ def calculate_project_breakdown(start_date_str: str, end_date_str: str):
                         unique_sessions[key] = data
                 except Exception:
                     continue
-                    
+
         for s in unique_sessions.values():
             total_seconds += s.get("total_seconds", 0)
             for app in s.get("apps", []):
@@ -104,7 +104,7 @@ def calculate_project_breakdown(start_date_str: str, end_date_str: str):
                     tag = app.get("tag", "Unassigned")
                     secs = app.get("seconds", 0)
                     project_times[tag] = project_times.get(tag, 0) + secs
-                    
+
     breakdown = []
     for proj, secs in project_times.items():
         pct = (secs / total_seconds * 100.0) if total_seconds > 0 else 0

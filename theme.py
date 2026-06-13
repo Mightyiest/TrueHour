@@ -43,7 +43,7 @@ def get_tag_color(tag_name: str) -> str:
 
 def get_light_palette() -> QPalette:
     palette = QPalette()
-    
+
     # Active Colors (Modern Minimalist Light Style based on index.html)
     palette.setColor(QPalette.ColorRole.Window, QColor("#F8FAFC"))
     palette.setColor(QPalette.ColorRole.WindowText, QColor("#0F172A"))
@@ -58,7 +58,7 @@ def get_light_palette() -> QPalette:
     palette.setColor(QPalette.ColorRole.Link, QColor("#0078D4"))
     palette.setColor(QPalette.ColorRole.Highlight, QColor("#F1F5F9"))
     palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#0078D4"))
-    
+
     # Inactive Colors (match Active to prevent visual blinking/flickering)
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, QColor("#F8FAFC"))
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.WindowText, QColor("#0F172A"))
@@ -73,7 +73,7 @@ def get_light_palette() -> QPalette:
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Link, QColor("#0078D4"))
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Highlight, QColor("#F1F5F9"))
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.HighlightedText, QColor("#0078D4"))
-    
+
     # Disabled Colors (elegant grayish states)
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, QColor("#F8FAFC"))
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#94A3B8"))
@@ -88,12 +88,12 @@ def get_light_palette() -> QPalette:
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Link, QColor("#0078D4"))
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Highlight, QColor("#F1F5F9"))
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.HighlightedText, QColor("#94A3B8"))
-    
+
     return palette
 
 def get_dark_palette() -> QPalette:
     palette = QPalette()
-    
+
     # Active Colors (Frankfurter Minimalistic Dark Theme)
     palette.setColor(QPalette.ColorRole.Window, QColor("#141414"))
     palette.setColor(QPalette.ColorRole.WindowText, QColor("#e0e0e0"))
@@ -108,7 +108,7 @@ def get_dark_palette() -> QPalette:
     palette.setColor(QPalette.ColorRole.Link, QColor("#d1d5db"))
     palette.setColor(QPalette.ColorRole.Highlight, QColor("#262626"))
     palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
-    
+
     # Inactive Colors (match Active)
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, QColor("#141414"))
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.WindowText, QColor("#e0e0e0"))
@@ -123,7 +123,7 @@ def get_dark_palette() -> QPalette:
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Link, QColor("#d1d5db"))
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Highlight, QColor("#262626"))
     palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
-    
+
     # Disabled Colors (grayed out dark theme)
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, QColor("#141414"))
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#888888"))
@@ -138,7 +138,7 @@ def get_dark_palette() -> QPalette:
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Link, QColor("#d1d5db"))
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Highlight, QColor("#262626"))
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.HighlightedText, QColor("#888888"))
-    
+
     return palette
 
 _GENERATED_CHECKMARKS = set()
@@ -148,31 +148,31 @@ def ensure_checkmark_icon(is_dark: bool = False) -> str:
     from config import get_app_data_dir
     filename = "checkmark_dark.png" if is_dark else "checkmark_light.png"
     checkmark_path = os.path.join(get_app_data_dir(), filename).replace("\\", "/")
-    
+
     if filename in _GENERATED_CHECKMARKS and os.path.exists(checkmark_path):
         return checkmark_path
-        
+
     # Recreate the checkmark file to ensure any incorrect cached fallbacks are overwritten with the correct color
     try:
         from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen
         from PyQt6.QtCore import Qt
-        
+
         pixmap = QPixmap(16, 16)
         pixmap.fill(Qt.GlobalColor.transparent)
-        
+
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
+
         fill_color = QColor(20, 20, 20) if is_dark else QColor(255, 255, 255)
         pen = QPen(fill_color, 2)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
-        
+
         painter.drawLine(4, 8, 7, 11)
         painter.drawLine(7, 11, 12, 4)
         painter.end()
-        
+
         pixmap.save(checkmark_path, "PNG")
         _GENERATED_CHECKMARKS.add(filename)
     except Exception:
@@ -267,7 +267,7 @@ def get_qss_style(is_dark: bool) -> str:
     accent_hover = "#ffffff" if is_dark else "#106EBE"
     bg_hover = "#262626" if is_dark else "#F1F5F9"
     accent_btn_text = "#141414" if is_dark else "#FFFFFF"
-    
+
     return f"""
 QWidget {{
     color: {text_primary};
@@ -279,9 +279,9 @@ QMainWindow {{
 QDialog {{
     background-color: {bg_window};
 }}
-QWidget#scroll_widget, 
-QWidget#sessions_widget, 
-QWidget#recoveries_widget, 
+QWidget#scroll_widget,
+QWidget#sessions_widget,
+QWidget#recoveries_widget,
 QWidget#scroll_content,
 QWidget#report_scroll_widget {{
     background-color: {bg_widget};
