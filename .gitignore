@@ -1,23 +1,56 @@
-```
+```gitignore
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-env/
-venv/
+
+# Dependencies
 .venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
+venv/
+env/
+.env
+.env.local
+.env.*
+requirements.txt.bak
+
+# Logs and temporary files
 *.log
-.git/modules/
+*.tmp
+*.swp
+*.swo
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Build and distribution
+dist/
+build/
+*.egg-info/
 ```
+/tests
+/tests
+/tests
+tests/test_export_diagnostic.py
+*.exe
+/skill
+build_telemetry.bat
+telemetry_config.py
+
+
+*.ps1
+worker-invoke.sh
+codebase-memory-mcp
+PROJECT_INDEX.md
