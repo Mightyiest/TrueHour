@@ -31,14 +31,14 @@ class SessionManagerDialog(QDialog):
         self.tracker = tracker
         self.setWindowTitle("Session Manager")
         self._center_window(520, 540)
-        
+
         # Apply stylesheet and palette on start
         is_dark = self.settings.get("dark_mode", False)
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
         qss = get_qss_style(is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon(is_dark))
         self.setStyleSheet(qss)
         self.setPalette(get_dark_palette() if is_dark else get_light_palette())
-        
+
         self.selected_sessions = set()
         self._build_ui()
 
@@ -53,7 +53,7 @@ class SessionManagerDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 12, 14, 12)
         layout.setSpacing(10)
-        
+
         self.tab_widget = QTabWidget(self)
         self.tab_widget.setObjectName("SessionTabs")
 
@@ -92,7 +92,7 @@ class SessionManagerDialog(QDialog):
             }}
         """)
         self.tab_widget.setCornerWidget(self.edit_btn, Qt.Corner.TopRightCorner)
-        
+
         self.sessions_scroll = QScrollArea()
         self.sessions_scroll.setWidgetResizable(True)
         self.sessions_widget = QWidget()
@@ -100,7 +100,7 @@ class SessionManagerDialog(QDialog):
         self.sessions_layout = QVBoxLayout(self.sessions_widget)
         self.sessions_layout.setContentsMargins(4, 4, 4, 4)
         self.sessions_layout.setSpacing(4)
-        
+
         self.recoveries_scroll = QScrollArea()
         self.recoveries_scroll.setWidgetResizable(True)
         self.recoveries_widget = QWidget()
@@ -124,61 +124,61 @@ class SessionManagerDialog(QDialog):
         self.invoices_layout = QVBoxLayout(self.invoices_widget)
         self.invoices_layout.setContentsMargins(4, 4, 4, 4)
         self.invoices_layout.setSpacing(4)
-        
+
         self.history_folder = os.path.join(get_app_data_dir(), "sessions")
         self.autosave_folder = os.path.join(get_app_data_dir(), "autosave")
         self.trash_folder = os.path.join(get_app_data_dir(), "trash")
         os.makedirs(self.history_folder, exist_ok=True)
         os.makedirs(self.autosave_folder, exist_ok=True)
         os.makedirs(self.trash_folder, exist_ok=True)
-        
+
         self._refresh_all_lists()
 
         self.edit_btn.clicked.connect(self._refresh_all_lists)
-        
+
         self.sessions_scroll.setWidget(self.sessions_widget)
         self.recoveries_scroll.setWidget(self.recoveries_widget)
         self.trash_scroll.setWidget(self.trash_widget)
         self.invoices_scroll.setWidget(self.invoices_widget)
-        
+
         self.tab_widget.addTab(self.sessions_scroll, "Sessions")
         self.tab_widget.addTab(self.recoveries_scroll, "Recoveries")
         self.tab_widget.addTab(self.trash_scroll, "Trash")
         self.tab_widget.addTab(self.invoices_scroll, "Invoices")
-        
+
         layout.addWidget(self.tab_widget)
-        
+
         footer = QHBoxLayout()
         html_invoice_btn = QPushButton("📄 View Invoice in Browser", self)
         html_invoice_btn.setObjectName("AccentButton")
         html_invoice_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         html_invoice_btn.clicked.connect(self._generate_selected_html_invoice)
         footer.addWidget(html_invoice_btn)
-        
+
         footer.addStretch()
-        
+
         open_folder_btn = QPushButton("Folder", self)
         open_folder_btn.setToolTip("Open manual saved sessions folder")
         open_folder_btn.setObjectName("NormalButton")
         open_folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         open_folder_btn.clicked.connect(lambda: open_file(self.autosave_folder if self.tab_widget.currentIndex() == 1 else self.history_folder))
         footer.addWidget(open_folder_btn)
-        
+
         close_btn = QPushButton("Close", self)
         close_btn.setObjectName("NormalButton")
         close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         close_btn.clicked.connect(self.reject)
         footer.addWidget(close_btn)
-        
+
         layout.addLayout(footer)
 
     def _get_relative_time(self, timestamp):
         diff = time.time() - timestamp
-        if diff < 60: 
+        if diff < 60:
             return "Just now"
-        if diff < 3600: 
+        if diff < 3600:
             return f"{int(diff/60)}m ago"
-        if diff < 86400: 
+        if diff < 86400:
             return f"{int(diff/3600)}h ago"
         return datetime.fromtimestamp(timestamp).strftime("%b %d, %Y")
 
@@ -189,7 +189,7 @@ class SessionManagerDialog(QDialog):
                 w = item.widget()
                 if w:
                     w.deleteLater()
-                
+
         files = glob.glob(os.path.join(folder, "*.json"))
         files.sort(key=os.path.getmtime, reverse=True)
         if not files:
@@ -210,7 +210,7 @@ class SessionManagerDialog(QDialog):
             filename = os.path.basename(filepath)
             mtime = os.path.getmtime(filepath)
             rel_time = self._get_relative_time(mtime)
-            
+
             is_dark = self.settings.get("dark_mode", False)
             bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
             border_color = "#333333" if is_dark else "#F3F3F3"
@@ -222,19 +222,19 @@ class SessionManagerDialog(QDialog):
             row_frame.setStyleSheet(f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_color}; }} QFrame:hover {{ background-color: {bg_hover}; }}")
             row_layout = QHBoxLayout(row_frame)
             row_layout.setContentsMargins(8, 8, 8, 8)
-            
+
             is_trash = (folder == self.trash_folder)
             if not is_recoveries and not is_trash:
                 cb_select = QCheckBox(row_frame)
                 cb_select.setFixedWidth(20)
-                
+
                 def make_cb_connector(path):
                     return lambda state: (
                         self.selected_sessions.add(path) if state == 2 else self.selected_sessions.discard(path)
                     )
                 cb_select.stateChanged.connect(make_cb_connector(filepath))
                 row_layout.addWidget(cb_select)
-            
+
             try:
                 with open(filepath, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -243,18 +243,18 @@ class SessionManagerDialog(QDialog):
             except Exception:
                 session_name = ""
                 date_str = filename.replace("session_", "").replace("auto_", "").replace("recovery_", "").replace(".json", "").replace("_", "  ")
-            
+
             text_layout = QVBoxLayout()
             text_layout.setSpacing(2)
-            
+
             name_lbl = QLabel(session_name or "Unnamed", row_frame)
             name_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_primary};")
             text_layout.addWidget(name_lbl)
-            
+
             date_lbl = QLabel(date_str, row_frame)
             date_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: {text_sec};")
             text_layout.addWidget(date_lbl)
-            
+
             is_dark = self.settings.get("dark_mode", False)
             if is_dark:
                 tag_bg = "#262626" if i == 0 else "#262626"
@@ -268,13 +268,13 @@ class SessionManagerDialog(QDialog):
             tag_lbl.setStyleSheet(f"background-color: {tag_bg}; color: {tag_fg}; font-size: 9px; font-weight: bold; border-radius: 3px; padding: 2px 6px; font-family: 'Segoe UI'; border: none;")
             tag_lbl.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
             text_layout.addWidget(tag_lbl)
-            
+
             row_layout.addLayout(text_layout)
             row_layout.addStretch()
-            
+
             btn_layout = QHBoxLayout()
             btn_layout.setSpacing(4)
-            
+
             def _open_report_local(path):
                 try:
                     logger.info(f"[Action] Viewing local report for session: {os.path.basename(path)}")
@@ -282,7 +282,7 @@ class SessionManagerDialog(QDialog):
                     self.view_report_requested.emit(rep)
                 except Exception as e:
                     QMessageBox.critical(self, "Error", f"Could not load session:\n{e}")
-                    
+
             def _resume_from_file(path):
                 logger.info(f"[Action] Resuming session from: {os.path.basename(path)}")
                 if self.tracker.running:
@@ -384,11 +384,11 @@ class SessionManagerDialog(QDialog):
                 green_bg = "#262626"
                 green_border = "#444444"
                 green_hover = "#333333"
-                
+
                 red_bg = "#262626"
                 red_border = "#444444"
                 red_hover = "#333333"
-                
+
                 normal_bg = "#1e1e1e"
                 normal_border = "#333333"
                 normal_hover = "#262626"
@@ -397,11 +397,11 @@ class SessionManagerDialog(QDialog):
                 green_bg = "#F0FDF4"
                 green_border = "#DCFCE7"
                 green_hover = "#DCFCE7"
-                
+
                 red_bg = "#FFF5F5"
                 red_border = "#FEE2E2"
                 red_hover = "#FEE2E2"
-                
+
                 normal_bg = "#FFFFFF"
                 normal_border = "#CBD5E1"
                 normal_hover = "#F1F5F9"
@@ -468,7 +468,7 @@ class SessionManagerDialog(QDialog):
                 res_btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 res_btn.clicked.connect(lambda checked, p=filepath: _resume_from_file(p))
                 btn_layout.addWidget(res_btn)
-                
+
                 view_btn = QPushButton("View", row_frame)
                 view_btn.setObjectName("NormalButton")
                 view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -523,10 +523,10 @@ class SessionManagerDialog(QDialog):
                 view_btn.setVisible(not is_edit_active)
                 rename_btn.setVisible(is_edit_active)
                 delete_btn.setVisible(is_edit_active)
-            
+
             row_layout.addLayout(btn_layout)
             layout_container.addWidget(row_frame)
-            
+
         layout_container.addStretch()
 
     def _refresh_all_lists(self):
@@ -649,7 +649,7 @@ class SessionManagerDialog(QDialog):
             view_btn = QPushButton("View", row_frame)
             view_btn.setObjectName("NormalButton")
             view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            
+
             def make_view_connector(inv_data):
                 return lambda: self._view_recorded_invoice(inv_data)
             view_btn.clicked.connect(make_view_connector(inv))
@@ -662,7 +662,7 @@ class SessionManagerDialog(QDialog):
             rename_invoice_btn.setIconSize(QSize(16, 16))
             rename_invoice_btn.setToolTip("Rename Invoice")
             rename_invoice_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            
+
             normal_bg = "#1e1e1e" if is_dark else "#FFFFFF"
             normal_border = "#333333" if is_dark else "#CBD5E1"
             normal_hover = "#262626" if is_dark else "#F1F5F9"
@@ -692,7 +692,7 @@ class SessionManagerDialog(QDialog):
             delete_btn.setIconSize(QSize(18, 18))
             delete_btn.setToolTip("Delete Invoice Record")
             delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            
+
             red_bg = "#8a4a3d" if is_dark else "#FFF5F5"
             red_border = "#a1594b" if is_dark else "#FEE2E2"
             red_hover = "#a1594b" if is_dark else "#FEE2E2"
@@ -731,27 +731,27 @@ class SessionManagerDialog(QDialog):
 
     def _rename_recorded_invoice(self, invoice_no):
         new_name, ok = QInputDialog.getText(
-            self, 
-            "Rename Invoice", 
-            "Enter new invoice name/number:", 
-            QLineEdit.EchoMode.Normal, 
+            self,
+            "Rename Invoice",
+            "Enter new invoice name/number:",
+            QLineEdit.EchoMode.Normal,
             invoice_no
         )
         if ok and new_name.strip():
             new_name = new_name.strip()
             if new_name == invoice_no:
                 return
-                
+
             from database.schema import get_all_invoices, rename_invoice
             try:
                 existing_nos = {inv["invoice_no"] for inv in get_all_invoices()}
             except Exception:
                 existing_nos = set()
-                
+
             if new_name in existing_nos:
                 QMessageBox.warning(self, "Conflict", f"An invoice/receipt named '{new_name}' already exists.")
                 return
-                
+
             logger.info(f"[Action] Renaming invoice from {invoice_no} to {new_name}")
             try:
                 rename_invoice(invoice_no, new_name)
@@ -782,7 +782,7 @@ class SessionManagerDialog(QDialog):
             import tempfile
             from report import generate_invoice_html
             from database.schema import get_invoice_by_no
-            
+
             invoice_no = inv_data.get("invoice_no")
             full_inv = get_invoice_by_no(invoice_no)
             if not full_inv:
@@ -793,11 +793,11 @@ class SessionManagerDialog(QDialog):
             status = full_inv.get("status", "unpaid")
 
             html_content = generate_invoice_html(billing_data, settings_data, status=status, invoice_no=invoice_no)
-            
+
             with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html', encoding='utf-8') as f:
                 f.write(html_content)
                 temp_path = f.name
-            
+
             try:
                 open_file(temp_path)
             except Exception as open_err:
@@ -819,9 +819,9 @@ class SessionManagerDialog(QDialog):
         if not self.selected_sessions:
             QMessageBox.warning(self, "No Sessions Selected", "Please select at least one session using the checkbox on the left of the item.")
             return
-        
+
         logger.info(f"[Action] Generating HTML invoice for {len(self.selected_sessions)} selected sessions")
-            
+
         try:
             # Mask sensitive data custom options dialog
             privacy_dialog = InvoicePrivacyOptionsDialog(
@@ -833,7 +833,7 @@ class SessionManagerDialog(QDialog):
             )
             if privacy_dialog.exec() != QDialog.DialogCode.Accepted:
                 return
-            
+
             mask_biz_email = privacy_dialog.cb_biz_email.isChecked()
             mask_biz_phone = privacy_dialog.cb_biz_phone.isChecked()
             mask_client_email = privacy_dialog.cb_client_email.isChecked()
@@ -842,7 +842,7 @@ class SessionManagerDialog(QDialog):
                 list(self.selected_sessions), self.tracker,
                 self.settings.get("hourly_rate", 0.0), self.settings.get("currency_symbol", "$")
             )
-            
+
             settings_data = {
                 "business_name": self.settings.get("business_name", ""),
                 "business_emails": self.settings.get("business_emails", []),
@@ -866,13 +866,13 @@ class SessionManagerDialog(QDialog):
                 "currency_symbol": self.settings.get("currency_symbol", "$"),
                 "qr_code_paths": self.settings.get("qr_code_paths", []),
                 "qr_code_links": self.settings.get("qr_code_links", {}),
-                
+
                 "mask_business_emails": mask_biz_email,
                 "mask_business_phone": mask_biz_phone,
                 "mask_client_emails": mask_client_email,
                 "dark_mode": self.settings.get("dark_mode", False),
             }
-            
+
             # Resolve name from session files (chronologically sorted)
             sessions_info = []
             for path in self.selected_sessions:
@@ -885,10 +885,10 @@ class SessionManagerDialog(QDialog):
                     sessions_info.append((s_date, s_start, s_name))
                 except Exception:
                     pass
-            
+
             # Sort chronologically by date and start time
             sessions_info.sort(key=lambda x: (x[0], x[1]))
-            
+
             if sessions_info:
                 if len(sessions_info) == 1:
                     inv_no = sessions_info[0][2].replace(" ", "")
@@ -898,14 +898,14 @@ class SessionManagerDialog(QDialog):
                     inv_no = f"{first_name}_to_{last_name}"
             else:
                 inv_no = f"INV-{datetime.now().strftime('%Y%m%d%H%M')}"
-            
+
             # Resolve duplicate name conflicts in database
             from database.schema import get_all_invoices, save_invoice
             try:
                 existing_nos = {inv["invoice_no"] for inv in get_all_invoices()}
             except Exception:
                 existing_nos = set()
-                
+
             base_inv_no = inv_no
             counter = 1
             while inv_no in existing_nos:
@@ -913,7 +913,7 @@ class SessionManagerDialog(QDialog):
                 counter += 1
 
             session_filenames = [os.path.basename(path) for path in self.selected_sessions]
-            
+
             # Save invoice automatically as unpaid
             save_invoice(
                 invoice_no=inv_no,
@@ -925,7 +925,7 @@ class SessionManagerDialog(QDialog):
                 billing_data=billing_data,
                 settings_data=settings_data
             )
-            
+
             # Clear checkboxes and refresh lists immediately
             self.selected_sessions.clear()
             self._refresh_all_lists()
@@ -938,15 +938,15 @@ class SessionManagerDialog(QDialog):
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes
             )
-            
+
             if view_reply == QMessageBox.StandardButton.Yes:
                 html_content = generate_invoice_html(billing_data, settings_data, status="unpaid", invoice_no=inv_no)
-                
+
                 import tempfile
                 with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html', encoding='utf-8') as f:
                     f.write(html_content)
                     temp_path = f.name
-                
+
                 try:
                     open_file(temp_path)
                 except Exception as open_err:

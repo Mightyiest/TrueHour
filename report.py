@@ -89,7 +89,7 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$", progress_cb
     total_session = tracker.get_elapsed()
     counted = tracker.get_counted_seconds()
     apps = tracker.get_app_times_sorted()
-    
+
     app_list = []
     project_times = {}
     for name, secs, included in apps:
@@ -324,11 +324,11 @@ def load_session_json(filepath):
         data = json.load(f)
     start_dt = datetime.strptime(data['date'] + " " + data['start'], "%Y-%m-%d %H:%M:%S")
     end_dt = datetime.strptime(data['date'] + " " + data['end'], "%Y-%m-%d %H:%M:%S")
-    
+
     # Midnight crossover guard for session bounds
     if end_dt <= start_dt:
         end_dt += timedelta(days=1)
-    
+
     apps = []
     project_times = {}
     for a in data['apps']:
@@ -370,25 +370,25 @@ def load_session_json(filepath):
             continue
         t_start = datetime.strptime(data['date'] + " " + t['start'], "%Y-%m-%d %H:%M:%S") + day_offset
         t_end = datetime.strptime(data['date'] + " " + t['end'], "%Y-%m-%d %H:%M:%S") + day_offset
-        
+
         # Detect if this entry's start is before the previous entry's end (crossed midnight)
         if prev_end_time and t_start < prev_end_time:
             day_offset += timedelta(days=1)
             t_start += timedelta(days=1)
             t_end += timedelta(days=1)
-        
+
         # Midnight crossover guard within entry
         if t_end <= t_start:
             t_end += timedelta(days=1)
             day_offset += timedelta(days=1)
-        
+
         prev_end_time = t_end
         timeline.append({
             "app": t['app'],
             "start": t_start,
             "end": t_end
         })
-    
+
     return {
         "session_name": data.get("session_name", ""),
         "app_exe_paths": data.get("app_exe_paths", {}),
@@ -419,9 +419,9 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
     import glob
     sessions_folder = os.path.join(get_app_data_dir(), "sessions")
     autosave_folder = os.path.join(get_app_data_dir(), "autosave")
-    
+
     unique_sessions = {}
-    
+
     # First, collect all finalized session keys to ignore orphaned/discarded autosaves
     finalized_keys = set()
     if os.path.exists(sessions_folder):
@@ -445,12 +445,12 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
             try:
                 with open(filepath, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                
+
                 date_str = data.get("date")
                 start_str = data.get("start")
                 if not date_str or not start_str:
                     continue
-                
+
                 key = (date_str, start_str)
                 total_secs = data.get("total_seconds", 0)
                 if key in unique_sessions:
@@ -461,12 +461,12 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
                     unique_sessions[key] = data
             except Exception:
                 continue
-                
+
     # Filter sessions by date range
     filtered_sessions = []
     start_d = start_date.date()
     end_d = end_date.date()
-    
+
     for key, session in unique_sessions.items():
         if exclude_key and key == exclude_key:
             continue
@@ -475,7 +475,7 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
             start_time_str = session.get("start", "00:00:00")
             s_time_obj = datetime.strptime(start_time_str.split('.')[0], "%H:%M:%S").time()
             s_dt = datetime.combine(s_date_obj, s_time_obj)
-            
+
             if start_date <= s_dt <= end_date:
                 filtered_sessions.append(session)
         except Exception:
@@ -485,7 +485,7 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
                     filtered_sessions.append(session)
             except Exception:
                 continue
-            
+
     # Accumulate results
     total_seconds = 0
     counted_seconds = 0
@@ -494,7 +494,7 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
     app_exes = {}
     app_exclusions = {}
     project_times = {}
-    
+
     # Track daily hours for trend chart
     # Key: date_str (YYYY-MM-DD) -> counted_seconds
     daily_counted_secs = {}
@@ -502,24 +502,24 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
     while curr_d <= end_d:
         daily_counted_secs[curr_d.strftime("%Y-%m-%d")] = 0
         curr_d += timedelta(days=1)
-        
+
     for session in filtered_sessions:
         total_seconds += session.get("total_seconds", 0)
         c_secs = session.get("counted_seconds", 0)
         counted_seconds += c_secs
-        
+
         # Accumulate daily hours
         s_date_str = session["date"]
         if s_date_str in daily_counted_secs:
             daily_counted_secs[s_date_str] += c_secs
-            
+
         # Accumulate apps
         for app in session.get("apps", []):
             name = app["name"]
             secs = app.get("seconds", 0)
             tag = app.get("tag", "Unassigned")
             excluded = app.get("excluded", False)
-            
+
             app_times[name] = app_times.get(name, 0) + secs
             app_tags[name] = tag
             # Only mark as excluded if ALL sessions excluded it
@@ -527,12 +527,12 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
                 app_exclusions[name] = excluded
             elif not excluded:
                 app_exclusions[name] = False
-            
+
             # Map exe path if present in session
             exe_path = session.get("app_exe_paths", {}).get(name)
             if exe_path:
                 app_exes[name] = exe_path
-                
+
             if not excluded:
                 project_times[tag] = project_times.get(tag, 0) + secs
 
@@ -550,7 +550,7 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
             "exe_path": app_exes.get(name, "")
         })
     app_list.sort(key=lambda x: x["seconds"], reverse=True)
-    
+
     # Format project breakdown
     project_list = []
     total_project_counted = sum(project_times.values())
@@ -576,19 +576,19 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
     while curr_d <= end_d:
         d_str = curr_d.strftime("%Y-%m-%d")
         secs = daily_counted_secs.get(d_str, 0)
-        
+
         # Determine labels: e.g. "Mon" if <= 7 days, "MM/DD" otherwise
         if total_days <= 7:
             label = curr_d.strftime("%a")  # Mon, Tue, etc.
         else:
             label = curr_d.strftime("%m/%d")  # 05/26
-            
+
         daily_trend.append({
             "label": label,
             "value": round(secs / 3600.0, 2)
         })
         curr_d += timedelta(days=1)
-        
+
     # Calculate total earned
     total_earned = 0.0
     if hourly_rate > 0:
@@ -617,15 +617,15 @@ def merge_sessions_for_invoice(filepaths: List[str], tracker, hourly_rate: float
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             date_str = data.get("date")
             start_str = data.get("start")
             if not date_str or not start_str:
                 continue
-                
+
             key = (date_str, start_str)
             total_secs = data.get("total_seconds", 0)
-            
+
             # Deduplicate sessions: keep the one with higher tracked duration
             if key in unique_sessions:
                 existing_total = unique_sessions[key].get("total_seconds", 0)
@@ -635,33 +635,33 @@ def merge_sessions_for_invoice(filepaths: List[str], tracker, hourly_rate: float
                 unique_sessions[key] = data
         except Exception:
             continue
-            
+
     total_seconds = 0
     counted_seconds = 0
     project_times = {}
-    
+
     # Process apps dynamically with overrides
     for session in unique_sessions.values():
         total_seconds += session.get("total_seconds", 0)
-        
+
         for app in session.get("apps", []):
             name = app["name"]
             secs = app.get("seconds", 0)
-            
+
             # Use the saved session's own exclusion status to compile exactly the productive/counted work time
             active_tag = tracker.get_app_tag(name)
             tag = active_tag if active_tag and active_tag != "Unassigned" else app.get("tag", "Unassigned")
             included = not app.get("excluded", False)
-            
+
             if included:
                 counted_seconds += secs
                 project_times[tag] = project_times.get(tag, 0) + secs
-                
+
     # Format project breakdown
     breakdown = []
 
     curr_sym = currency_symbol
-    
+
     total_project_counted = sum(project_times.values())
     for proj, secs in project_times.items():
         pct = (secs / total_project_counted * 100.0) if total_project_counted > 0 else 0
@@ -676,11 +676,11 @@ def merge_sessions_for_invoice(filepaths: List[str], tracker, hourly_rate: float
             "color": get_project_color(proj)
         })
     breakdown.sort(key=lambda x: x["seconds"], reverse=True)
-    
+
     total_earned = 0.0
     if hourly_rate > 0:
         total_earned = sum(item["earned"] for item in breakdown)
-        
+
     return {
         "total_seconds": total_seconds,
         "total_formatted": format_duration(total_seconds),
@@ -703,13 +703,13 @@ def mask_email(email: str) -> str:
         parts = email.split("@")
         local = parts[0]
         domain = "@".join(parts[1:])
-        
+
         # Local part: preserve first 2 characters, rest replaced with '**'
         if len(local) <= 2:
             masked_local = local + "**"
         else:
             masked_local = local[:2] + "**"
-            
+
         # Domain: mask domain name with '*****', preserve TLD
         if "." in domain:
             domain_parts = domain.split(".")
@@ -717,7 +717,7 @@ def mask_email(email: str) -> str:
             masked_domain = "*****." + tld
         else:
             masked_domain = "*****"
-            
+
         return f"{masked_local}@{masked_domain}"
     except Exception:
         return email
@@ -748,7 +748,7 @@ def get_cached_template(template_path: str, default_content: str) -> str:
     """Return cached HTML template content to prevent redundant disk read operations."""
     if template_path in _TEMPLATE_CACHE:
         return _TEMPLATE_CACHE[template_path]
-    
+
     if not os.path.exists(template_path):
         os.makedirs(os.path.dirname(template_path), exist_ok=True)
         try:
@@ -762,7 +762,7 @@ def get_cached_template(template_path: str, default_content: str) -> str:
             content = f.read()
     except Exception:
         content = default_content
-        
+
     _TEMPLATE_CACHE[template_path] = content
     return content
 
@@ -782,7 +782,7 @@ default_receipt_template = """<!DOCTYPE html>
             --text-muted: #555555;
             --text-light: #717171;
             --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-            
+
             --accent: #1e3050;
             --accent-hover: #0f1d35;
             --accent-gradient-start: #1e3050;
@@ -799,7 +799,7 @@ default_receipt_template = """<!DOCTYPE html>
             --text-muted: #aaa;
             --text-light: #888;
             --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            
+
             --accent: #e0e0e0;
             --accent-hover: #ffffff;
             --accent-gradient-start: #e0e0e0;
@@ -834,31 +834,31 @@ default_receipt_template = """<!DOCTYPE html>
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-            background-color: var(--bg-body); 
-            color: var(--text-main); 
-            line-height: 1.5; 
-            padding: 20px 16px; 
-            display: flex; 
-            flex-direction: column; 
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
             align-items: center;
             transition: background 0.3s ease;
         }
 
-        .print-actions-bar { 
-            width: 100%; 
-            max-width: 650px; 
-            background: rgba(255, 255, 255, 0.75); 
-            backdrop-filter: blur(16px); 
+        .print-actions-bar {
+            width: 100%;
+            max-width: 650px;
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(226, 232, 240, 0.8); 
-            border-radius: 10px; 
-            padding: 8px 16px; 
-            margin-bottom: 12px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 10px;
+            padding: 8px 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             box-shadow: var(--card-shadow);
         }
         .action-left-info {
@@ -875,83 +875,83 @@ default_receipt_template = """<!DOCTYPE html>
             gap: 6px;
         }
 
-        .print-btn { 
+        .print-btn {
             background: var(--accent-gradient-start);
             background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
-            color: white; 
-            border: none; 
-            padding: 8px 16px; 
-            border-radius: 8px; 
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
             font-family: 'Outfit', sans-serif;
             font-size: 13.5px;
-            font-weight: 600; 
-            cursor: pointer; 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .print-btn:hover { 
+        .print-btn:hover {
             transform: translateY(-1px);
             box-shadow: 0 5px 15px rgba(79, 70, 229, 0.2);
         }
 
-        .receipt-container { 
+        .receipt-container {
             position: relative;
-            width: 100%; 
-            max-width: 650px; 
-            background-color: var(--bg-card); 
-            border: 1px solid var(--border); 
-            border-radius: 16px; 
-            padding: 32px 40px; 
-            box-shadow: var(--card-shadow); 
+            width: 100%;
+            max-width: 650px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px 40px;
+            box-shadow: var(--card-shadow);
             transition: all 0.3s ease;
         }
-        
-        .receipt-header-row { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: flex-start; 
-            border-bottom: 2px solid var(--bg-body); 
-            padding-bottom: 20px; 
-            margin-bottom: 24px; 
+
+        .receipt-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid var(--bg-body);
+            padding-bottom: 20px;
+            margin-bottom: 24px;
         }
-        .receipt-logo { 
-            max-width: 180px; 
-            max-height: 52px; 
-            object-fit: contain; 
-            margin-bottom: 8px; 
-            display: block; 
+        .receipt-logo {
+            max-width: 180px;
+            max-height: 52px;
+            object-fit: contain;
+            margin-bottom: 8px;
+            display: block;
         }
-        .profile-title { 
+        .profile-title {
             font-family: 'Outfit', sans-serif;
-            font-size: 18px; 
-            font-weight: 700; 
-            color: var(--text-main); 
-            letter-spacing: -0.02em; 
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
         }
-        .profile-details { 
-            font-size: 12px; 
-            color: var(--text-muted); 
-            margin-top: 4px; 
-            line-height: 1.4; 
+        .profile-details {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.4;
         }
-        
+
         .meta-column { text-align: right; }
-        .receipt-badge { 
+        .receipt-badge {
             font-family: 'Outfit', sans-serif;
-            font-size: 24px; 
-            font-weight: 800; 
+            font-size: 24px;
+            font-weight: 800;
             background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            letter-spacing: -0.03em; 
-            margin-bottom: 8px; 
+            letter-spacing: -0.03em;
+            margin-bottom: 8px;
         }
-        .meta-item { 
-            font-size: 12px; 
-            color: var(--text-muted); 
-            margin-bottom: 4px; 
+        .meta-item {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
         }
         .meta-item strong {
             color: var(--text-main);
@@ -964,33 +964,33 @@ default_receipt_template = """<!DOCTYPE html>
             gap: 20px;
             margin-bottom: 24px;
         }
-        .section-label { 
+        .section-label {
             font-family: 'Outfit', sans-serif;
-            font-size: 10px; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            color: var(--accent); 
-            letter-spacing: 0.1em; 
-            margin-bottom: 8px; 
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--accent);
+            letter-spacing: 0.1em;
+            margin-bottom: 8px;
         }
-        .party-name { 
+        .party-name {
             font-family: 'Outfit', sans-serif;
-            font-size: 14px; 
-            font-weight: 700; 
-            color: var(--text-main); 
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
         }
-        .party-address { 
-            font-size: 12px; 
-            color: var(--text-muted); 
-            margin-top: 4px; 
-            line-height: 1.45; 
+        .party-address {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.45;
         }
 
-        .summary-box { 
-            background-color: var(--bg-body); 
-            border: 1px solid var(--border); 
-            border-radius: 12px; 
-            padding: 20px; 
+        .summary-box {
+            background-color: var(--bg-body);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
             margin-bottom: 24px;
         }
         .summary-row {
@@ -1021,25 +1021,25 @@ default_receipt_template = """<!DOCTYPE html>
             font-weight: 800;
         }
 
-        .receipt-footer { 
-            margin-top: 12px; 
-            text-align: center; 
-            padding: 10px; 
+        .receipt-footer {
+            margin-top: 12px;
+            text-align: center;
+            padding: 10px;
             font-size: 11px;
             color: var(--text-light);
         }
 
         @page {
             size: auto;
-            margin: 0; 
+            margin: 0;
         }
 
-        @media print { 
+        @media print {
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            body { background-color: #ffffff; color: #1a1a1a; padding: 8mm 12mm; margin: 0; font-size: 11px; } 
+            body { background-color: #ffffff; color: #1a1a1a; padding: 8mm 12mm; margin: 0; font-size: 11px; }
             body.dark { background-color: var(--bg-card); color: var(--text-main); }
-            .print-actions-bar { display: none; } 
-            .receipt-container { background-color: transparent !important; border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; } 
+            .print-actions-bar { display: none; }
+            .receipt-container { background-color: transparent !important; border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; }
             .receipt-header-row { padding-bottom: 14px; margin-bottom: 14px; }
             .receipt-badge { font-size: 20px; margin-bottom: 4px; }
             .receipt-logo { max-height: 40px; margin-bottom: 4px; }
@@ -1058,7 +1058,7 @@ default_receipt_template = """<!DOCTYPE html>
                 </svg>
                 <span>Receipt Confirmed</span>
             </div>
-            
+
             <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
                 <svg id="theme-icon-dark" class="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
@@ -1077,7 +1077,7 @@ default_receipt_template = """<!DOCTYPE html>
                 <span id="theme-text">Dark Mode</span>
             </button>
         </div>
-        
+
         <button class="print-btn" onclick="window.print()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 9 6 2 18 2 18 9"></polyline>
@@ -1087,7 +1087,7 @@ default_receipt_template = """<!DOCTYPE html>
             Print / Save PDF
         </button>
     </div>
-    
+
     <div class="receipt-container">
         <div style="position: absolute; top: 30px; right: 40px; border: 4px double var(--success); color: var(--success); font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; padding: 4px 14px; border-radius: 8px; transform: rotate(-8deg); text-transform: uppercase; letter-spacing: 0.1em; background-color: var(--success-bg); pointer-events: none; user-select: none; z-index: 10;">PAID RECEIPT</div>
 
@@ -1106,7 +1106,7 @@ default_receipt_template = """<!DOCTYPE html>
                 <div class="meta-item"><strong>Date:</strong> {{DATE}}</div>
             </div>
         </div>
-        
+
         <div class="details-grid">
             <div>
                 <div class="section-label">Issued By</div>
@@ -1120,7 +1120,7 @@ default_receipt_template = """<!DOCTYPE html>
                 {{CLIENT_EMAILS_HTML}}
             </div>
         </div>
-        
+
         <div class="summary-box">
             <div class="section-label" style="margin-bottom: 12px;">Payment Summary</div>
             <div class="summary-row">
@@ -1136,7 +1136,7 @@ default_receipt_template = """<!DOCTYPE html>
                 <span class="summary-value highlight">{{TOTAL_AMOUNT_PAID}}</span>
             </div>
         </div>
-        
+
         <div class="receipt-footer">
             Thank you for your business! Powered by TrueHour.
         </div>
@@ -1148,7 +1148,7 @@ default_receipt_template = """<!DOCTYPE html>
             const themeText = document.getElementById('theme-text');
             const iconLight = document.getElementById('theme-icon-light');
             const iconDark = document.getElementById('theme-icon-dark');
-            
+
             if (isDark) {
                 themeText.textContent = 'Light Mode';
                 iconLight.style.display = 'none';
@@ -1162,7 +1162,7 @@ default_receipt_template = """<!DOCTYPE html>
                 localStorage.setItem('truehour-theme', isDark ? 'dark' : 'light');
             } catch(e) {}
         }
-        
+
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 const savedTheme = localStorage.getItem('truehour-theme') || (document.body.classList.contains('dark') ? 'dark' : 'light');
@@ -1193,7 +1193,7 @@ def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
     import sys
     from html import escape as _esc
     from datetime import datetime
-    
+
     logo_path = settings_data.get("business_logo_path", "")
     logo_data_uri = ""
     if logo_path and os.path.exists(logo_path):
@@ -1234,26 +1234,26 @@ def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
     mask_biz_emails = settings_data.get("mask_business_emails", settings_data.get("mask_sensitive_data", False))
     mask_biz_phone = settings_data.get("mask_business_phone", settings_data.get("mask_sensitive_data", False))
     mask_client_emails = settings_data.get("mask_client_emails", settings_data.get("mask_sensitive_data", False))
-    
+
     biz_emails = settings_data.get("business_emails", [])
     if not biz_emails:
         legacy_email = settings_data.get("business_email", "")
         if legacy_email:
             biz_emails = [e.strip() for e in legacy_email.split(",") if e.strip()]
-            
+
     if mask_biz_emails:
         biz_emails_processed = [_esc(mask_email(e)) for e in biz_emails]
     else:
         biz_emails_processed = [_esc(e) for e in biz_emails]
     biz_email_str = ", ".join(biz_emails_processed)
-    
+
     biz_phone = settings_data.get("business_phone", "")
     if biz_phone:
         if mask_biz_phone:
             biz_phone = _esc(mask_phone(biz_phone))
         else:
             biz_phone = _esc(biz_phone)
-        
+
     biz_contact_parts = []
     if biz_email_str:
         biz_contact_parts.append(biz_email_str)
@@ -1283,7 +1283,7 @@ def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
 
     templates_dir = os.path.join(base_dir, "templates")
     template_path = os.path.join(templates_dir, "receipt.html")
-    
+
     template_html = get_cached_template(template_path, default_receipt_template)
 
     html = template_html
@@ -1293,17 +1293,17 @@ def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
     html = html.replace("{{BUSINESS_NAME}}", _esc(settings_data.get("business_name", "TrueHour Business")))
     html = html.replace("{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", "")))
     html = html.replace("{{BUSINESS_CONTACT}}", biz_contact_html)
-    
+
     final_receipt_no = invoice_no if invoice_no else f"REC-{datetime.now().strftime('%Y%m%d%H%M')}"
     html = html.replace("{{RECEIPT_NO}}", final_receipt_no)
     html = html.replace("{{DATE}}", datetime.now().strftime("%B %d, %Y"))
     html = html.replace("{{CLIENT_NAME}}", _esc(settings_data.get("client_name", "Valued Client")))
     html = html.replace("{{CLIENT_ADDRESS}}", _esc(settings_data.get("client_address", "")))
     html = html.replace("{{CLIENT_EMAILS_HTML}}", client_emails_html)
-    
+
     html = html.replace("{{HOURS_COUNTED}}", f"{hours_counted:.2f}")
     html = html.replace("{{HOURLY_RATE}}", f"{curr_sym}{hourly_rate:.2f}/hr")
-    
+
     total_earned_display = billing_data.get("total_earned_display")
     if not total_earned_display:
         total_earned = billing_data.get("total_earned", 0.0)
@@ -1364,21 +1364,21 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
     mask_biz_emails = settings_data.get("mask_business_emails", settings_data.get("mask_sensitive_data", False))
     mask_biz_phone = settings_data.get("mask_business_phone", settings_data.get("mask_sensitive_data", False))
     mask_client_emails = settings_data.get("mask_client_emails", settings_data.get("mask_sensitive_data", False))
-    
+
     # Process business emails
     biz_emails = settings_data.get("business_emails", [])
     if not biz_emails:
         legacy_email = settings_data.get("business_email", "")
         if legacy_email:
             biz_emails = [e.strip() for e in legacy_email.split(",") if e.strip()]
-            
+
     if mask_biz_emails:
         biz_emails_processed = [_esc(mask_email(e)) for e in biz_emails]
     else:
         biz_emails_processed = [_esc(e) for e in biz_emails]
-        
+
     biz_email_str = ", ".join(biz_emails_processed)
-    
+
     # Process business phone
     biz_phone = settings_data.get("business_phone", "")
     if biz_phone:
@@ -1386,7 +1386,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             biz_phone = _esc(mask_phone(biz_phone))
         else:
             biz_phone = _esc(biz_phone)
-        
+
     biz_contact_parts = []
     if biz_email_str:
         biz_contact_parts.append(biz_email_str)
@@ -1423,7 +1423,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
                         with open(qr_full_path, "rb") as f:
                             encoded_qr = base64.b64encode(f.read()).decode("utf-8")
                         qr_data_uri = f"data:image/{ext};base64,{encoded_qr}"
-                        
+
                         link_url = qr_code_links.get(qr_fname, "")
                         if link_url:
                             img_html = f"""
@@ -1434,7 +1434,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
                             """
                         else:
                             img_html = f'<img src="{qr_data_uri}" class="qr-code-image" alt="Payment QR Code" />'
-                            
+
                         qr_items.append(f"""
                             <div class="qr-code-item">
                                 {img_html}
@@ -1493,7 +1493,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             --text-light: #717171;
             --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
             --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
-            
+
             --accent: #1e3050;
             --accent-hover: #0f1d35;
             --accent-gradient-start: #1e3050;
@@ -1511,7 +1511,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             --text-light: #888;
             --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-            
+
             --accent: #e0e0e0;
             --accent-hover: #ffffff;
             --accent-gradient-start: #e0e0e0;
@@ -1546,31 +1546,31 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-            background-color: var(--bg-body); 
-            color: var(--text-main); 
-            line-height: 1.5; 
-            padding: 20px 16px; 
-            display: flex; 
-            flex-direction: column; 
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
             align-items: center;
             transition: background 0.3s ease;
         }
 
-        .print-actions-bar { 
-            width: 100%; 
-            max-width: 850px; 
-            background: rgba(255, 255, 255, 0.75); 
-            backdrop-filter: blur(16px); 
+        .print-actions-bar {
+            width: 100%;
+            max-width: 850px;
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(226, 232, 240, 0.8); 
-            border-radius: 10px; 
-            padding: 8px 16px; 
-            margin-bottom: 12px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 10px;
+            padding: 8px 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             box-shadow: var(--card-shadow);
         }
         .action-left-info {
@@ -1625,84 +1625,84 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
         .theme-pill-btn[data-theme="teal"] { background: linear-gradient(135deg, #14B8A6, #0D9488); }
         .theme-pill-btn[data-theme="slate"] { background: linear-gradient(135deg, #475569, #334155); }
 
-        .print-btn { 
+        .print-btn {
             background: var(--accent-gradient-start);
             background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
-            color: white; 
-            border: none; 
-            padding: 8px 16px; 
-            border-radius: 8px; 
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
             font-family: 'Outfit', sans-serif;
             font-size: 13.5px;
-            font-weight: 600; 
-            cursor: pointer; 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 3px 10px rgba(79, 70, 229, 0.12);
         }
-        .print-btn:hover { 
+        .print-btn:hover {
             transform: translateY(-1px);
             box-shadow: 0 5px 15px rgba(79, 70, 229, 0.2);
         }
 
-        .invoice-container { 
+        .invoice-container {
             position: relative;
-            width: 100%; 
-            max-width: 850px; 
-            background-color: var(--bg-card); 
-            border: 1px solid var(--border); 
-            border-radius: 16px; 
-            padding: 32px 40px; 
-            box-shadow: var(--card-shadow); 
+            width: 100%;
+            max-width: 850px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px 40px;
+            box-shadow: var(--card-shadow);
             transition: all 0.3s ease;
         }
-        
-        .invoice-header-row { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: flex-start; 
-            border-bottom: 2px solid var(--bg-body); 
-            padding-bottom: 20px; 
-            margin-bottom: 24px; 
+
+        .invoice-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid var(--bg-body);
+            padding-bottom: 20px;
+            margin-bottom: 24px;
         }
-        .invoice-logo { 
-            max-width: 180px; 
-            max-height: 52px; 
-            object-fit: contain; 
-            margin-bottom: 8px; 
-            display: block; 
+        .invoice-logo {
+            max-width: 180px;
+            max-height: 52px;
+            object-fit: contain;
+            margin-bottom: 8px;
+            display: block;
         }
-        .profile-title { 
+        .profile-title {
             font-family: 'Outfit', sans-serif;
-            font-size: 18px; 
-            font-weight: 700; 
-            color: var(--text-main); 
-            letter-spacing: -0.02em; 
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
         }
-        .profile-details { 
-            font-size: 12px; 
-            color: var(--text-muted); 
-            margin-top: 4px; 
-            line-height: 1.4; 
+        .profile-details {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.4;
         }
-        
+
         .meta-column { text-align: right; }
-        .invoice-badge { 
+        .invoice-badge {
             font-family: 'Outfit', sans-serif;
-            font-size: 24px; 
-            font-weight: 800; 
+            font-size: 24px;
+            font-weight: 800;
             background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            letter-spacing: -0.03em; 
-            margin-bottom: 8px; 
+            letter-spacing: -0.03em;
+            margin-bottom: 8px;
         }
-        .meta-item { 
-            font-size: 12px; 
-            color: var(--text-muted); 
-            margin-bottom: 4px; 
+        .meta-item {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
         }
         .meta-item strong {
             color: var(--text-main);
@@ -1710,153 +1710,153 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
         }
 
         .billed-to-container { margin-bottom: 20px; }
-        .section-label { 
+        .section-label {
             font-family: 'Outfit', sans-serif;
-            font-size: 10px; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            color: var(--accent); 
-            letter-spacing: 0.1em; 
-            margin-bottom: 8px; 
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--accent);
+            letter-spacing: 0.1em;
+            margin-bottom: 8px;
         }
-        .client-name { 
+        .client-name {
             font-family: 'Outfit', sans-serif;
-            font-size: 15px; 
-            font-weight: 700; 
-            color: var(--text-main); 
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-main);
         }
-        .client-address { 
-            font-size: 12.5px; 
-            color: var(--text-muted); 
-            margin-top: 4px; 
-            line-height: 1.45; 
+        .client-address {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.45;
         }
-        .client-email { 
-            font-size: 12.5px; 
-            color: var(--text-muted); 
-            margin-top: 3px; 
-            line-height: 1.45; 
+        .client-email {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            margin-top: 3px;
+            line-height: 1.45;
         }
 
-        .dashboard-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 12px; 
-            margin-bottom: 24px; 
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
         }
-        .kpi-card { 
-            background-color: var(--bg-body); 
-            border: 1px solid transparent; 
+        .kpi-card {
+            background-color: var(--bg-body);
+            border: 1px solid transparent;
             border-left: 4px solid var(--accent);
-            border-radius: 10px; 
-            padding: 12px 16px; 
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            border-radius: 10px;
+            padding: 12px 16px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .kpi-card:hover { 
-            background-color: var(--bg-card); 
-            border-color: var(--border); 
+        .kpi-card:hover {
+            background-color: var(--bg-card);
+            border-color: var(--border);
             border-left-color: var(--accent);
             transform: translateY(-1px);
             box-shadow: var(--hover-shadow);
         }
-        .kpi-label { 
-            font-size: 10.5px; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            letter-spacing: 0.08em; 
-            color: var(--text-muted); 
-            margin-bottom: 4px; 
+        .kpi-label {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 4px;
         }
-        .kpi-val { 
+        .kpi-val {
             font-family: 'Outfit', sans-serif;
-            font-size: 22px; 
-            font-weight: 800; 
-            color: var(--text-main); 
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-main);
         }
-        .amount-val { 
-            color: var(--success); 
+        .amount-val {
+            color: var(--success);
         }
 
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-bottom: 28px; 
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 28px;
         }
-        th { 
+        th {
             font-family: 'Outfit', sans-serif;
-            font-size: 10.5px; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            letter-spacing: 0.1em; 
-            color: var(--text-muted); 
-            text-align: left; 
-            padding: 8px 14px; 
-            border-bottom: 2px solid var(--border); 
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            text-align: left;
+            padding: 8px 14px;
+            border-bottom: 2px solid var(--border);
         }
-        td { 
-            font-size: 12.5px; 
-            color: var(--text-main); 
-            padding: 10px 14px; 
-            border-bottom: 1px solid var(--border); 
+        td {
+            font-size: 12.5px;
+            color: var(--text-main);
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
             transition: background-color 0.2s ease;
         }
         tr:hover td {
             background-color: var(--bg-body);
         }
-        .tag-pill { 
-            display: inline-block; 
-            padding: 3px 8px; 
-            font-size: 10.5px; 
-            font-weight: 600; 
-            border-radius: 6px; 
-            background-color: var(--bg-body); 
-            color: var(--text-muted); 
+        .tag-pill {
+            display: inline-block;
+            padding: 3px 8px;
+            font-size: 10.5px;
+            font-weight: 600;
+            border-radius: 6px;
+            background-color: var(--bg-body);
+            color: var(--text-muted);
         }
-        .subtotal-row td { 
-            border-bottom: none; 
-            padding-top: 14px; 
+        .subtotal-row td {
+            border-bottom: none;
+            padding-top: 14px;
         }
         .subtotal-row:hover td {
             background-color: transparent;
         }
-        .subtotal-label { 
+        .subtotal-label {
             font-family: 'Outfit', sans-serif;
-            font-size: 14px; 
-            font-weight: 700; 
-            text-align: right; 
-            color: var(--text-muted); 
+            font-size: 14px;
+            font-weight: 700;
+            text-align: right;
+            color: var(--text-muted);
         }
-        .subtotal-value { 
+        .subtotal-value {
             font-family: 'Outfit', sans-serif;
-            font-size: 17px; 
-            font-weight: 800; 
-            color: var(--success); 
-            text-align: right; 
-            padding-right: 14px; 
+            font-size: 17px;
+            font-weight: 800;
+            color: var(--success);
+            text-align: right;
+            padding-right: 14px;
         }
 
-        .payment-box { 
-            background-color: var(--bg-body); 
-            border: 1px solid var(--border); 
-            border-radius: 12px; 
-            padding: 16px 20px; 
-            page-break-inside: avoid; 
-            break-inside: avoid; 
+        .payment-box {
+            background-color: var(--bg-body);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
-        .payment-box-title { 
+        .payment-box-title {
             font-family: 'Outfit', sans-serif;
-            font-size: 12px; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            color: var(--text-main); 
-            margin-bottom: 8px; 
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-main);
+            margin-bottom: 8px;
             letter-spacing: 0.05em;
         }
-        .payment-content { 
-            font-size: 12.5px; 
-            color: var(--text-muted); 
-            line-height: 1.5; 
-            white-space: pre-wrap; 
+        .payment-content {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            white-space: pre-wrap;
         }
         .payment-flex-row {
             display: flex;
@@ -1870,33 +1870,33 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             box-sizing: border-box;
         }
 
-        .qr-codes-container { 
-            display: flex; 
+        .qr-codes-container {
+            display: flex;
             flex-direction: row;
             flex-wrap: wrap;
-            gap: 12px; 
+            gap: 12px;
             align-items: flex-start;
             justify-content: flex-start;
-            page-break-inside: avoid; 
-            break-inside: avoid; 
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
-        .qr-code-item { 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            background: var(--bg-card); 
-            border: 1px solid var(--border); 
-            border-radius: 8px; 
-            padding: 6px; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03); 
-            page-break-inside: avoid; 
-            break-inside: avoid; 
+        .qr-code-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
-        .qr-code-image { 
-            width: 140px; 
-            height: 140px; 
-            object-fit: contain; 
-            border-radius: 4px; 
+        .qr-code-image {
+            width: 140px;
+            height: 140px;
+            object-fit: contain;
+            border-radius: 4px;
         }
         .qr-label {
             font-size: 9px;
@@ -1924,39 +1924,39 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             margin-top: 8px;
         }
 
-        .invoice-footer { 
-            margin-top: 24px; 
-            text-align: center; 
-            padding: 14px; 
+        .invoice-footer {
+            margin-top: 24px;
+            text-align: center;
+            padding: 14px;
         }
-        .footer-link { 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-            color: var(--text-muted); 
-            text-decoration: none; 
+        .footer-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
             font-family: 'Outfit', sans-serif;
-            font-size: 12.5px; 
-            font-weight: 600; 
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
-            padding: 8px 16px; 
-            border-radius: 8px; 
-            background-color: var(--bg-body); 
+            font-size: 12.5px;
+            font-weight: 600;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 8px 16px;
+            border-radius: 8px;
+            background-color: var(--bg-body);
             border: 1px solid var(--border);
         }
 
 
         @page {
             size: auto;
-            margin: 0; 
+            margin: 0;
         }
 
-        @media print { 
+        @media print {
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            body { background-color: #ffffff; color: #1a1a1a; padding: 8mm 12mm; margin: 0; font-size: 11px; } 
+            body { background-color: #ffffff; color: #1a1a1a; padding: 8mm 12mm; margin: 0; font-size: 11px; }
             body.dark { background-color: var(--bg-card); color: var(--text-main); }
-            .print-actions-bar { display: none; } 
-            .invoice-container { background-color: transparent !important; border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; } 
+            .print-actions-bar { display: none; }
+            .invoice-container { background-color: transparent !important; border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; }
             .invoice-header-row { padding-bottom: 14px; margin-bottom: 14px; }
             .invoice-badge { font-size: 20px; margin-bottom: 4px; }
             .invoice-logo { max-height: 40px; margin-bottom: 4px; }
@@ -2004,7 +2004,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
                 <span id="theme-text">Dark Mode</span>
             </button>
         </div>
-        
+
         <button class="print-btn" onclick="window.print()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 9 6 2 18 2 18 9"></polyline>
@@ -2014,7 +2014,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             Print / Save PDF
         </button>
     </div>
-    
+
     <div class="invoice-container">
         {{PAYMENT_CONFIRMATION_STAMP}}
         <div class="invoice-header-row">
@@ -2033,14 +2033,14 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
                 <div class="meta-item"><strong>Sessions:</strong> {{SESSIONS_COMPILED}}</div>
             </div>
         </div>
-        
+
         <div class="billed-to-container">
             <div class="section-label">Billed To</div>
             <div class="client-name">{{CLIENT_NAME}}</div>
             <div class="client-address">{{CLIENT_ADDRESS}}</div>
             {{CLIENT_EMAILS_HTML}}
         </div>
-        
+
         <div class="dashboard-grid">
             <div class="kpi-card">
                 <div class="kpi-label">Total Work Hours</div>
@@ -2051,7 +2051,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
                 <div class="kpi-val amount-val">{{TOTAL_AMOUNT_DUE}}</div>
             </div>
         </div>
-        
+
         <div class="section-label">Itemized Work Breakdown</div>
         <table>
             <thead>
@@ -2071,7 +2071,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
                 </tr>
             </tbody>
         </table>
-        
+
         <div class="payment-box">
             <div class="payment-box-title">Payment Terms & Instructions</div>
             <div class="payment-content">{{PAYMENT_INSTRUCTIONS}}</div>
@@ -2080,7 +2080,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
                 {{QR_HTML}}
             </div>
         </div>
-        
+
         <div class="invoice-footer">
             <a href="https://mightyiest.github.io/TrueHour/" target="_blank" class="footer-link">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -2098,7 +2098,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             const themeText = document.getElementById('theme-text');
             const iconLight = document.getElementById('theme-icon-light');
             const iconDark = document.getElementById('theme-icon-dark');
-            
+
             if (isDark) {
                 themeText.textContent = 'Light Mode';
                 iconLight.style.display = 'none';
@@ -2112,7 +2112,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
                 localStorage.setItem('truehour-theme', isDark ? 'dark' : 'light');
             } catch(e) {}
         }
-        
+
         // Auto-load theme preference
         window.addEventListener('DOMContentLoaded', () => {
             try {
@@ -2173,14 +2173,14 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
     html = html.replace("{{CLIENT_ADDRESS}}", _esc(settings_data.get("client_address", "")))
     html = html.replace("{{CLIENT_EMAILS_HTML}}", client_emails_html)
     html = html.replace("{{HOURS_COUNTED}}", f"{hours_counted:.2f}")
-    
+
     # Safely get total_earned_display with fallback calculation
     total_earned_display = billing_data.get("total_earned_display")
     if not total_earned_display:
         total_earned = billing_data.get("total_earned", 0.0)
         curr_sym = settings_data.get("currency_symbol", "$")
         total_earned_display = f"{curr_sym}{total_earned:,.2f}"
-    
+
     html = html.replace("{{TOTAL_AMOUNT_DUE}}", _esc(total_earned_display))
     html = html.replace("{{GRAND_TOTAL}}", _esc(total_earned_display))
     html = html.replace("{{PAYMENT_INSTRUCTIONS}}", _esc(settings_data.get("business_payment", "Payment is due within 14 days of invoice date.")))
@@ -2193,7 +2193,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
     bank_swift = settings_data.get("bank_swift", "")
     bank_name = settings_data.get("bank_name", "")
     bank_address = settings_data.get("bank_address", "")
-    
+
     bank_details_html = ""
     if settings_data.get("enable_bank_details", True) and any([bank_holder, bank_account, bank_routing, bank_swift, bank_name, bank_address]):
         items = []
@@ -2233,7 +2233,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
                 <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Bank Name & Address</div>
                 <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-top: 3px; line-height: 1.4;">{_esc(bank_info_str)}</div>
             </div>""")
-            
+
         bank_details_html = f"""
         <div class="bank-details-box" style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border);">
             <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--accent); letter-spacing: 0.05em; margin-bottom: 8px;">Bank Transfer Details</div>
@@ -2241,7 +2241,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
                 {"".join(items)}
             </div>
         </div>"""
-        
+
     html = html.replace("{{BANK_DETAILS_HTML}}", bank_details_html)
 
     # Generate Itemized Rows
@@ -2343,7 +2343,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             --text-light: #888;
             --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-            
+
             --accent: #e0e0e0;
             --accent-hover: #ffffff;
             --accent-gradient-start: #e0e0e0;
@@ -2360,31 +2360,31 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-            background-color: var(--bg-body); 
-            color: var(--text-main); 
-            line-height: 1.6; 
-            padding: 40px 20px; 
-            display: flex; 
-            flex-direction: column; 
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
             align-items: center;
             transition: background 0.3s ease;
         }
-        
-        .print-actions-bar { 
-            width: 100%; 
-            max-width: 900px; 
-            background: rgba(255, 255, 255, 0.75); 
-            backdrop-filter: blur(16px); 
+
+        .print-actions-bar {
+            width: 100%;
+            max-width: 900px;
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(226, 232, 240, 0.8); 
-            border-radius: 16px; 
-            padding: 14px 24px; 
-            margin-bottom: 24px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 16px;
+            padding: 14px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             box-shadow: var(--card-shadow);
         }
         .action-left-info {
@@ -2439,224 +2439,224 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         .theme-pill-btn[data-theme="teal"] { background: linear-gradient(135deg, #14B8A6, #0D9488); }
         .theme-pill-btn[data-theme="slate"] { background: linear-gradient(135deg, #475569, #334155); }
 
-        .print-btn { 
+        .print-btn {
             background: var(--accent-gradient-start);
             background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
-            color: white; 
-            border: none; 
-            padding: 10px 20px; 
-            border-radius: 10px; 
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
             font-family: 'Outfit', sans-serif;
             font-size: 14px;
-            font-weight: 600; 
-            cursor: pointer; 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 4px 14px rgba(79, 70, 229, 0.15);
         }
-        .print-btn:hover { 
+        .print-btn:hover {
             transform: translateY(-1.5px);
             box-shadow: 0 6px 20px rgba(79, 70, 229, 0.25);
         }
 
-        .report-container { 
-            width: 100%; 
-            max-width: 900px; 
-            background-color: var(--bg-card); 
-            border: 1px solid var(--border); 
-            border-radius: 24px; 
-            padding: 60px; 
-            box-shadow: var(--card-shadow); 
+        .report-container {
+            width: 100%;
+            max-width: 900px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 60px;
+            box-shadow: var(--card-shadow);
             transition: all 0.3s ease;
         }
-        
-        .report-header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: flex-start; 
-            border-bottom: 2px solid var(--bg-body); 
-            padding-bottom: 35px; 
-            margin-bottom: 40px; 
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid var(--bg-body);
+            padding-bottom: 35px;
+            margin-bottom: 40px;
         }
         .report-title-section { max-width: 60%; }
-        .report-title-label { 
+        .report-title-label {
             font-family: 'Outfit', sans-serif;
-            font-size: 11px; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            color: var(--accent); 
-            letter-spacing: 0.1em; 
-            margin-bottom: 8px; 
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--accent);
+            letter-spacing: 0.1em;
+            margin-bottom: 8px;
         }
-        .report-title { 
+        .report-title {
             font-family: 'Outfit', sans-serif;
-            font-size: 32px; 
-            font-weight: 800; 
-            color: var(--text-main); 
-            letter-spacing: -0.04em; 
-            line-height: 1.25; 
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -0.04em;
+            line-height: 1.25;
         }
-        .report-date { 
-            font-size: 14px; 
-            color: var(--text-muted); 
-            margin-top: 8px; 
-            font-weight: 500; 
+        .report-date {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-top: 8px;
+            font-weight: 500;
         }
-        
+
         .meta-column { text-align: right; }
-        .app-badge { 
+        .app-badge {
             font-family: 'Outfit', sans-serif;
-            font-size: 26px; 
-            font-weight: 800; 
+            font-size: 26px;
+            font-weight: 800;
             background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            letter-spacing: -0.03em; 
-            margin-bottom: 12px; 
+            letter-spacing: -0.03em;
+            margin-bottom: 12px;
         }
-        .meta-item { 
-            font-size: 13px; 
-            color: var(--text-muted); 
-            margin-bottom: 5px; 
-            font-weight: 500; 
+        .meta-item {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+            font-weight: 500;
         }
         .meta-item strong { color: var(--text-main); }
 
-        .dashboard-grid { 
-            display: grid; 
-            grid-template-columns: repeat(3, 1fr); 
-            gap: 20px; 
-            margin-bottom: 45px; 
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 45px;
         }
-        .kpi-card { 
-            background-color: var(--bg-body); 
-            border: 1px solid transparent; 
+        .kpi-card {
+            background-color: var(--bg-body);
+            border: 1px solid transparent;
             border-top: 4px solid var(--accent);
-            border-radius: 16px; 
-            padding: 22px 20px; 
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
-            position: relative; 
-            overflow: hidden; 
+            border-radius: 16px;
+            padding: 22px 20px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
         }
-        .kpi-card:hover { 
-            background-color: var(--bg-card); 
-            border-color: var(--border); 
+        .kpi-card:hover {
+            background-color: var(--bg-card);
+            border-color: var(--border);
             border-top-color: var(--accent);
-            transform: translateY(-2.5px); 
-            box-shadow: var(--hover-shadow); 
+            transform: translateY(-2.5px);
+            box-shadow: var(--hover-shadow);
         }
-        .kpi-label { 
-            font-size: 11px; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            letter-spacing: 0.08em; 
-            color: var(--text-muted); 
-            margin-bottom: 6px; 
+        .kpi-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
         }
-        .kpi-val { 
+        .kpi-val {
             font-family: 'Outfit', sans-serif;
-            font-size: 24px; 
-            font-weight: 800; 
-            color: var(--text-main); 
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--text-main);
         }
         .kpi-card.productive { border-top-color: var(--accent); }
         .kpi-card.productive .kpi-val { color: var(--accent); }
         .kpi-card.ratio { border-top-color: var(--success); }
         .kpi-card.ratio .kpi-val { color: var(--success); }
 
-        .section-header { 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            margin-bottom: 24px; 
-            padding-bottom: 10px; 
-            border-bottom: 2px solid var(--bg-body); 
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--bg-body);
         }
-        .section-title { 
+        .section-title {
             font-family: 'Outfit', sans-serif;
-            font-size: 14px; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            color: var(--text-main); 
-            letter-spacing: 0.08em; 
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-main);
+            letter-spacing: 0.08em;
         }
 
-        .projects-container { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 20px; 
-            margin-bottom: 45px; 
+        .projects-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 45px;
         }
         .project-row { display: flex; flex-direction: column; gap: 8px; }
         .project-info { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
-        .project-name { 
+        .project-name {
             font-family: 'Outfit', sans-serif;
-            color: var(--text-main); 
+            color: var(--text-main);
         }
         .project-stats { color: var(--text-muted); }
-        .project-bar-bg { 
-            width: 100%; 
-            height: 10px; 
-            background-color: var(--bg-body); 
-            border-radius: 9999px; 
-            overflow: hidden; 
+        .project-bar-bg {
+            width: 100%;
+            height: 10px;
+            background-color: var(--bg-body);
+            border-radius: 9999px;
+            overflow: hidden;
             border: 1px solid var(--border);
         }
-        .project-bar-fill { 
-            height: 100%; 
-            border-radius: 9999px; 
-            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); 
+        .project-bar-fill {
+            height: 100%;
+            border-radius: 9999px;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-bottom: 45px; 
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 45px;
         }
-        th { 
+        th {
             font-family: 'Outfit', sans-serif;
-            font-size: 11px; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            letter-spacing: 0.1em; 
-            color: var(--text-muted); 
-            text-align: left; 
-            padding: 14px 20px; 
-            border-bottom: 2px solid var(--border); 
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            text-align: left;
+            padding: 14px 20px;
+            border-bottom: 2px solid var(--border);
         }
-        td { 
-            font-size: 13.5px; 
-            color: var(--text-main); 
-            padding: 15px 20px; 
-            border-bottom: 1px solid var(--border); 
+        td {
+            font-size: 13.5px;
+            color: var(--text-main);
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
             transition: background-color 0.2s ease;
         }
         tr:hover td { background-color: var(--bg-body); }
-        .tag-pill { 
-            display: inline-block; 
-            padding: 4px 10px; 
-            font-size: 11px; 
-            font-weight: 600; 
-            border-radius: 8px; 
-            background-color: var(--bg-body); 
-            color: var(--text-muted); 
+        .tag-pill {
+            display: inline-block;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 8px;
+            background-color: var(--bg-body);
+            color: var(--text-muted);
         }
-        .app-icon { 
-            width: 22px; 
-            height: 22px; 
-            border-radius: 6px; 
-            vertical-align: middle; 
-            margin-right: 10px; 
+        .app-icon {
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+            vertical-align: middle;
+            margin-right: 10px;
         }
 
-        .timeline-list { 
+        .timeline-list {
             position: relative;
-            display: flex; 
-            flex-direction: column; 
-            gap: 16px; 
-            margin-bottom: 25px; 
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 25px;
             padding-left: 24px;
         }
         .timeline-list::before {
@@ -2668,15 +2668,15 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             width: 2px;
             background: var(--border);
         }
-        .timeline-item { 
+        .timeline-item {
             position: relative;
-            display: flex; 
-            align-items: center; 
-            background: var(--bg-body); 
-            border-radius: 12px; 
-            padding: 12px 20px; 
+            display: flex;
+            align-items: center;
+            background: var(--bg-body);
+            border-radius: 12px;
+            padding: 12px 20px;
             border: 1px solid var(--border);
-            border-left: 4px solid var(--accent); 
+            border-left: 4px solid var(--accent);
             transition: all 0.25s ease;
         }
         .timeline-item:hover {
@@ -2698,44 +2698,44 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             box-shadow: 0 0 0 2px var(--border);
             z-index: 2;
         }
-        .timeline-time { 
+        .timeline-time {
             font-family: 'Outfit', sans-serif;
-            font-size: 11.5px; 
-            font-weight: 700; 
-            color: var(--text-muted); 
-            min-width: 200px; 
-            white-space: nowrap; 
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--text-muted);
+            min-width: 200px;
+            white-space: nowrap;
         }
-        .timeline-app { 
-            font-size: 13px; 
-            font-weight: 600; 
-            color: var(--text-main); 
-            flex-grow: 1; 
+        .timeline-app {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            flex-grow: 1;
         }
-        .timeline-duration { 
+        .timeline-duration {
             font-family: 'Outfit', sans-serif;
-            font-size: 12px; 
-            font-weight: 700; 
-            color: var(--text-muted); 
-            text-align: right; 
-            white-space: nowrap; 
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-align: right;
+            white-space: nowrap;
         }
 
-        .report-footer { 
-            text-align: center; 
+        .report-footer {
+            text-align: center;
             font-family: 'Outfit', sans-serif;
-            font-size: 12.5px; 
-            color: var(--text-muted); 
-            border-top: 1px solid var(--border); 
-            padding-top: 30px; 
-            margin-top: 45px; 
-            font-weight: 500; 
+            font-size: 12.5px;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+            padding-top: 30px;
+            margin-top: 45px;
+            font-weight: 500;
         }
 
-        @media print { 
-            body { background-color: white; padding: 0; } 
-            .print-actions-bar { display: none; } 
-            .report-container { border: none; box-shadow: none; padding: 0; max-width: 100%; } 
+        @media print {
+            body { background-color: white; padding: 0; }
+            .print-actions-bar { display: none; }
+            .report-container { border: none; box-shadow: none; padding: 0; max-width: 100%; }
             .kpi-card { background-color: #F8FAFC !important; border: 1px solid #E2E8F0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .project-bar-bg { background-color: #F8FAFC !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .project-bar-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -2759,7 +2759,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
                 <button class="theme-pill-btn" data-theme="slate" onclick="switchTheme('slate')" title="Slate Charcoal Theme"></button>
             </div>
         </div>
-        
+
         <button class="print-btn" onclick="window.print()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 9 6 2 18 2 18 9"></polyline>
@@ -2769,7 +2769,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             Print / Save PDF
         </button>
     </div>
-    
+
     <div class="report-container">
         <div class="report-header">
             <div class="report-title-section">
@@ -2849,7 +2849,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
                 localStorage.setItem('truehour-theme', themeName);
             } catch(e) {}
         }
-        
+
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 const savedTheme = localStorage.getItem('truehour-theme') || 'indigo';
@@ -2919,7 +2919,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
                 <rect width="24" height="24" rx="6" fill="{tag_color}1a"/>
                 <text x="12" y="16" fill="{tag_color}" font-size="12" font-weight="800" font-family="Inter, system-ui, sans-serif" text-anchor="middle">{initial}</text>
             </svg>"""
-            
+
             rows_html += f"""
             <tr>
                 <td style="font-weight: 600;">{icon_html}{escaped_name}</td>
@@ -2977,10 +2977,10 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" or dark_mode else ""
         escaped_app_name = _esc(app['name'])
         escaped_tag = _esc(raw_tag)
-        
+
         # Clean background-friendly bypass for local icon extraction
         local_b64 = ""
-        
+
         # Mappings for premium online SVG icons via Simple Icons CDN
         app_name_lower = app['name'].lower().strip()
         simple_icons = {
@@ -3022,13 +3022,13 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             "postman": "postman",
             "canva": "canva",
         }
-        
+
         slug = None
         for key, value in simple_icons.items():
             if key in app_name_lower:
                 slug = value
                 break
-                
+
         icon_html = ""
         if slug:
             # Multi-layered fallback sources if a service is blocked or down:
@@ -3036,16 +3036,16 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             # 2. jsDelivr NPM CDN (Enterprise Cloudflare/Fastly backed)
             # 3. Unpkg CDN
             # 4. Local extracted base64 or Category-colored letter SVG
-            
+
             if local_b64:
                 fallback_src = f"data:image/png;base64,{local_b64}"
             else:
                 initial = _esc(app['name'][0].upper()) if app['name'] else "?"
                 fallback_src = f"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><rect width='24' height='24' rx='6' fill='{tag_color.replace('#', '%23')}1a'/><text x='12' y='16' fill='{tag_color.replace('#', '%23')}' font-size='12' font-weight='800' font-family='sans-serif' text-anchor='middle'>{initial}</text></svg>"
-            
+
             # Escape quotes safely for HTML attributes
             escaped_fallback = fallback_src.replace("'", "\\'")
-            
+
             si_color = "e0e0e0" if dark_mode else ""
             si_url_suffix = f"/{si_color}" if si_color else ""
             icon_html = f"""<img src="https://cdn.simpleicons.org/{slug}{si_url_suffix}" class="app-icon" onerror="this.onerror=function(){{ this.onerror=function(){{ this.onerror=null; this.src='{escaped_fallback}'; }}; this.src='https://unpkg.com/simple-icons@11.13.0/icons/{slug}.svg'; }}; this.src='https://cdn.jsdelivr.net/npm/simple-icons@11.13.0/icons/{slug}.svg';" />"""
@@ -3059,7 +3059,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
                 <rect width="24" height="24" rx="6" fill="{tag_color}1a"/>
                 <text x="12" y="16" fill="{tag_color}" font-size="12" font-weight="800" font-family="Inter, system-ui, sans-serif" text-anchor="middle">{initial}</text>
             </svg>"""
-        
+
         apps_rows += f"""
         <tr>
             <td style="font-weight: 600;">{icon_html}{escaped_app_name}</td>
@@ -3073,10 +3073,10 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     timeline_items = ""
     timeline_entries = report.get("timeline", [])
     capped_timeline = timeline_entries[:15]
-    
+
     # Pre-compile app category mappings in O(N) to allow O(1) lookups inside loop
     app_tags = {app["name"]: app.get("tag", "Unassigned") for app in report.get("apps", [])}
-    
+
     base_date_str = report.get("date")
     if not base_date_str or not isinstance(base_date_str, str):
         base_date_str = datetime.today().strftime("%Y-%m-%d")
@@ -3099,26 +3099,26 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     for t in capped_timeline:
         t_start = t["start"]
         t_end = t["end"]
-        
+
         t_start_dt = parse_time(t_start, base_date_str)
         t_end_dt = parse_time(t_end, base_date_str)
-        
+
         if isinstance(t_start_dt, datetime) and isinstance(t_end_dt, datetime):
             if t_end_dt < t_start_dt:
                 t_end_dt += timedelta(days=1)
             duration_secs = int((t_end_dt - t_start_dt).total_seconds())
         else:
             duration_secs = 0
-            
+
         start_str = t_start_dt.strftime("%I:%M:%S %p") if hasattr(t_start_dt, "strftime") else str(t_start)
         end_str = t_end_dt.strftime("%I:%M:%S %p") if hasattr(t_end_dt, "strftime") else str(t_end)
-        
+
         app_name = t.get("app", "Active Session")
         app_tag = app_tags.get(app_name, "Unassigned")
         tag_color = get_color(app_tag)
-        
+
         duration_str = format_duration(duration_secs) if duration_secs > 0 else ""
-        
+
         escaped_app_name = _esc(app_name)
         escaped_app_tag = _esc(app_tag)
         timeline_items += f"""

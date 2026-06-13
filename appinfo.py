@@ -70,12 +70,12 @@ def get_foreground_app_info():
                 return "[Idle]", ""
             friendly = active_app.get("NSApplicationName", "[Idle]")
             exe_path = active_app.get("NSApplicationPath", "")
-            
+
             # Match against name overrides
             key = friendly.lower()
             if key in _NAME_OVERRIDES:
                 friendly = _NAME_OVERRIDES[key]
-                
+
             return friendly, exe_path
         except Exception as e:
             logger.warning(f"Error getting foreground app info on macOS: {e}")
@@ -168,7 +168,7 @@ def _extract_icon(exe_path, size=16):
             # pyrefly: ignore [missing-import]
             from AppKit import NSWorkspace
             import io
-            
+
             workspace = NSWorkspace.sharedWorkspace()
             ns_image = workspace.iconForFile_(exe_path)
             if ns_image:
@@ -199,15 +199,15 @@ def _extract_icon(exe_path, size=16):
         bmp = win32ui.CreateBitmap()
         bmp.CreateCompatibleBitmap(hdc, size, size)
         old_bmp = mem_dc.SelectObject(bmp)
-        
+
         brush = win32gui.GetSysColorBrush(win32con.COLOR_WINDOW)
         win32gui.FillRect(mem_dc.GetHandleOutput(), (0, 0, size, size), brush)
         win32gui.DrawIconEx(mem_dc.GetHandleOutput(), 0, 0, hicon, size, size, 0, None, win32con.DI_NORMAL)
-        
+
         bmp_info = bmp.GetInfo()
         bmp_bits = bmp.GetBitmapBits()
         img = Image.frombuffer('RGBA', (bmp_info['bmWidth'], bmp_info['bmHeight']), bmp_bits, 'raw', 'BGRA', 0, 1)
-        
+
         # Handle Pillow deprecation
         resampler = getattr(Image, 'Resampling', Image).LANCZOS
         return img.resize((size, size), resampler)

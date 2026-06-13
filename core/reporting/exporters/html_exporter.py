@@ -9,20 +9,20 @@ class HTMLExporter(BaseExporter):
             # Load images as base64 for embedding if they exist
             donut_base64 = ""
             bar_base64 = ""
-            
+
             donut_path = report_data.get("donut_chart_path")
             bar_path = report_data.get("bar_chart_path")
-            
+
             if donut_path and os.path.exists(donut_path):
                 with open(donut_path, "rb") as f:
                     donut_base64 = base64.b64encode(f.read()).decode("utf-8")
             if bar_path and os.path.exists(bar_path):
                 with open(bar_path, "rb") as f:
                     bar_base64 = base64.b64encode(f.read()).decode("utf-8")
-            
+
             donut_img_html = f'<img class="chart-img" src="data:image/png;base64,{donut_base64}" />' if donut_base64 else '<p>No Donut Chart</p>'
             bar_img_html = f'<img class="chart-img" src="data:image/png;base64,{bar_base64}" />' if bar_base64 else '<p>No Bar Chart</p>'
-            
+
             project_rows = ""
             for item in report_data.get("project_breakdown", []):
                 project_rows += f"""
@@ -32,7 +32,7 @@ class HTMLExporter(BaseExporter):
                     <td>{item.get('percent', 0)}%</td>
                 </tr>
                 """
-                
+
             trend_rows = ""
             for item in report_data.get("daily_trend", []):
                 trend_rows += f"""
@@ -152,7 +152,7 @@ class HTMLExporter(BaseExporter):
                 <div><strong>Total Time:</strong> {format_duration(report_data.get('total_seconds', 0))}</div>
             </div>
         </div>
-        
+
         <div class="grid">
             <div class="card">
                 <h3>App Allocation Chart</h3>
@@ -163,7 +163,7 @@ class HTMLExporter(BaseExporter):
                 {bar_img_html}
             </div>
         </div>
-        
+
         <div class="card" style="margin-bottom: 20px;">
             <h3>Project Breakdown</h3>
             <table>
@@ -179,7 +179,7 @@ class HTMLExporter(BaseExporter):
                 </tbody>
             </table>
         </div>
-        
+
         <div class="card">
             <h3>Daily Productivity History</h3>
             <table>

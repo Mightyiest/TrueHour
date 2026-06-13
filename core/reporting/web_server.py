@@ -36,21 +36,21 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
                 # Find templates/goals_dashboard.html relative to this file
                 base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                 template_path = os.path.join(base_dir, "templates", "goals_dashboard.html")
-                
+
                 with open(template_path, "r", encoding="utf-8") as f:
                     content = f.read()
-                
+
                 # Dynamic injection of port and configuration state to avoid initial fetch delay
                 data = self.server.get_state_callback()
                 json_state = json.dumps(data)
                 content = content.replace("/*{{INITIAL_STATE}}*/", f"window.INITIAL_STATE = {json_state};")
-                
+
                 self._set_headers(content_type="text/html", status=200)
                 self.wfile.write(content.encode("utf-8"))
             except Exception as e:
                 self._set_headers(content_type="text/plain", status=500)
                 self.wfile.write(f"Internal Server Error: {e}".encode("utf-8"))
-                
+
         elif self.path == "/api/goals":
             try:
                 data = self.server.get_state_callback()
@@ -66,7 +66,7 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         content_length = int(self.headers.get("Content-Length", 0))
         post_data = self.rfile.read(content_length)
-        
+
         payload = {}
         if post_data:
             try:
@@ -95,7 +95,7 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
                     data_to_emit["weekly_earnings_goal"] = 0.0
             if "earnings_goal_period" in payload:
                 data_to_emit["earnings_goal_period"] = str(payload["earnings_goal_period"])
-            
+
             if data_to_emit:
                 self.server.signals.goals_updated.emit(data_to_emit)
                 self._set_headers(status=200)
@@ -103,7 +103,7 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
             else:
                 self._set_headers(status=400)
                 self.wfile.write(json.dumps({"error": "No valid weekly_goals or weekly_earnings_goal provided"}).encode("utf-8"))
-                
+
         elif self.path == "/api/settings":
             if "enable_goal_tray_alerts" in payload:
                 enabled = bool(payload["enable_goal_tray_alerts"])
@@ -111,10 +111,10 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
             if "dark_mode" in payload:
                 dark_mode = bool(payload["dark_mode"])
                 self.server.signals.theme_toggled.emit(dark_mode)
-                
+
             self._set_headers(status=200)
             self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
-                
+
         elif self.path == "/api/test-notification":
             self.server.signals.test_notification_requested.emit()
             self._set_headers(status=200)
@@ -153,7 +153,7 @@ class WebServerManager(QObject):
     def start(self):
         if self.running:
             return
-        
+
         self.server = GoalsWebServer(("localhost", self.port), GoalsHTTPRequestHandler, self.get_state_callback, self.signals)
         self.thread = threading.Thread(target=self._run_server, daemon=True)
         self.running = True

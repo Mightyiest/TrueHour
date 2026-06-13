@@ -21,7 +21,7 @@ def test_html_export_isolated_flow():
     print("=" * 60)
     print("Testing HTML Report Generation (Isolated Flow)")
     print("=" * 60)
-    
+
     # Mock comprehensive payload matching format expected by app.py data builders
     mock_report_data = {
         "session_name": "Test Session",
@@ -87,32 +87,32 @@ def test_html_export_isolated_flow():
         "app_exe_paths": {},
         "new_activity": []
     }
-    
+
     try:
         print("\n[1] Generating HTML content...")
         html_content = generate_session_report_html(
-            mock_report_data, 
-            hourly_rate=50.0, 
+            mock_report_data,
+            hourly_rate=50.0,
             currency_symbol="$"
         )
-        
+
         assert html_content is not None, "HTML content is None"
         assert len(html_content) > 0, "HTML content is empty"
         assert "<!DOCTYPE html>" in html_content or "<html" in html_content, "Invalid HTML structure"
         print(f"✓ HTML generated successfully ({len(html_content)} characters)")
-        
+
         print("\n[2] Writing HTML to temporary file...")
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "test_report.html")
-            
+
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(html_content)
-            
+
             assert os.path.exists(output_path), "Output file was not created"
-            
+
             file_size = os.path.getsize(output_path)
             print(f"✓ File written successfully ({file_size} bytes)")
-            
+
             # Verify content integrity
             with open(output_path, "r", encoding="utf-8") as f:
                 content = f.read()
@@ -120,11 +120,11 @@ def test_html_export_isolated_flow():
                 assert "Test Session" in content, "Missing session name"
                 assert "VS Code" in content, "Missing app data"
                 print("✓ Content verification passed")
-        
+
         print("\n" + "=" * 60)
         print("TEST PASSED: HTML export works correctly!")
         print("=" * 60)
-        
+
     except Exception as e:
         print("\n" + "=" * 60)
         print("TEST FAILED: Exception occurred!")

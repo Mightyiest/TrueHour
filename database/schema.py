@@ -19,7 +19,7 @@ def get_connection():
 def init_db():
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     # Create Daily Summary Table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS daily_summary (
@@ -31,7 +31,7 @@ def init_db():
         updated_at TEXT
     );
     """)
-    
+
     # Create Report Job Table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS report_jobs (
@@ -47,7 +47,7 @@ def init_db():
         completed_at TEXT
     );
     """)
-    
+
     # Create Schema Version Metadata Table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS schema_meta (
@@ -55,10 +55,10 @@ def init_db():
         value TEXT
     );
     """)
-    
+
     # Insert initial schema version
     cursor.execute("INSERT OR IGNORE INTO schema_meta (key, value) VALUES ('version', '1');")
-    
+
     # Create Invoices Table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS invoices (
@@ -74,7 +74,7 @@ def init_db():
         updated_at TEXT
     );
     """)
-    
+
     conn.commit()
     conn.close()
 
@@ -86,7 +86,7 @@ def save_invoice(invoice_no, client_name, amount, currency, status, session_file
     try:
         conn.execute("""
         INSERT OR REPLACE INTO invoices (
-            invoice_no, client_name, amount, currency, status, 
+            invoice_no, client_name, amount, currency, status,
             session_files, billing_data, settings_data, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, (
