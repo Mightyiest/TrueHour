@@ -40,8 +40,9 @@ class InvoiceHTTPHandler(BaseHTTPRequestHandler):
         if self.path == '/save':
             try:
                 from database.schema import get_invoice_by_no
-                exists = get_invoice_by_no(self.server.invoice_no) is not None
-                if exists:
+                invoice_record = get_invoice_by_no(self.server.invoice_no)
+                exists_and_active = (invoice_record is not None) and (invoice_record.get("status") in ["unpaid", "paid"])
+                if exists_and_active:
                     self.send_response(200)
                     self.send_header('Content-type', 'application/json')
                     self.send_header('Access-Control-Allow-Origin', '*')
@@ -707,11 +708,18 @@ class SessionManagerDialog(QDialog):
 
             status_btn = QPushButton(status.upper(), row_frame)
             status_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            status_btn.setToolTip("Click to toggle Paid/Unpaid status")
+            if status == "draft":
+                status_btn.setToolTip("Draft: Click to confirm and save as an Unpaid invoice")
+            else:
+                status_btn.setToolTip("Click to toggle Paid/Unpaid status")
+
             if is_dark:
                 if status == "paid":
                     status_color_bg = "#333333"
                     status_color_fg = "#ffffff"
+                elif status == "draft":
+                    status_color_bg = "#2e1065"
+                    status_color_fg = "#c084fc"
                 else:
                     status_color_bg = "#222222"
                     status_color_fg = "#888888"
@@ -719,6 +727,9 @@ class SessionManagerDialog(QDialog):
                 if status == "paid":
                     status_color_bg = "#DCFCE7"
                     status_color_fg = "#16A34A"
+                elif status == "draft":
+                    status_color_bg = "#F3E8FF"
+                    status_color_fg = "#7E22CE"
                 else:
                     status_color_bg = "#FEF3C7"
                     status_color_fg = "#D97706"
@@ -817,7 +828,10 @@ class SessionManagerDialog(QDialog):
         self.invoices_layout.addStretch()
 
     def _toggle_invoice_status(self, invoice_no, current_status):
-        new_status = "unpaid" if current_status == "paid" else "paid"
+        if current_status == "draft":
+            new_status = "unpaid"
+        else:
+            new_status = "unpaid" if current_status == "paid" else "paid"
         logger.info(f"[Action] Toggling invoice {invoice_no} status from {current_status} to {new_status}")
         try:
             from database.schema import update_invoice_status
@@ -889,22 +903,58 @@ class SessionManagerDialog(QDialog):
             settings_data = json.loads(full_inv.get("settings_data", "{}"))
             status = full_inv.get("status", "unpaid")
 
-            html_content = generate_invoice_html(billing_data, settings_data, status=status, invoice_no=invoice_no)
+            if status == "draft":
+                self._stop_preview_server()
+                
+                session_files = json.loads(full_inv.get("session_files", "[]"))
+                
+                def save_callback():
+                    from database.schema import save_invoice
+                    save_invoice(
+                        invoice_no=invoice_no,
+                        client_name=settings_data.get("client_name", "Valued Client"),
+                        amount=billing_data.get("total_earned", 0.0),
+                        currency=settings_data.get("currency_symbol", "$"),
+                        status="unpaid",
+                        session_files=session_files,
+                        billing_data=billing_data,
+                        settings_data=settings_data
+                    )
+                    self.invoice_saved_signal.emit()
 
-            with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html', encoding='utf-8') as f:
-                f.write(html_content)
-                temp_path = f.name
+                html_content = generate_invoice_html(billing_data, settings_data, status="unpaid", invoice_no=invoice_no)
+                
+                self.preview_server = InvoiceServerThread(html_content, save_callback, invoice_no)
+                self.preview_server.start()
+                port = self.preview_server.port
+                
+                try:
+                    open_file(f"http://127.0.0.1:{port}/")
+                except Exception as open_err:
+                    logger.warning(f"Failed to auto-open invoice draft in browser: {open_err}")
+                    QMessageBox.warning(
+                        self,
+                        "Failed to Open",
+                        f"Invoice server started, but browser could not be opened automatically:\nhttp://127.0.0.1:{port}/",
+                        QMessageBox.StandardButton.Ok
+                    )
+            else:
+                html_content = generate_invoice_html(billing_data, settings_data, status=status, invoice_no=invoice_no)
 
-            try:
-                open_file(temp_path)
-            except Exception as open_err:
-                logger.warning(f"Failed to auto-open invoice in browser: {open_err}")
-                QMessageBox.warning(
-                    self,
-                    "Failed to Open",
-                    f"Invoice generated successfully, but could not be opened automatically:\n{temp_path}",
-                    QMessageBox.StandardButton.Ok
-                )
+                with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html', encoding='utf-8') as f:
+                    f.write(html_content)
+                    temp_path = f.name
+
+                try:
+                    open_file(temp_path)
+                except Exception as open_err:
+                    logger.warning(f"Failed to auto-open invoice in browser: {open_err}")
+                    QMessageBox.warning(
+                        self,
+                        "Failed to Open",
+                        f"Invoice generated successfully, but could not be opened automatically:\n{temp_path}",
+                        QMessageBox.StandardButton.Ok
+                    )
         except Exception as e:
             logger.error(f"Failed to view recorded invoice: {e}", exc_info=True)
             QMessageBox.critical(self, "Error", f"Failed to view invoice:\n{str(e)}")
@@ -1014,8 +1064,24 @@ class SessionManagerDialog(QDialog):
             html_content = generate_invoice_html(billing_data, settings_data, status="unpaid", invoice_no=inv_no)
             session_filenames = [os.path.basename(path) for path in self.selected_sessions]
 
+            # Save immediately as a draft
+            from database.schema import save_invoice
+            save_invoice(
+                invoice_no=inv_no,
+                client_name=settings_data.get("client_name", "Valued Client"),
+                amount=billing_data.get("total_earned", 0.0),
+                currency=settings_data.get("currency_symbol", "$"),
+                status="draft",
+                session_files=session_filenames,
+                billing_data=billing_data,
+                settings_data=settings_data
+            )
+
+            # Clear checkboxes and refresh lists immediately to show the draft
+            self.selected_sessions.clear()
+            self._refresh_all_lists()
+
             def save_callback():
-                from database.schema import save_invoice
                 save_invoice(
                     invoice_no=inv_no,
                     client_name=settings_data.get("client_name", "Valued Client"),
