@@ -14,8 +14,8 @@ import time
 import traceback
 from datetime import datetime
 
-from PyQt6.QtCore import QFileInfo, QObject, QSize, Qt, QTimer, pyqtSignal, QRectF
-from PyQt6.QtGui import QColor, QPainter, QPen, QImage, QPixmap, QIcon, QKeySequence, QShortcut
+from PyQt6.QtCore import QFileInfo, QObject, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QColor, QImage, QPixmap, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFrame, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QScrollArea, QLineEdit, QDialog, QMenu, QMessageBox,
@@ -966,11 +966,11 @@ class TrueHourApp(QMainWindow):
         from config import get_app_data_dir
         import os
         return {
-            "weekly_goals": getattr(self, "weekly_goals", {}),
+            "weekly_goals": dict(getattr(self, "weekly_goals", {})),
             "enable_goal_tray_alerts": getattr(self, "enable_goal_tray_alerts", True),
-            "weekly_base_focus_seconds": getattr(self, "weekly_base_focus_seconds", {}),
+            "weekly_base_focus_seconds": dict(getattr(self, "weekly_base_focus_seconds", {})),
             "active_seconds": active_seconds,
-            "project_colors": PROJECT_COLORS,
+            "project_colors": dict(PROJECT_COLORS),
             "dark_mode": getattr(self, "dark_mode", False),
             "weekly_earnings_goal": getattr(self, "weekly_earnings_goal", 0.0),
             "hourly_rate": getattr(self, "hourly_rate", 0.0),
@@ -1131,7 +1131,9 @@ class TrueHourApp(QMainWindow):
             # Clean up removed apps
             to_remove = [name for name in self._row_widgets if name not in active_apps]
             for name in to_remove:
-                self._row_widgets[name].setParent(None)
+                widget = self._row_widgets[name]
+                widget.setParent(None)
+                widget.deleteLater()
                 del self._row_widgets[name]
 
             # Update the widget dictionary to reflect new order
@@ -1152,7 +1154,9 @@ class TrueHourApp(QMainWindow):
         for i in reversed(range(self.scroll_layout.count())):
             item = self.scroll_layout.itemAt(i)
             if item and item.widget():
-                item.widget().setParent(None)
+                widget = item.widget()
+                widget.setParent(None)
+                widget.deleteLater()
             elif item and item.spacerItem():
                 # Remove stretch items
                 self.scroll_layout.removeItem(item)
@@ -1839,22 +1843,6 @@ class TrueHourApp(QMainWindow):
         links_row = QHBoxLayout()
         links_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
         links_row.setSpacing(12)
-
-        def get_svg_icon(svg_content, size=QSize(20, 20)):
-            pixmap = QPixmap(size)
-            pixmap.fill(Qt.GlobalColor.transparent)
-            painter = QPainter(pixmap)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            try:
-                from PyQt6.QtSvg import QSvgRenderer
-                from PyQt6.QtCore import QByteArray
-                renderer = QSvgRenderer(QByteArray(svg_content))
-                renderer.render(painter, QRectF(pixmap.rect()))
-            except Exception:
-                painter.setPen(QPen(QColor("#0078D4"), 2))
-                painter.drawEllipse(2, 2, 16, 16)
-            painter.end()
-            return QIcon(pixmap)
 
         github_btn = QPushButton(dialog)
         github_btn.setIcon(get_svg_icon(GITHUB_SVG, QSize(20, 20)))
