@@ -1625,6 +1625,43 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
         .theme-pill-btn[data-theme="teal"] { background: linear-gradient(135deg, #14B8A6, #0D9488); }
         .theme-pill-btn[data-theme="slate"] { background: linear-gradient(135deg, #475569, #334155); }
 
+        .action-buttons-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .save-app-btn {
+            background: #10B981;
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            font-family: 'Outfit', sans-serif;
+            font-size: 13.5px;
+            font-weight: 600; 
+            cursor: pointer; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            box-shadow: 0 3px 10px rgba(16, 185, 129, 0.12);
+        }
+        .save-app-btn:hover { 
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.2);
+        }
+        body.dark .save-app-btn {
+            background: #064e3b;
+            color: #a7f3d0;
+            border: 1px solid #047857;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+        body.dark .save-app-btn:hover {
+            background: #047857;
+            color: #ffffff;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+        }
         .print-btn {
             background: var(--accent-gradient-start);
             background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
@@ -2005,14 +2042,24 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             </button>
         </div>
 
-        <button class="print-btn" onclick="window.print()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                <rect x="6" y="14" width="12" height="8"></rect>
-            </svg>
-            Print / Save PDF
-        </button>
+        <div class="action-buttons-group">
+            <button id="save-app-btn" class="save-app-btn" onclick="saveToApp()" style="display: none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                    <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+                Save to Invoice Tab
+            </button>
+            <button class="print-btn" onclick="handlePrintClick()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                    <rect x="6" y="14" width="12" height="8"></rect>
+                </svg>
+                Print / Save PDF
+            </button>
+        </div>
     </div>
 
     <div class="invoice-container">
@@ -2113,6 +2160,79 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             } catch(e) {}
         }
 
+        function isPreviewMode() {
+            return window.location.protocol === 'http:' || window.location.protocol === 'https:';
+        }
+
+        let isSaving = false;
+
+        function saveToApp(silent = false) {
+            if (!isPreviewMode()) return Promise.resolve();
+            if (isSaving) return Promise.resolve();
+            
+            isSaving = true;
+            const saveBtn = document.getElementById('save-app-btn');
+            if (saveBtn) {
+                saveBtn.style.opacity = "0.6";
+                saveBtn.style.cursor = "wait";
+            }
+            
+            return fetch('/save', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    isSaving = false;
+                    if (saveBtn) {
+                        saveBtn.style.opacity = "";
+                        saveBtn.style.cursor = "";
+                    }
+                    if (data.status === 'success') {
+                        const statusSpan = document.querySelector('.status-pill span');
+                        if (statusSpan) {
+                            statusSpan.textContent = "Invoice Saved to Tab";
+                        }
+                        const statusIcon = document.querySelector('.status-pill svg');
+                        if (statusIcon) {
+                            statusIcon.style.stroke = "#10B981";
+                        }
+                        if (saveBtn) {
+                            saveBtn.textContent = "Saved to App";
+                        }
+                        if (!silent) {
+                            alert("Invoice saved successfully to the TrueHour app's Invoices tab!");
+                        }
+                    } else if (data.status === 'already_saved') {
+                        if (saveBtn) {
+                            saveBtn.textContent = "Saved to App";
+                        }
+                        if (!silent) {
+                            alert("This invoice has already been saved to the TrueHour app!");
+                        }
+                    } else {
+                        if (!silent) {
+                            alert("Failed to save invoice: " + (data.message || "Unknown error"));
+                        }
+                    }
+                })
+                .catch(err => {
+                    isSaving = false;
+                    if (saveBtn) {
+                        saveBtn.style.opacity = "";
+                        saveBtn.style.cursor = "";
+                    }
+                    console.error("Error saving invoice:", err);
+                    if (!silent) {
+                        alert("Error communicating with TrueHour app: " + err);
+                    }
+                });
+        }
+
+        function handlePrintClick() {
+            window.print();
+            if (isPreviewMode()) {
+                saveToApp(true);
+            }
+        }
+
         // Auto-load theme preference
         window.addEventListener('DOMContentLoaded', () => {
             try {
@@ -2129,6 +2249,21 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
                     document.getElementById('theme-icon-dark').style.display = 'none';
                 }
             } catch(e) {}
+
+            if (isPreviewMode()) {
+                const saveBtn = document.getElementById('save-app-btn');
+                if (saveBtn) {
+                    saveBtn.style.display = 'inline-flex';
+                }
+                const statusSpan = document.querySelector('.status-pill span');
+                if (statusSpan) {
+                    statusSpan.textContent = "Draft Preview (Unsaved)";
+                }
+                const statusIcon = document.querySelector('.status-pill svg');
+                if (statusIcon) {
+                    statusIcon.style.stroke = "#F59E0B"; // orange
+                }
+            }
         });
     </script>
 </body>

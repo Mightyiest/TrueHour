@@ -20,10 +20,79 @@ from report import (
 from theme import get_svg_icon
 from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG
 from widgets.custom_widgets import InvoicePrivacyOptionsDialog
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import threading
+
+class InvoiceHTTPHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+    def do_GET(self):
+        if self.path == '/':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(self.server.html_content.encode('utf-8'))
+        else:
+            self.send_error(404, "Not Found")
+
+    def do_POST(self):
+        if self.path == '/save':
+            try:
+                from database.schema import get_invoice_by_no
+                exists = get_invoice_by_no(self.server.invoice_no) is not None
+                if exists:
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"status": "already_saved"}).encode('utf-8'))
+                else:
+                    self.server.save_callback()
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
+        else:
+            self.send_error(404, "Not Found")
+
+class InvoiceHTTPServer(HTTPServer):
+    def __init__(self, server_address, RequestHandlerClass, html_content, save_callback, invoice_no):
+        super().__init__(server_address, RequestHandlerClass)
+        self.html_content = html_content
+        self.save_callback = save_callback
+        self.invoice_no = invoice_no
+
+class InvoiceServerThread(threading.Thread):
+    def __init__(self, html_content, save_callback, invoice_no):
+        super().__init__()
+        self.html_content = html_content
+        self.save_callback = save_callback
+        self.invoice_no = invoice_no
+        self.daemon = True
+        self.server = InvoiceHTTPServer(('127.0.0.1', 0), InvoiceHTTPHandler, html_content, save_callback, invoice_no)
+        self.port = self.server.server_address[1]
+
+    def run(self):
+        self.server.serve_forever()
+
+    def stop(self):
+        try:
+            self.server.shutdown()
+            self.server.server_close()
+        except Exception:
+            pass
 
 class SessionManagerDialog(QDialog):
     resume_requested = pyqtSignal(str)             # filepath to resume
     view_report_requested = pyqtSignal(dict)       # report dict
+    invoice_saved_signal = pyqtSignal()            # invoice saved from browser
 
     def __init__(self, settings_data, tracker, parent=None):
         super().__init__(parent)
@@ -41,6 +110,8 @@ class SessionManagerDialog(QDialog):
 
         self.selected_sessions = set()
         self._build_ui()
+        self.preview_server = None
+        self.invoice_saved_signal.connect(self._on_invoice_saved_from_browser)
 
     def _center_window(self, width, height):
         self.resize(width, height)
@@ -48,6 +119,32 @@ class SessionManagerDialog(QDialog):
         x = (screen.width() - width) // 2
         y = (screen.height() - height) // 2
         self.move(x, y)
+
+    def _on_invoice_saved_from_browser(self):
+        self.selected_sessions.clear()
+        self._refresh_all_lists()
+        self.raise_()
+        self.activateWindow()
+
+    def _stop_preview_server(self):
+        if hasattr(self, 'preview_server') and self.preview_server:
+            try:
+                self.preview_server.stop()
+            except Exception:
+                pass
+            self.preview_server = None
+
+    def closeEvent(self, event):
+        self._stop_preview_server()
+        super().closeEvent(event)
+
+    def reject(self):
+        self._stop_preview_server()
+        super().reject()
+
+    def accept(self):
+        self._stop_preview_server()
+        super().accept()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -912,51 +1009,39 @@ class SessionManagerDialog(QDialog):
                 inv_no = f"{base_inv_no} ({counter})"
                 counter += 1
 
+            self._stop_preview_server()
+
+            html_content = generate_invoice_html(billing_data, settings_data, status="unpaid", invoice_no=inv_no)
             session_filenames = [os.path.basename(path) for path in self.selected_sessions]
 
-            # Save invoice automatically as unpaid
-            save_invoice(
-                invoice_no=inv_no,
-                client_name=settings_data.get("client_name", "Valued Client"),
-                amount=billing_data.get("total_earned", 0.0),
-                currency=settings_data.get("currency_symbol", "$"),
-                status="unpaid",
-                session_files=session_filenames,
-                billing_data=billing_data,
-                settings_data=settings_data
-            )
+            def save_callback():
+                from database.schema import save_invoice
+                save_invoice(
+                    invoice_no=inv_no,
+                    client_name=settings_data.get("client_name", "Valued Client"),
+                    amount=billing_data.get("total_earned", 0.0),
+                    currency=settings_data.get("currency_symbol", "$"),
+                    status="unpaid",
+                    session_files=session_filenames,
+                    billing_data=billing_data,
+                    settings_data=settings_data
+                )
+                self.invoice_saved_signal.emit()
 
-            # Clear checkboxes and refresh lists immediately
-            self.selected_sessions.clear()
-            self._refresh_all_lists()
+            self.preview_server = InvoiceServerThread(html_content, save_callback, inv_no)
+            self.preview_server.start()
+            port = self.preview_server.port
 
-            # Single confirmation dialog to view invoice in browser
-            view_reply = QMessageBox.question(
-                self,
-                "Invoice Saved",
-                "Invoice saved in the Invoices tab!\nDo you want to view this invoice in the browser?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes
-            )
-
-            if view_reply == QMessageBox.StandardButton.Yes:
-                html_content = generate_invoice_html(billing_data, settings_data, status="unpaid", invoice_no=inv_no)
-
-                import tempfile
-                with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html', encoding='utf-8') as f:
-                    f.write(html_content)
-                    temp_path = f.name
-
-                try:
-                    open_file(temp_path)
-                except Exception as open_err:
-                    logger.warning(f"Failed to auto-open invoice in browser: {open_err}")
-                    QMessageBox.warning(
-                        self,
-                        "Failed to Open",
-                        f"Invoice generated successfully, but could not be opened automatically:\n{temp_path}",
-                        QMessageBox.StandardButton.Ok
-                    )
+            try:
+                open_file(f"http://127.0.0.1:{port}/")
+            except Exception as open_err:
+                logger.warning(f"Failed to auto-open invoice in browser: {open_err}")
+                QMessageBox.warning(
+                    self,
+                    "Failed to Open",
+                    f"Invoice server started, but browser could not be opened automatically:\nhttp://127.0.0.1:{port}/",
+                    QMessageBox.StandardButton.Ok
+                )
         except Exception as e:
             logger.error(f"Failed to generate invoice HTML: {e}", exc_info=True)
             QMessageBox.critical(self, "Error", f"Failed to generate invoice HTML:\n{str(e)}")
