@@ -960,13 +960,20 @@ class AppTracker:
             return False
 
 
-    def toggle_pause(self):
+    def toggle_pause(self, is_idle=False):
         with self._lock:
             if not self.running:
                 return False
             self.paused = not self.paused
             now = time.time()
             if self.paused:
+                if is_idle:
+                    deduct = self.idle_threshold_seconds
+                    if self._current_app:
+                        self.app_times[self._current_app] = max(0.0, self.app_times.get(self._current_app, 0.0) - deduct)
+                        self._current_block_active = max(0.0, self._current_block_active - deduct)
+                    self._total_paused_time += deduct
+
                 self._flush_current_unlocked(now)
                 self._current_app = None
                 self._current_start = None
@@ -1110,7 +1117,7 @@ class AppTracker:
                 if not self.paused and idle_secs >= self.idle_threshold_seconds:
                     # User went idle — auto-pause
                     self._idle_paused = True
-                    self.toggle_pause()
+                    self.toggle_pause(is_idle=True)
                     if self.on_update:
                         try: self.on_update()
                         except: pass

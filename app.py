@@ -528,7 +528,7 @@ class TrueHourApp(QMainWindow):
         footer_layout = QHBoxLayout(self.footer_card)
         footer_layout.setContentsMargins(12, 0, 12, 0)
 
-        total_lbl = QLabel("Total work time", self)
+        total_lbl = QLabel("Total session time", self)
         total_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 10px; color: #616161;")
         footer_layout.addWidget(total_lbl)
 
@@ -676,6 +676,7 @@ class TrueHourApp(QMainWindow):
         self.stop_btn.setEnabled(False)
         self.active_label.setText("Session ended")
         self.clock_label.setText("00:00:00")
+        self.total_label.setText("0h 00m 00s")
         self.earnings_label.setText("")
         self.setWindowTitle("TrueHour")
 
@@ -753,7 +754,9 @@ class TrueHourApp(QMainWindow):
         if not self.tracker.running:
             return
         elapsed = self.tracker.get_elapsed()
-        self.clock_label.setText(format_duration_hms(elapsed))
+        counted = self.tracker.get_counted_seconds()
+        self.clock_label.setText(format_duration_hms(counted))
+        self.total_label.setText(format_duration(elapsed))
         if self.hourly_rate > 0:
             counted = self.tracker.get_counted_seconds()
             earned = (counted / 3600) * self.hourly_rate
@@ -1059,7 +1062,9 @@ class TrueHourApp(QMainWindow):
                     if app_name in self._row_widgets:
                         self._row_widgets[app_name].update_time(secs)
                 counted = self.tracker.get_counted_seconds()
-                self.total_label.setText(format_duration(counted))
+                elapsed = self.tracker.get_elapsed()
+                self.clock_label.setText(format_duration_hms(counted))
+                self.total_label.setText(format_duration(elapsed))
                 return
 
             self._last_app_state_hash = app_state_key
@@ -1143,7 +1148,9 @@ class TrueHourApp(QMainWindow):
             self.scroll_layout.addStretch()
 
             counted = self.tracker.get_counted_seconds()
-            self.total_label.setText(format_duration(counted))
+            elapsed = self.tracker.get_elapsed()
+            self.clock_label.setText(format_duration_hms(counted))
+            self.total_label.setText(format_duration(elapsed))
 
         except Exception as e:
             logger.debug(f"Exception during app list refresh: {e}")
