@@ -68,6 +68,12 @@ def get_foreground_app_info():
             active_app = NSWorkspace.sharedWorkspace().activeApplication()
             if not active_app:
                 return "[Idle]", ""
+            
+            # Check if active app is our own process
+            import os
+            if active_app.get("NSApplicationProcessIdentifier") == os.getpid():
+                return "TrueHour", "truehour.exe"
+
             friendly = active_app.get("NSApplicationName", "[Idle]")
             exe_path = active_app.get("NSApplicationPath", "")
 
@@ -89,6 +95,12 @@ def get_foreground_app_info():
         _, pid = win32process.GetWindowThreadProcessId(hwnd)
         if pid <= 0:
             return "[Idle]", ""
+        
+        # Check if the foreground window belongs to our own TrueHour process
+        import os
+        if pid == os.getpid():
+            return "TrueHour", "truehour.exe"
+
         try:
             proc = psutil.Process(pid)
             exe_path = proc.exe()

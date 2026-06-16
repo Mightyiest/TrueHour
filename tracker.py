@@ -92,6 +92,9 @@ if _SYSTEM == "Darwin":
 # Changes take effect on the next session start.
 # ══════════════════════════════════════════════════════════════════
 
+# ── TrueHour Self-Exclusion ───────────────────────────────────────
+TrueHour
+
 # ── macOS Core System UI & Desktop ─────────────────────────────────
 Finder
 Dock
@@ -133,6 +136,10 @@ else:
 # To exclude a new app, add its .exe name on a new line.
 # Changes take effect on the next session start.
 # ══════════════════════════════════════════════════════════════════
+
+# ── TrueHour Self-Exclusion ───────────────────────────────────────
+truehour.exe
+truehour
 
 # ── Windows Shell & Desktop ────────────────────────────────────────
 explorer.exe
@@ -340,6 +347,8 @@ def _is_auto_excluded(exe_path):
     """Return True if this exe should be completely ignored by the tracker."""
     if exe_path:
         exe_name = os.path.basename(exe_path).lower()
+        if exe_name in ("truehour.exe", "truehour"):
+            return True
         # Fast path: check set membership without lock (set lookups are thread-safe for reads)
         return exe_name in _AUTO_EXCLUDED_EXES
     return False
