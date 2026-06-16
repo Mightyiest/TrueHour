@@ -20,7 +20,7 @@ $PYTHON_CMD -m pip install pyinstaller PyQt6 pyobjc-framework-AppKit psutil Pill
 
 # Build command using PyInstaller
 echo "Running PyInstaller..."
-pyinstaller --noconsole --onefile --windowed --name="TrueHours" app.py
+pyinstaller --noconsole --onefile --windowed --name="TrueHours" --add-data "templates:templates" app.py
 
 if [ $? -eq 0 ]; then
     echo "Moving executable bundle to root..."
