@@ -33,9 +33,24 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
             # Serve the goals HTML page
             try:
                 import os
-                # Find templates/goals_dashboard.html relative to this file
-                base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                template_path = os.path.join(base_dir, "templates", "goals_dashboard.html")
+                import sys
+
+                # Check for user-customized template next to executable/script
+                if getattr(sys, 'frozen', False):
+                    root_dir = os.path.dirname(sys.executable)
+                else:
+                    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+                user_template_path = os.path.join(root_dir, "templates", "goals_dashboard.html")
+
+                if os.path.exists(user_template_path):
+                    template_path = user_template_path
+                elif getattr(sys, 'frozen', False):
+                    # Fallback to PyInstaller's bundled temp directory
+                    mei_dir = getattr(sys, '_MEIPASS', '')
+                    template_path = os.path.join(mei_dir, "templates", "goals_dashboard.html")
+                else:
+                    template_path = user_template_path
 
                 with open(template_path, "r", encoding="utf-8") as f:
                     content = f.read()

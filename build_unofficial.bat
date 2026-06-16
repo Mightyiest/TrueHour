@@ -6,10 +6,10 @@ echo Building TrueHours_%VERSION% (Telemetry OFF)...
 echo TELEMETRY_ENABLED = False > telemetry_config.py
 
 :: Try running pyinstaller directly first, fallback to python -m PyInstaller
-pyinstaller --onefile --windowed --name "TrueHours_%VERSION%" --icon=icon.ico --add-data "icon.ico;." app.py
+pyinstaller --onefile --windowed --name "TrueHours_%VERSION%" --icon=icon.ico --add-data "icon.ico;." --add-data "templates;templates" app.py
 if %ERRORLEVEL% neq 0 (
     echo Direct pyinstaller command failed. Trying python -m PyInstaller fallback...
-    python -m PyInstaller --onefile --windowed --name "TrueHours_%VERSION%" --icon=icon.ico --add-data "icon.ico;." app.py
+    python -m PyInstaller --onefile --windowed --name "TrueHours_%VERSION%" --icon=icon.ico --add-data "icon.ico;." --add-data "templates;templates" app.py
 )
 
 if %ERRORLEVEL% equ 0 (
