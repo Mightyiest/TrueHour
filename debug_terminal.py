@@ -9,7 +9,7 @@ import socket
 from collections import deque
 import threading
 from datetime import datetime
-from PyQt6.QtCore import QObject, pyqtSignal, Qt, QRectF
+from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPlainTextEdit, QLineEdit,
     QPushButton, QCheckBox, QLabel, QFileDialog, QMessageBox, QApplication
@@ -24,14 +24,14 @@ class LogBufferCollector:
         self.buffer = deque(maxlen=max_lines)
         self.emitter = LogSignalEmitter()
         self.lock = threading.Lock()
-        
+
         self._stdout = sys.stdout
         self._stderr = sys.stderr
         self._is_redirected = False
-        
+
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_target = ("127.0.0.1", 50099)
-        
+
         # Initialize and clear the active log file
         try:
             from config import get_app_data_root
@@ -50,7 +50,7 @@ class LogBufferCollector:
         with self.lock:
             self.buffer.append(text)
             self.emitter.log_written.emit(text)
-            
+
             # Write to persistent active log file
             try:
                 from config import get_app_data_root
@@ -60,7 +60,7 @@ class LogBufferCollector:
                     f.write(text)
             except Exception:
                 pass
-                
+
             # Broadcast over local UDP loopback
             try:
                 self.udp_socket.sendto(text.encode("utf-8"), self.udp_target)
@@ -116,11 +116,11 @@ class DebugTerminalWindow(QDialog):
         self.collector = collector
         self.listener_active = False
         self.udp_sock = None
-        
+
         self.setWindowTitle("TrueHour Debug Console")
         self.resize(620, 420)
         self.setMinimumSize(450, 300)
-        
+
         self.setStyleSheet("""
             QDialog {
                 background-color: #F8FAFC;
@@ -186,7 +186,7 @@ class DebugTerminalWindow(QDialog):
                 background-color: #E2E8F0;
             }
         """)
-        
+
         from config import get_app_data_dir
         import os
         chk_path = os.path.join(get_app_data_dir(), "checkmark.png").replace("\\", "/")
@@ -194,9 +194,9 @@ class DebugTerminalWindow(QDialog):
             self.setStyleSheet(self.styleSheet().replace("CHECKMARK_PATH", chk_path))
         else:
             self.setStyleSheet(self.styleSheet().replace("CHECKMARK_PATH", ""))
-            
+
         self.init_ui()
-        
+
         if self.collector:
             self.collector.emitter.log_written.connect(self.append_log)
             self.reload_logs()
@@ -208,38 +208,38 @@ class DebugTerminalWindow(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 14, 14, 14)
         layout.setSpacing(10)
-        
+
         top_bar = QHBoxLayout()
         top_bar.setSpacing(8)
-        
+
         self.filter_input = QLineEdit(self)
         self.filter_input.setPlaceholderText("Filter logs by keyword...")
         self.filter_input.textChanged.connect(self.apply_filter)
         top_bar.addWidget(self.filter_input, 1)
-        
+
         layout.addLayout(top_bar)
-        
+
         self.log_display = QPlainTextEdit(self)
         self.log_display.setReadOnly(True)
         layout.addWidget(self.log_display, 1)
-        
+
         bottom_bar = QHBoxLayout()
         bottom_bar.setSpacing(12)
-        
+
         self.auto_scroll_cb = QCheckBox("Auto-scroll", self)
         self.auto_scroll_cb.setChecked(True)
         bottom_bar.addWidget(self.auto_scroll_cb)
-        
+
         bottom_bar.addStretch()
-        
+
         self.clear_btn = QPushButton("Clear", self)
         self.clear_btn.clicked.connect(self.clear_logs)
         bottom_bar.addWidget(self.clear_btn)
-        
+
         self.export_btn = QPushButton("Export Log", self)
         self.export_btn.clicked.connect(self.export_logs)
         bottom_bar.addWidget(self.export_btn)
-        
+
         layout.addLayout(bottom_bar)
 
     def load_history_from_file(self):
@@ -257,7 +257,7 @@ class DebugTerminalWindow(QDialog):
                         batch_htmls.append(self.colorize_text(line))
                 if batch_htmls:
                     self.log_display.appendHtml("".join(batch_htmls))
-                
+
                 scrollbar = self.log_display.verticalScrollBar()
                 scrollbar.setValue(scrollbar.maximum())
         except Exception as e:
@@ -271,15 +271,15 @@ class DebugTerminalWindow(QDialog):
             # Address already in use: another console is running, so exit gracefully
             QMessageBox.warning(self, "Console Already Open", "TrueHour Debug Console is already running.")
             sys.exit(0)
-            
+
         self.listener_active = True
-        
+
         class UDPLogSignalEmitter(QObject):
             log_received = pyqtSignal(str)
-            
+
         self.udp_emitter = UDPLogSignalEmitter()
         self.udp_emitter.log_received.connect(self.append_log)
-        
+
         def udp_worker():
             while self.listener_active:
                 try:
@@ -289,7 +289,7 @@ class DebugTerminalWindow(QDialog):
                         self.udp_emitter.log_received.emit(text)
                 except Exception:
                     break
-                    
+
         self.udp_thread = threading.Thread(target=udp_worker, daemon=True)
         self.udp_thread.start()
 
@@ -315,33 +315,33 @@ class DebugTerminalWindow(QDialog):
         filter_text = self.filter_input.text().strip().lower()
         if filter_text and filter_text not in text.lower():
             return
-            
+
         scrollbar = self.log_display.verticalScrollBar()
         at_bottom = scrollbar.value() >= scrollbar.maximum() - 10
-        
+
         colored_html = self.colorize_text(text)
         self.log_display.appendHtml(colored_html)
-        
+
         if self.auto_scroll_cb.isChecked() and at_bottom:
             scrollbar.setValue(scrollbar.maximum())
 
     def colorize_text(self, text):
         escaped = html.escape(text).replace('\n', '<br>')
         lower_text = text.lower()
-        
+
         # Telemetry Action coloring (premium bright cyan)
         if "[action]" in lower_text:
             return f'<span style="color:#06B6D4; font-weight: bold;">{escaped}</span>'
-            
+
         if "error" in lower_text or "critical" in lower_text or "exception" in lower_text or "traceback" in lower_text:
             return f'<span style="color:#EF4444; font-weight: 500;">{escaped}</span>'
         elif "warning" in lower_text or "warn" in lower_text:
             return f'<span style="color:#F59E0B; font-weight: 500;">{escaped}</span>'
         elif "info" in lower_text:
-            return f'<span style="color:#38BDF8;">{escaped}</span>'
+            return f'<span style="color:#e0e0e0;">{escaped}</span>'
         elif "debug" in lower_text:
             return f'<span style="color:#94A3B8;">{escaped}</span>'
-            
+
         return f'<span style="color:#F8FAFC;">{escaped}</span>'
 
     def apply_filter(self):
@@ -364,8 +364,8 @@ class DebugTerminalWindow(QDialog):
 
     def export_logs(self):
         path, _ = QFileDialog.getSaveFileName(
-            self, 
-            "Export Debug Logs", 
+            self,
+            "Export Debug Logs",
             os.path.join(os.path.expanduser("~"), "focuslog_debug.log"),
             "Log Files (*.log);;Text Files (*.txt)"
         )

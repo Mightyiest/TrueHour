@@ -55,6 +55,7 @@ class FadingVersionLabel(QLabel):
         self._anim = QPropertyAnimation(self._opacity, b"opacity", self)
         self._anim.setDuration(self.FADE_DURATION)
         self._anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+        self._anim.finished.connect(self._on_animation_finished)
 
         # Timer that triggers fade transitions
         self._cycle_timer = QTimer(self)
@@ -100,39 +101,35 @@ class FadingVersionLabel(QLabel):
 
     def _start_fade_out(self):
         """Fade the current text to invisible."""
+        if not self._update_available:
+            return
         self._anim.stop()
         self._anim.setStartValue(1.0)
         self._anim.setEndValue(0.0)
-        try:
-            self._anim.finished.disconnect()
-        except TypeError:
-            pass
-        self._anim.finished.connect(self._swap_text_and_fade_in)
         self._anim.start()
 
-    def _swap_text_and_fade_in(self):
-        """Toggle the text while invisible, then fade back in."""
-        self._showing_update = not self._showing_update
-        if self._showing_update:
-            self.setText(self._update_text)
-            self._apply_update_style()
-        else:
-            self.setText(self._version_text)
-            self._apply_base_style()
+    def _on_animation_finished(self):
+        """Handle transition after fade-out or fade-in completes."""
+        if not self._update_available:
+            return
 
-        self._anim.stop()
-        self._anim.setStartValue(0.0)
-        self._anim.setEndValue(1.0)
-        try:
-            self._anim.finished.disconnect()
-        except TypeError:
-            pass
-        self._anim.finished.connect(self._on_fade_in_done)
-        self._anim.start()
+        end_val = self._anim.endValue()
+        if end_val == 0.0:
+            # We faded out. Swap text, apply style, and fade back in.
+            self._showing_update = not self._showing_update
+            if self._showing_update:
+                self.setText(self._update_text)
+                self._apply_update_style()
+            else:
+                self.setText(self._version_text)
+                self._apply_base_style()
 
-    def _on_fade_in_done(self):
-        """After fading in, wait DISPLAY_HOLD ms then cycle again."""
-        if self._update_available:
+            self._anim.stop()
+            self._anim.setStartValue(0.0)
+            self._anim.setEndValue(1.0)
+            self._anim.start()
+        elif end_val == 1.0:
+            # We faded in. Wait DISPLAY_HOLD ms before cycling again.
             self._cycle_timer.start(self.DISPLAY_HOLD)
 
     def _stop_animation(self):
@@ -143,14 +140,14 @@ class FadingVersionLabel(QLabel):
     # ── Styling ──────────────────────────────────────────────────────
 
     def _apply_base_style(self):
-        color = "#6B7280" if self._is_dark else "#ABABAB"
+        color = "#888" if self._is_dark else "#ABABAB"
         self.setStyleSheet(
             f"font-family: 'Segoe UI'; font-size: 9px; color: {color}; "
             f"background: transparent; border: none;"
         )
 
     def _apply_update_style(self):
-        color = "#38BDF8" if self._is_dark else "#0078D4"
+        color = "#d1d5db" if self._is_dark else "#0078D4"
         self.setStyleSheet(
             f"font-family: 'Segoe UI'; font-size: 9px; font-weight: bold; "
             f"color: {color}; background: transparent; border: none;"

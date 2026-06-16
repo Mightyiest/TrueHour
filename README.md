@@ -1,4 +1,4 @@
-# True Hours v3.1.1-beta.2
+# True Hours v3.3.0
 
 > **A lightweight, privacy-first desktop time tracker with a modern Fluent Design UI, supporting Windows & macOS.**
 
@@ -14,13 +14,13 @@ True Hours automatically monitors your active window to track productivity, calc
 
 | | Feature | Description |
 |---|---|---|
-| 🕒 | **Time Tracking** | Detects the foreground app and logs usage with second-level precision. |
+| 🕒 | **Time Tracking** | Detects the foreground app and logs usage with second-level precision. Features retroactive idle deduction. |
 | 📊 | **Analytics Dashboard** | Interactive PyQt6 donut & bar charts with live and historical category breakdowns. |
 | 📄 | **HTML Templates** | Editable invoice and session report templates in `templates/` — easy to customize externally. |
 | 🩺 | **Self-Healing Templates** | Missing template files are auto-regenerated at runtime, preventing crashes. |
 | 🧾 | **Invoice Builder** | Dynamic invoicing with multi-email chip inputs, masked addresses, QR code graphics, and A4 PDF printing. |
 | 💰 | **Earnings Calculator** | Set an hourly rate and watch earnings accumulate live during active sessions. |
-| 🛡️ | **Smart Exclusions** | Auto-ignores system processes; manually exclude apps (e.g. Spotify) from work time. |
+| 🛡️ | **Smart Exclusions** | Auto-ignores system processes, manually exclude apps, and automatically ignores TrueHour itself via PID matching. |
 | 🔒 | **Anti-Tamper Security** | Monotonic clock protection, NTP validation, and SHA-256 hash chaining with real-time integrity scoring. |
 | 💾 | **Crash Recovery** | Unexpected closures are auto-saved to an `autosave` folder for later recovery. |
 | 📤 | **Export Options** | Export to TXT, HTML Invoice, or HTML Session Report. |
@@ -133,7 +133,7 @@ True Hours stores user data in the local app data directory:
 `%LOCALAPPDATA%\TrueHour` (or `~\TrueHour` if env var is missing).
 
 ### 1. Auto-Excluded Apps
-True Hours comes with a default list of system apps to ignore (e.g., `explorer.exe`, `svchost.exe`). You can customize this list.
+True Hours comes with a default list of system apps to ignore (e.g., `explorer.exe`, `svchost.exe`). You can customize this list. Additionally, TrueHour automatically ignores its own window using real-time PID detection, ensuring your tracking sessions aren't interrupted when you open the app to check your progress.
 
 1.  Open **Settings** in the app.
 2.  Click **"Edit Auto-Exclusions"**.
@@ -245,6 +245,15 @@ A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!
 ---
 
 ## 📅 Changelog
+
+### v3.3.0 (2026.06.16)
+- **Priority Counted Time View**: Swapped the primary display elements: the big main UI clock now displays the productive **Counted Work Time** (`00:00:00`), while the bottom footer displays the overall **Total Session Time** (`Xh XXm XXs`).
+- **Retroactive Idle Deduction**: Integrated smart idle auto-pause math. The moment the idle threshold (e.g. 2 minutes) is reached, the inactive period is retroactively deducted from both the active foreground application's tracked time and the overall session duration.
+- **Process-Level Self-Exclusion**: Implemented native self-exclusion. TrueHour now detects its own Process ID (PID) on both Windows and macOS and automatically marks itself as ignored, allowing you to open the tracker to check stats without interrupting your active tracking.
+
+### v3.2.0-beta (2026.06.04)
+- **Update Channel & Notification Label**: Replaced the static footer version label with a fade-in/fade-out animated update label that alerts users when a newer release is available and prompts them to download it from GitHub.
+- **Channel-Aware Update Checking**: Built an asynchronous background updater that supports semantic versioning (SemVer) and release channel ranking (Alpha, Beta, RC, Stable). Automatically compares candidate release channels to ensure appropriate pre-release/stable upgrade paths.
 
 ### v3.1.1-beta.2 (2026.06.03)
 - **App List Layout & Elision Fix**: Re-engineered the application usage rows with a custom `ElidedLabel` that automatically truncates long process titles using ellipsis (`...`), preventing layout stretching, hiding of the time and tag columns, or horizontal scrolling.

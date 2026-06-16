@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>TrueHour Goals Console</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-body: #F8FAFC;
+            --bg-card: #FFFFFF;
+            --border: #E2E8F0;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --text-light: #94A3B8;
+            --accent: #4F46E5;
+            --accent-gradient-start: #6366F1;
+            --accent-gradient-end: #4F46E5;
+            --card-shadow: 0 10px 40px -15px rgba(15, 23, 42, 0.04);
+            --hover-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.08);
+            --ring-bg: #E2E8F0;
+        }
+
+        body.dark {
+            --bg-body: #141414;
+            --bg-card: #1e1e1e;
+            --border: #333333;
+            --text-main: #e0e0e0;
+            --text-muted: #aaa;
+            --text-light: #888;
+            --accent: #e0e0e0;
+            --accent-gradient-start: #e0e0e0;
+            --accent-gradient-end: #e0e0e0;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            --ring-bg: #2d2d2d;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 960px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Header Bar Styling */
+        header {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px 32px;
+            margin-bottom: 24px;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-section h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Badges for profile and rate */
+        .badge-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .badge {
+            font-family: 'Outfit', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            padding: 4px 10px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .controls-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            user-select: none;
+        }
+
+        .toggle-container input {
+            cursor: pointer;
+            accent-color: #4F46E5;
+            width: 16px;
+            height: 16px;
+        }
+
+        .btn-test, .btn-theme {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #F1F5F9;
+            color: #0F172A;
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-test svg, .btn-theme svg {
+            transition: stroke 0.2s ease, fill 0.2s ease;
+            stroke: currentColor;
+        }
+        .btn-test:hover, .btn-theme:hover {
+            background: #E2E8F0;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        body.dark .btn-test, body.dark .btn-theme {
+            background: #27272a;
+            color: #f4f4f5;
+        }
+        body.dark .btn-test:hover, body.dark .btn-theme:hover {
+            background: #3f3f46;
+            color: #ffffff;
+            border-color: #52525b;
+        }
+
+        /* Combined Progress Bar */
+        .overall-progress {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+        }
+        .overall-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        .progress-bar-bg {
+            height: 8px;
+            background: var(--ring-bg);
+            border-radius: 999px;
+            overflow: hidden;
+            width: 100%;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+            border-radius: 999px;
+            width: 0%;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Earnings Warning Banner */
+        .warning-banner {
+            width: 100%;
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            color: #D97706;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 500;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        body.dark .warning-banner {
+            background: rgba(245, 158, 11, 0.12);
+            border-color: rgba(245, 158, 11, 0.35);
+            color: #FBBF24;
+        }
+
+        /* Earnings Goal Card Layout */
+        .earnings-goal-card {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 20px;
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        /* Period Switcher (Daily vs Weekly) */
+        .period-switcher {
+            display: inline-flex;
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 4px;
+            margin-bottom: 4px;
+        }
+        .switcher-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-family: 'Outfit', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 6px 18px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .switcher-btn:hover {
+            color: var(--text-main);
+        }
+        .switcher-btn.active {
+            background: #16A34A;
+            color: #FFFFFF !important;
+        }
+        body.dark .switcher-btn.active {
+            color: #ffffff !important;
+        }
+
+        .btn-reset {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(239, 68, 68, 0.05);
+            color: #EF4444;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-reset svg {
+            transition: stroke 0.2s ease;
+            stroke: currentColor;
+        }
+        .btn-reset:hover {
+            background: rgba(239, 68, 68, 0.12);
+            color: #DC2626;
+            border-color: rgba(239, 68, 68, 0.4);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.05);
+        }
+        body.dark .btn-reset {
+            background: rgba(239, 68, 68, 0.1);
+            color: #F87171;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        body.dark .btn-reset:hover {
+            background: rgba(239, 68, 68, 0.2);
+            color: #EF4444;
+            border-color: rgba(239, 68, 68, 0.5);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);
+        }
+
+        /* Section Divider */
+        .section-divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 32px 0 16px 0;
+            width: 100%;
+        }
+        .section-divider h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-muted);
+            white-space: nowrap;
+            letter-spacing: -0.2px;
+        }
+        .divider-line {
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* Grid of Focus Cards */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            width: 100%;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 16px;
+            position: relative;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--hover-shadow);
+        }
+
+        .card-header {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .color-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .card-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.2px;
+        }
+
+        /* Radial Progress Chart SVG */
+        .ring-container {
+            position: relative;
+            width: 120px;
+            height: 120px;
+        }
+
+        .ring-svg {
+            transform: rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }
+
+        .ring-bg-circle {
+            fill: none;
+            stroke: var(--ring-bg);
+            stroke-width: 8;
+        }
+
+        .ring-progress-circle {
+            fill: none;
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 301.6; /* 2 * PI * R (R=48) */
+            stroke-dashoffset: 301.6;
+            transition: stroke-dashoffset 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .ring-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .ring-percent {
+            font-family: 'Outfit', sans-serif;
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        .ring-hours-tracked {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-top: -2px;
+        }
+
+        /* Slider adjustments section */
+        .adjust-section {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .goal-label-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .slider-input {
+            width: 100%;
+            height: 6px;
+            border-radius: 999px;
+            outline: none;
+            cursor: pointer;
+            background: var(--ring-bg);
+            -webkit-appearance: none;
+        }
+
+        .slider-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #FFFFFF;
+            border: 2px solid var(--accent);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+        .slider-input::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        /* Presets layout */
+        .presets-row {
+            display: flex;
+            width: 100%;
+            max-width: 400px;
+            justify-content: space-between;
+            gap: 6px;
+        }
+
+        .preset-btn {
+            flex: 1;
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 8px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .preset-btn:hover {
+            background: var(--border);
+            color: var(--text-main);
+        }
+
+        .preset-btn.active {
+            background: #16A34A;
+            border-color: #16A34A;
+            color: #FFFFFF !important;
+        }
+
+        body.dark .preset-btn.active {
+            color: #ffffff !important;
+        }
+
+        /* Read-only Category breakdown styles */
+        .breakdown-card {
+            align-items: stretch;
+            text-align: left;
+            padding: 20px;
+            gap: 12px;
+        }
+        .breakdown-details {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+        .breakdown-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+        .breakdown-stat .lbl {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .breakdown-stat .val {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        /* Footer styling matches invoice.html */
+        .invoice-footer { 
+            margin-top: 48px; 
+            text-align: center; 
+            padding: 20px 0;
+            border-top: 1px solid var(--border);
+            width: 100%;
+        }
+        .footer-link { 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            color: var(--text-muted); 
+            text-decoration: none; 
+            font-family: 'Outfit', sans-serif;
+            font-size: 12.5px; 
+            font-weight: 600; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            background-color: var(--bg-card); 
+            border: 1px solid var(--border);
+        }
+
+        .footer-link svg {
+            stroke: currentColor;
+            fill: none;
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 20px 10px; }
+            header { padding: 20px; }
+            .header-top { flex-direction: column; align-items: flex-start; gap: 16px; }
+            .controls-section { width: 100%; justify-content: space-between; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <div class="logo-section">
+                    <h1>🎯 Focus Goals Studio</h1>
+                    <div class="badge-row">
+                        <span class="badge" id="badge-profile">👤 Profile: Default</span>
+                        <span class="badge" id="badge-rate">💵 Rate: $0.00/hr</span>
+                    </div>
+                </div>
+                <div class="controls-section">
+                    <button class="btn-theme" onclick="toggleTheme()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                        </svg>
+                        <span>Theme</span>
+                    </button>
+                    <label class="toggle-container">
+                        <input type="checkbox" id="chk-alerts" onchange="toggleAlerts()">
+                        <span>Milestone Alerts</span>
+                    </label>
+                    <button class="btn-test" onclick="sendTestAlert()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                        <span>Send Test Alert</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="overall-progress">
+                <div class="overall-info">
+                    <span id="overall-title">Overall Weekly Earnings Progress</span>
+                    <span id="overall-percent">$0.00 / $120.00 (0.0%)</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="overall-fill"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Weekly Earnings Goal Section -->
+        <div class="earnings-goal-card">
+            <div class="card-header">
+                <span class="card-title">💰 Focus Earnings Goal</span>
+            </div>
+            
+            <!-- Period Selector Switcher & Reset Row -->
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <div class="period-switcher">
+                    <button class="switcher-btn" id="btn-period-daily" onclick="setPeriod('daily')">Daily</button>
+                    <button class="switcher-btn active" id="btn-period-weekly" onclick="setPeriod('weekly')">Weekly</button>
+                </div>
+                <button class="btn-reset" onclick="resetProgress()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                    </svg>
+                    <span>Reset Progress</span>
+                </button>
+            </div>
+            
+            <div class="warning-banner" id="warning-rate" style="display: none;">
+                ⚠️ Hourly rate is set to $0.00. Set an hourly rate in TrueHour settings to track earnings.
+            </div>
+            
+            <div class="ring-container">
+                <svg class="ring-svg" viewBox="0 0 120 120">
+                    <circle class="ring-bg-circle" cx="60" cy="60" r="48" />
+                    <circle class="ring-progress-circle" id="earnings-ring-circle" cx="60" cy="60" r="48" 
+                            style="stroke: #16A34A; stroke-dashoffset: 301.6px;" />
+                </svg>
+                <div class="ring-text">
+                    <span class="ring-percent" id="earnings-ring-percent" style="color: #16A34A">0%</span>
+                    <span class="ring-hours-tracked" id="earnings-ring-value">$0.00</span>
+                </div>
+            </div>
+
+            <div class="adjust-section">
+                <div class="goal-label-row">
+                    <span id="lbl-goal-title">Target Goal</span>
+                    <span id="earnings-goal-lbl">Off</span>
+                </div>
+                <input type="range" class="slider-input" id="earnings-slider" 
+                       min="0" max="1000" step="10" value="0"
+                       style="--accent: #16A34A;"
+                       oninput="handleSliderInput(this.value)"
+                       onchange="saveGoals()"
+                       onmousedown="window.isDragging = true"
+                       onmouseup="window.isDragging = false"
+                       ontouchstart="window.isDragging = true"
+                       ontouchend="window.isDragging = false">
+            </div>
+
+            <!-- Dynamic presets row -->
+            <div class="presets-row" id="presets-container">
+                <!-- Dynamically loaded presets -->
+            </div>
+        </div>
+
+        <!-- Category contributions separator -->
+        <div class="section-divider">
+            <h2>Category Contributions</h2>
+            <div class="divider-line"></div>
+        </div>
+
+        <main class="cards-grid" id="cards-container">
+            <!-- Project Cards will be loaded here dynamically -->
+        </main>
+
+        <div class="invoice-footer">
+            <a href="https://mightyiest.github.io/TrueHour/" target="_blank" class="footer-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+                </svg>
+                Powered by TrueHour - View on GitHub
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Set state injected from server or fetch fallback
+        /*{{INITIAL_STATE}}*/
+        let state = window.INITIAL_STATE || {
+            weekly_goals: {},
+            enable_goal_tray_alerts: true,
+            weekly_base_focus_seconds: {},
+            active_seconds: {},
+            project_colors: {},
+            weekly_earnings_goal: 0.0,
+            hourly_rate: 0.0,
+            currency_symbol: "$",
+            earnings_goal_period: "weekly",
+            active_profile: "Default"
+        };
+
+        // DOM elements
+        const container = document.getElementById("cards-container");
+        const chkAlerts = document.getElementById("chk-alerts");
+        const overallPercent = document.getElementById("overall-percent");
+        const overallFill = document.getElementById("overall-fill");
+
+        // Initialize App
+        function init() {
+            // Apply Dark/Light mode depending on settings
+            if (state.dark_mode) {
+                document.body.classList.add("dark");
+            } else {
+                document.body.classList.remove("dark");
+            }
+
+            chkAlerts.checked = state.enable_goal_tray_alerts;
+            render();
+            
+            // Poll for state updates every 3 seconds to keep track of active sessions
+            setInterval(fetchUpdates, 3000);
+        }
+
+        async function fetchUpdates() {
+            try {
+                const res = await fetch("/api/goals");
+                if (res.ok) {
+                    const data = await res.json();
+                    // Merge live fields
+                    state.weekly_base_focus_seconds = data.weekly_base_focus_seconds;
+                    state.active_seconds = data.active_seconds;
+                    state.enable_goal_tray_alerts = data.enable_goal_tray_alerts;
+                    state.hourly_rate = data.hourly_rate;
+                    state.currency_symbol = data.currency_symbol;
+                    state.active_profile = data.active_profile;
+                    chkAlerts.checked = state.enable_goal_tray_alerts;
+                    
+                    if (!window.isDragging) {
+                        state.weekly_earnings_goal = data.weekly_earnings_goal;
+                        state.earnings_goal_period = data.earnings_goal_period;
+                    }
+                    render();
+                }
+            } catch (e) {
+                console.error("Failed to poll weekly focus data", e);
+            }
+        }
+
+        function calculateTrackedSeconds(proj) {
+            const base = state.weekly_base_focus_seconds[proj] || 0.0;
+            const active = state.active_seconds[proj] || 0.0;
+            return base + active;
+        }
+
+        function render() {
+            const period = state.earnings_goal_period || "weekly";
+            const hourlyRate = state.hourly_rate || 0.0;
+            const currentGoal = state.weekly_earnings_goal || 0.0;
+
+            // Update header badges
+            document.getElementById("badge-profile").textContent = `👤 Profile: ${state.active_profile || 'Default'}`;
+            document.getElementById("badge-rate").textContent = `💵 Rate: ${state.currency_symbol}${hourlyRate.toFixed(2)}/hr`;
+
+            // Update Period Switcher UI active states
+            const btnWeekly = document.getElementById("btn-period-weekly");
+            const btnDaily = document.getElementById("btn-period-daily");
+            if (period === "daily") {
+                btnDaily.classList.add("active");
+                btnWeekly.classList.remove("active");
+                document.getElementById("overall-title").textContent = "Overall Daily Earnings Progress";
+                document.getElementById("lbl-goal-title").textContent = "Daily Target Goal";
+            } else {
+                btnWeekly.classList.add("active");
+                btnDaily.classList.remove("active");
+                document.getElementById("overall-title").textContent = "Overall Weekly Earnings Progress";
+                document.getElementById("lbl-goal-title").textContent = "Weekly Target Goal";
+            }
+
+            // Calculate overall totals
+            let totalTrackedSeconds = 0.0;
+            const projects = Object.keys(state.project_colors).filter(p => p !== "Unassigned");
+            
+            projects.forEach(proj => {
+                totalTrackedSeconds += calculateTrackedSeconds(proj);
+            });
+
+            const totalTrackedHours = totalTrackedSeconds / 3600.0;
+            const totalEarnings = totalTrackedHours * hourlyRate;
+
+            // Show/Hide hourly rate warning
+            const warningRate = document.getElementById("warning-rate");
+            if (warningRate) {
+                warningRate.style.display = hourlyRate <= 0 ? "block" : "none";
+            }
+
+            const pct = currentGoal > 0 ? Math.min(100, (totalEarnings / currentGoal) * 100) : 0;
+            
+            // SVG circular progress ring variables
+            const circumference = 301.6;
+            const strokeOffset = circumference - (pct / 100) * circumference;
+
+            const ringCircle = document.getElementById("earnings-ring-circle");
+            const ringPercent = document.getElementById("earnings-ring-percent");
+            const ringValue = document.getElementById("earnings-ring-value");
+
+            if (ringCircle) {
+                ringCircle.style.strokeDashoffset = `${strokeOffset}px`;
+            }
+            if (ringPercent) {
+                ringPercent.textContent = `${pct.toFixed(0)}%`;
+            }
+            if (ringValue) {
+                ringValue.textContent = `${state.currency_symbol}${totalEarnings.toFixed(2)}`;
+            }
+
+            // Update goal visual label
+            const goalLbl = document.getElementById("earnings-goal-lbl");
+            if (goalLbl) {
+                goalLbl.textContent = currentGoal > 0 ? `${state.currency_symbol}${currentGoal.toFixed(0)}` : 'Off';
+            }
+
+            // Update slider boundaries and value
+            const slider = document.getElementById("earnings-slider");
+            if (slider && !window.isDragging) {
+                if (period === "daily") {
+                    slider.max = "300";
+                    slider.step = "5";
+                } else {
+                    slider.max = "1000";
+                    slider.step = "10";
+                }
+                slider.value = currentGoal;
+            }
+
+            // Render dynamic presets
+            const presetsContainer = document.getElementById("presets-container");
+            if (presetsContainer) {
+                const values = period === "daily" ? [0, 20, 50, 100, 200] : [0, 50, 120, 250, 500];
+                let presetsHtml = "";
+                values.forEach(val => {
+                    const label = val === 0 ? "Off" : `${state.currency_symbol}${val}`;
+                    const activeClass = currentGoal === val ? "active" : "";
+                    presetsHtml += `<button class="preset-btn ${activeClass}" id="preset-earnings-${val}" onclick="setPreset(${val})">${label}</button>`;
+                });
+                presetsContainer.innerHTML = presetsHtml;
+            }
+
+            // Update overall progress bar
+            if (currentGoal > 0) {
+                overallPercent.textContent = `${pct.toFixed(1)}% (${state.currency_symbol}${totalEarnings.toFixed(2)} / ${state.currency_symbol}${currentGoal.toFixed(2)})`;
+                overallFill.style.width = `${pct}%`;
+            } else {
+                overallPercent.textContent = `${state.currency_symbol}${totalEarnings.toFixed(2)} earned (Goal: Off)`;
+                overallFill.style.width = `0%`;
+            }
+
+            // Render project category breakdown list
+            let breakdownHtml = "";
+            projects.forEach(proj => {
+                const color = state.project_colors[proj] || "#64748B";
+                const trackedSeconds = calculateTrackedSeconds(proj);
+                const trackedHours = trackedSeconds / 3600.0;
+                const earnedAmount = trackedHours * hourlyRate;
+
+                breakdownHtml += `
+                    <div class="card breakdown-card">
+                        <div class="card-header">
+                            <div class="color-dot" style="background-color: ${color}"></div>
+                            <span class="card-title">${proj}</span>
+                        </div>
+                        <div class="breakdown-details">
+                            <div class="breakdown-stat">
+                                <span class="lbl">Time Tracked</span>
+                                <span class="val">${trackedHours.toFixed(1)}h</span>
+                            </div>
+                            <div class="breakdown-stat">
+                                <span class="lbl">Estimated Earnings</span>
+                                <span class="val">${state.currency_symbol}${earnedAmount.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = breakdownHtml;
+        }
+
+        function handleSliderInput(val) {
+            const numericVal = parseFloat(val);
+            state.weekly_earnings_goal = numericVal;
+            
+            // Instantly update visual label
+            const goalLbl = document.getElementById("earnings-goal-lbl");
+            if (goalLbl) {
+                goalLbl.textContent = numericVal > 0 ? `${state.currency_symbol}${numericVal.toFixed(0)}` : 'Off';
+            }
+
+            // Instantly recalculate progress rings
+            let totalTrackedSeconds = 0.0;
+            const projects = Object.keys(state.project_colors).filter(p => p !== "Unassigned");
+            projects.forEach(proj => {
+                totalTrackedSeconds += calculateTrackedSeconds(proj);
+            });
+            const totalTrackedHours = totalTrackedSeconds / 3600.0;
+            const hourlyRate = state.hourly_rate || 0.0;
+            const totalEarnings = totalTrackedHours * hourlyRate;
+
+            const pct = numericVal > 0 ? Math.min(100, (totalEarnings / numericVal) * 100) : 0;
+            const circumference = 301.6;
+            const strokeOffset = circumference - (pct / 100) * circumference;
+
+            const ringCircle = document.getElementById("earnings-ring-circle");
+            const ringPercent = document.getElementById("earnings-ring-percent");
+            if (ringCircle) {
+                ringCircle.style.strokeDashoffset = `${strokeOffset}px`;
+            }
+            if (ringPercent) {
+                ringPercent.textContent = `${pct.toFixed(0)}%`;
+            }
+
+            // Update preset active classes in real-time
+            const period = state.earnings_goal_period || "weekly";
+            const values = period === "daily" ? [0, 20, 50, 100, 200] : [0, 50, 120, 250, 500];
+            values.forEach(val => {
+                const btn = document.getElementById(`preset-earnings-${val}`);
+                if (btn) {
+                    if (numericVal === val) {
+                        btn.classList.add("active");
+                    } else {
+                        btn.classList.remove("active");
+                    }
+                }
+            });
+
+            // Update overall progress layout
+            if (numericVal > 0) {
+                overallPercent.textContent = `${pct.toFixed(1)}% (${state.currency_symbol}${totalEarnings.toFixed(2)} / ${state.currency_symbol}${numericVal.toFixed(2)})`;
+                overallFill.style.width = `${pct}%`;
+            } else {
+                overallPercent.textContent = `${state.currency_symbol}${totalEarnings.toFixed(2)} earned (Goal: Off)`;
+                overallFill.style.width = `0%`;
+            }
+        }
+
+        async function setPreset(val) {
+            handleSliderInput(val);
+            const slider = document.getElementById("earnings-slider");
+            if (slider) slider.value = val;
+            
+            // Immediate save
+            await saveGoals();
+        }
+
+        async function setPeriod(period) {
+            state.earnings_goal_period = period;
+            // Default reset the goal on period switch to match bounds comfortably
+            state.weekly_earnings_goal = 0.0;
+            
+            render();
+            
+            try {
+                await fetch("/api/goals", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        earnings_goal_period: period,
+                        weekly_earnings_goal: 0.0
+                    })
+                });
+            } catch (e) {
+                console.error("Failed to toggle goal period", e);
+            }
+        }
+
+        async function saveGoals() {
+            try {
+                await fetch("/api/goals", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ weekly_earnings_goal: state.weekly_earnings_goal })
+                });
+            } catch (e) {
+                console.error("Failed to save goals", e);
+            }
+        }
+
+        async function toggleAlerts() {
+            const enabled = chkAlerts.checked;
+            try {
+                await fetch("/api/settings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ enable_goal_tray_alerts: enabled })
+                });
+            } catch (e) {
+                console.error("Failed to toggle alerts setting", e);
+            }
+        }
+
+        async function toggleTheme() {
+            const isDark = !document.body.classList.contains("dark");
+            if (isDark) {
+                document.body.classList.add("dark");
+            } else {
+                document.body.classList.remove("dark");
+            }
+            state.dark_mode = isDark;
+            render();
+            
+            try {
+                await fetch("/api/settings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ dark_mode: isDark })
+                });
+            } catch (e) {
+                console.error("Failed to update theme setting", e);
+            }
+        }
+
+        async function sendTestAlert() {
+            try {
+                await fetch("/api/test-notification", { method: "POST" });
+            } catch (e) {
+                console.error("Failed to send test alert", e);
+            }
+        }
+
+        async function resetProgress() {
+            const period = state.earnings_goal_period || "weekly";
+            if (!confirm(`Are you sure you want to reset your tracked focus progress and earnings for this ${period} period?\n\nThis will start your goal tracking from now, but will not delete your historical reports.`)) {
+                return;
+            }
+            try {
+                const res = await fetch("/api/goals/reset", { method: "POST" });
+                if (res.ok) {
+                    await fetchUpdates();
+                } else {
+                    console.error("Failed to reset progress");
+                }
+            } catch (e) {
+                console.error("Failed to reset progress", e);
+            }
+        }
+
+        // Run Initialization
+        init();
+    </script>
+</body>
+</html>

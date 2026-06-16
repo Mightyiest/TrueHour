@@ -50,4 +50,7 @@ build_telemetry.bat
 telemetry_config.py
 
 
-*.spec
+*.ps1
+worker-invoke.sh
+codebase-memory-mcp
+PROJECT_INDEX.md

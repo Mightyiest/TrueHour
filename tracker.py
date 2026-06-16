@@ -4,10 +4,20 @@ Monitors the active foreground window and records app usage durations.
 Includes tamper-resistant time tracking with monotonic clocks and hash chaining.
 """
 
-import time
-import threading
+import logging
+import os
+import platform as _platform
 import sys
+import threading
+import time
 import ctypes as _ctypes
+import json
+from datetime import datetime, timedelta
+from typing import Optional
+
+from appinfo import get_foreground_app_info
+from config import get_app_data_dir, DynamicPath
+from secure_time import get_detector, reset_detector
 
 def _get_idle_seconds():
     """Return seconds since last mouse/keyboard input (cross-platform)."""
@@ -30,11 +40,11 @@ def _get_idle_seconds():
             if not lib_path:
                 lib_path = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics"
             cg = _ctypes.CDLL(lib_path)
-            
+
             # CGEventSourceSecondsSinceLastEventType is double CGEventSourceSecondsSinceLastEventType(int, int)
             cg.CGEventSourceSecondsSinceLastEventType.restype = _ctypes.c_double
             cg.CGEventSourceSecondsSinceLastEventType.argtypes = [_ctypes.c_int32, _ctypes.c_uint32]
-            
+
             # kCGEventSourceStateCombinedSessionState = 0
             # kCGAnyInputEventType = ~0 (0xFFFFFFFF)
             idle_seconds = cg.CGEventSourceSecondsSinceLastEventType(0, 0xFFFFFFFF)
@@ -47,17 +57,6 @@ def _get_idle_seconds():
             except Exception:
                 return 0.0
     return 0.0
-
-
-
-import os
-import json
-import logging
-from datetime import datetime, timedelta
-from typing import Optional
-from appinfo import get_foreground_app_info
-from config import get_app_data_dir, DynamicPath
-from secure_time import get_detector, reset_detector
 
 # Configure logging for security events
 logger = logging.getLogger(__name__)
@@ -73,7 +72,6 @@ if not logger.handlers:
 
 # Default auto-excluded apps written on first launch only.
 # User edits to the file are never overwritten.
-import platform as _platform
 _SYSTEM = _platform.system()
 
 if _SYSTEM == "Darwin":
@@ -93,6 +91,9 @@ if _SYSTEM == "Darwin":
 # To exclude a new app, add its name on a new line.
 # Changes take effect on the next session start.
 # ══════════════════════════════════════════════════════════════════
+
+# ── TrueHour Self-Exclusion ───────────────────────────────────────
+TrueHour
 
 # ── macOS Core System UI & Desktop ─────────────────────────────────
 Finder
@@ -135,6 +136,10 @@ else:
 # To exclude a new app, add its .exe name on a new line.
 # Changes take effect on the next session start.
 # ══════════════════════════════════════════════════════════════════
+
+# ── TrueHour Self-Exclusion ───────────────────────────────────────
+truehour.exe
+truehour
 
 # ── Windows Shell & Desktop ────────────────────────────────────────
 explorer.exe
@@ -235,7 +240,7 @@ def create_auto_excluded_if_missing():
             with open(AUTO_EXCLUDE_FILE, "r", encoding="utf-8") as f:
                 content = f.read()
             content_lower = content.lower()
-            
+
             # Extract all default active executables/apps from _DEFAULT_AUTO_EXCLUDED
             default_apps = []
             is_windows = _platform.system() == "Windows"
@@ -246,14 +251,14 @@ def create_auto_excluded_if_missing():
                     if is_windows and not exe.endswith(".exe"):
                         exe += ".exe"
                     default_apps.append((line, exe))
-            
+
             missing_additions = []
             for raw_name, exe_name in default_apps:
                 base_name = exe_name[:-4] if (is_windows and exe_name.endswith(".exe")) else exe_name
                 # Check if this app/process is present in the file
                 if base_name not in content_lower:
                     missing_additions.append(raw_name)
-                
+
             if missing_additions:
                 with open(AUTO_EXCLUDE_FILE, "a", encoding="utf-8") as f:
                     f.write("\n# ── Automatically Excluded Apps (Added via update) ──\n")
@@ -302,10 +307,9 @@ def _load_auto_excluded():
         logger.warning(f"Failed to load auto-exclude file: {e}")
 
 
-def reload_auto_excluded(lock=None):
+def reload_auto_excluded():
     """
     Reload auto_excluded_apps.txt into _AUTO_EXCLUDED_EXES.
-    Thread-safe: pass the tracker's _lock if called while session is running.
 
     Changes take effect on the next app switch in _poll_loop.
     The currently tracked app is never interrupted.
@@ -343,6 +347,8 @@ def _is_auto_excluded(exe_path):
     """Return True if this exe should be completely ignored by the tracker."""
     if exe_path:
         exe_name = os.path.basename(exe_path).lower()
+        if exe_name in ("truehour.exe", "truehour"):
+            return True
         # Fast path: check set membership without lock (set lookups are thread-safe for reads)
         return exe_name in _AUTO_EXCLUDED_EXES
     return False
@@ -359,7 +365,7 @@ TAGS_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "tags.json"))
 class TagManager:
     """Manages application project/category tags locally and thread-safely."""
     DEFAULT_PROJECTS = ["Development", "Design", "Research", "Documentation", "Communication", "Management", "Unassigned"]
-    
+
     # Offline keyword lists
     KEYWORDS = {
         "Development": ["code", "studio", "compiler", "ide", "git", "docker", "sublime", "debugger", "terminal", "powershell", "python", "node", "npm", "cargo", "msbuild", "visual studio", "pycharm", "intellij", "vscode"],
@@ -369,13 +375,13 @@ class TagManager:
         "Research": ["chrome", "firefox", "edge", "safari", "browser", "google", "search", "wikipedia", "navigator", "opera", "brave"],
         "Management": ["project", "jira", "trello", "asana", "trello", "clickup", "monday.com", "board", "gantt", "backlog"]
     }
-    
+
     def __init__(self):
         self.lock = threading.Lock()
         self.projects = list(self.DEFAULT_PROJECTS)
         self.mappings = {}
         self._load_tags()
-        
+
     def _load_tags(self):
         if not os.path.exists(TAGS_FILE):
             self._save_tags()
@@ -392,7 +398,7 @@ class TagManager:
             logger.warning(f"Failed to load tags config: {e}")
             self.projects = list(self.DEFAULT_PROJECTS)
             self.mappings = {}
-            
+
     def _save_tags(self):
         try:
             dirpath = os.path.dirname(TAGS_FILE)
@@ -407,15 +413,15 @@ class TagManager:
             os.replace(temp_file, TAGS_FILE)
         except Exception as e:
             logger.warning(f"Failed to save tags config: {e}")
-            
+
     def get_tag(self, app_name: str, exe_path: str = "") -> str:
         """Get tag for app. If not mapped, runs offline heuristics + asynchronous online fallback."""
         key = app_name.lower().strip()
-        
+
         with self.lock:
             if key in self.mappings:
                 return self.mappings[key]
-                
+
         # If not mapped, perform offline matching
         matched_tag = self._match_offline(app_name, exe_path)
         if matched_tag:
@@ -423,24 +429,24 @@ class TagManager:
                 self.mappings[key] = matched_tag
                 self._save_tags()
             return matched_tag
-            
+
         # If offline fails, start a background online fetch
         # Set to "Unassigned" temporarily, then update asynchronously
         with self.lock:
             self.mappings[key] = "Unassigned"
             self._save_tags()
-            
+
         # Start background thread to query DDG API
         threading.Thread(target=self._fetch_and_update_tag_online, args=(app_name, exe_path), daemon=True).start()
         return "Unassigned"
-        
+
     def set_tag(self, app_name: str, tag: str):
         key = app_name.lower().strip()
         with self.lock:
             if tag in self.projects or tag == "Unassigned":
                 self.mappings[key] = tag
                 self._save_tags()
-                
+
     def add_project(self, project: str) -> bool:
         project = project.strip()
         if not project:
@@ -451,7 +457,7 @@ class TagManager:
                 self._save_tags()
                 return True
         return False
-        
+
     def remove_project(self, project: str) -> bool:
         if project == "Unassigned":
             return False  # Protect Unassigned
@@ -467,28 +473,88 @@ class TagManager:
         return False
 
     def _match_offline(self, app_name: str, exe_path: str) -> Optional[str]:
-        """Offline keyword heuristic matching."""
-        # Clean terms to search
-        search_terms = [app_name.lower()]
+        """Offline token-based scoring heuristic matching."""
+        app_name_lower = app_name.lower().strip()
+        exe_name = ""
+        desc_lower = ""
+        company_lower = ""
+        product_lower = ""
+
         if exe_path:
             exe_name = os.path.basename(exe_path).lower()
             if exe_name.endswith(".exe"):
                 exe_name = exe_name[:-4]
-            search_terms.append(exe_name)
-            
-            # Fetch FileDescription locally
-            from appinfo import _get_file_description
+
+            # Local imports to prevent circular dependency
+            from appinfo import _get_file_description, get_company_name, get_product_name
             desc = _get_file_description(exe_path)
             if desc:
-                search_terms.append(desc.lower())
-                
-        # Match search terms against keywords
+                desc_lower = desc.lower().strip()
+
+            comp = get_company_name(exe_path)
+            if comp:
+                company_lower = comp.lower().strip()
+
+            prod = get_product_name(exe_path)
+            if prod:
+                product_lower = prod.lower().strip()
+
+        scores = {cat: 0.0 for cat in self.KEYWORDS}
+
+        # 1. High priority company/brand mappings
+        if "adobe" in company_lower or "adobe" in product_lower or "photoshop" in app_name_lower or "illustrator" in app_name_lower:
+            scores["Design"] += 5.0
+        if "jetbrains" in company_lower or "intellij" in product_lower or "pycharm" in product_lower or "webstorm" in product_lower:
+            scores["Development"] += 5.0
+        if "autodesk" in company_lower or "autocad" in product_lower:
+            scores["Design"] += 5.0
+        if "slack" in app_name_lower or "slack" in exe_name:
+            scores["Communication"] += 5.0
+        if "discord" in app_name_lower or "discord" in exe_name:
+            scores["Communication"] += 5.0
+        if "zoom" in app_name_lower or "zoom" in exe_name:
+            scores["Communication"] += 5.0
+        if "figma" in app_name_lower or "figma" in exe_name:
+            scores["Design"] += 5.0
+        if "github" in company_lower or "github" in product_lower or "git" in exe_name:
+            scores["Development"] += 5.0
+
+        # 2. Tokenize all input strings
+        all_texts = [app_name_lower, exe_name, desc_lower, product_lower, company_lower]
+        all_tokens = set()
+        for text in all_texts:
+            if text:
+                clean_text = "".join(c if c.isalnum() else " " for c in text)
+                all_tokens.update(clean_text.split())
+
+        # 3. Check tokens against KEYWORDS
         for category, words in self.KEYWORDS.items():
-            for term in search_terms:
-                for word in words:
-                    if word in term:
-                        return category
+            for word in words:
+                # Exact token match
+                if word in all_tokens:
+                    scores[category] += 3.0
+                else:
+                    # Substring match within individual tokens
+                    for token in all_tokens:
+                        if len(token) > len(word) and word in token:
+                            scores[category] += 1.0
+                            break
+
+        # 4. Find category with the maximum score using tie-breaker priority order
+        max_score = 0.0
+        best_category = None
+        priority = ["Development", "Design", "Documentation", "Communication", "Research", "Management"]
+
+        for category in priority:
+            if scores.get(category, 0.0) > max_score:
+                max_score = scores[category]
+                best_category = category
+
+        if max_score > 0.0:
+            return best_category
+
         return None
+
 
     def _fetch_and_update_tag_online(self, app_name: str, exe_path: str):
         """Asynchronously query DuckDuckGo and update mapping on success."""
@@ -496,7 +562,7 @@ class TagManager:
             import urllib.request
             import urllib.parse
             import ssl
-            
+
             # Use app name or file description for better search accuracy
             search_query = app_name
             if exe_path:
@@ -504,19 +570,19 @@ class TagManager:
                 desc = _get_file_description(exe_path)
                 if desc and len(desc) > 3:
                     search_query = desc
-                    
+
             url = f"https://api.duckduckgo.com/?q={urllib.parse.quote(search_query)}&format=json&no_html=1&skip_disambig=1"
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) TrueHour/1.0'})
-            
+
             # Create SSL context with certificate verification (matches secure_time.py)
             ssl_context = ssl.create_default_context()
-            
+
             # Query DuckDuckGo API with SSL verification and 3.0s timeout
             with urllib.request.urlopen(req, timeout=3.0, context=ssl_context) as response:
                 if response.status == 200:
                     data = json.loads(response.read().decode('utf-8'))
                     abstract = data.get("AbstractText", "") or data.get("Abstract", "")
-                    
+
                     if abstract:
                         abstract_lower = abstract.lower()
                         # Run our keyword matcher against the online description
@@ -528,7 +594,7 @@ class TagManager:
                                     break
                             if matched_tag:
                                 break
-                                
+
                         if matched_tag:
                             key = app_name.lower().strip()
                             with self.lock:
@@ -567,7 +633,7 @@ class SessionStorage:
                     "_current_block_start": tracker._current_block_start,
                     "_current_block_active": tracker._current_block_active
                 }
-            
+
             # Atomic file swap
             temp_file = filepath + ".tmp"
             with open(temp_file, "w", encoding="utf-8") as f:
@@ -619,7 +685,7 @@ class AppTracker:
         self.persistent_excluded = set()
         self._load_settings()
         self.tag_manager = TagManager()
-        
+
         # Idle auto-pause
         self.idle_threshold_seconds = 0  # 0 = disabled
         self._idle_paused = False
@@ -671,12 +737,12 @@ class AppTracker:
         """Begin a tracking session."""
         if self.running:
             return
-        
+
         # Initialize security detector for this session
         reset_detector()
         self.security_detector = get_detector()
         self.security_detector.start_session()
-        
+
         self.running = True
         self.paused = False
         self.session_start = datetime.now()
@@ -710,11 +776,11 @@ class AppTracker:
         if self.paused and self._pause_start:
             self._total_paused_time += (time.time() - self._pause_start)
             self._pause_start = None
-            
+
         if self._thread:
             self._thread.join(timeout=0.1)  # Non-blocking: thread exits via running flag
             self._thread = None
-            
+
         # Finalize security detector
         if self.security_detector:
             security_report = self.security_detector.end_session()
@@ -724,7 +790,7 @@ class AppTracker:
                     "score": security_report["trust_score"],
                     "events_count": security_report.get("tamper_events_count", len(security_report.get("tamper_events", [])))
                 })
-        
+
         if os.path.exists(ACTIVE_SESSION_FILE):
             try:
                 # Validate file path before deletion
@@ -736,12 +802,12 @@ class AppTracker:
                     os.remove(ACTIVE_SESSION_FILE)
             except OSError as e:
                 logger.warning(f"Failed to remove active session file: {e}")
-    
+
     def get_security_status(self):
         """Return current security/integrity status of the session."""
         if not self.security_detector:
             return {"status": "NOT_STARTED", "trust_level": "UNKNOWN"}
-        
+
         report = self.security_detector.get_session_report()
         return {
             "status": "ACTIVE" if self.running else "ENDED",
@@ -764,7 +830,7 @@ class AppTracker:
                 return False
             with open(ACTIVE_SESSION_FILE, "r", encoding="utf-8") as f:
                 state = json.load(f)
-                
+
             self.session_start = datetime.fromtimestamp(state["session_start"])
             self.app_times = state["app_times"]
             self.app_included = state.get("app_included", {})
@@ -779,12 +845,12 @@ class AppTracker:
             self.paused = state.get("paused", False)
             self._pause_start = state.get("_pause_start")
             self._total_paused_time = state.get("_total_paused_time", 0)
-            
+
             c_app = state.get("_current_app")
             c_start = state.get("_current_start")
             c_block_start = state.get("_current_block_start")
             c_block_active = state.get("_current_block_active", 0)
-            
+
             if c_app and c_block_start:
                 crash_time = os.path.getmtime(ACTIVE_SESSION_FILE)
                 if c_start:
@@ -802,20 +868,20 @@ class AppTracker:
                         "start": datetime.fromtimestamp(c_block_start),
                         "end": datetime.fromtimestamp(c_block_start + c_block_active)
                     })
-            
+
             self._current_app = None
             self._current_start = None
             self.running = True
             self.session_end = None
             self.is_recovered = True
-            
+
             # Adjust paused time to account for the gap while the app was closed
             now = datetime.now()
             tracked_duration = sum(self.app_times.values())
             self._total_paused_time = max(0, (now - self.session_start).total_seconds() - tracked_duration)
             if self.paused:
                 self._pause_start = time.time()  # reset so UI shows correct paused state
-            
+
             self.resume_snapshot = None  # Crash recovery — not a user-initiated resume
             self._last_save_time = time.time()
             self._thread = threading.Thread(target=self._poll_loop, daemon=True)
@@ -829,12 +895,12 @@ class AppTracker:
         from report import load_session_json
         try:
             rep = load_session_json(filepath)
-            
+
             self.session_name = rep.get("session_name", "")
-            
+
             self.session_start = datetime.strptime(rep['date'] + " " + rep['start'], "%Y-%m-%d %H:%M:%S")
             self.session_end = None
-            
+
             self.app_exe_paths = rep.get("app_exe_paths", {})
 
             # Load app_times but strip any auto-excluded apps from old sessions
@@ -846,11 +912,11 @@ class AppTracker:
                 secs = a['seconds']
                 included = not a['excluded']
                 exe_path = self.app_exe_paths.get(name, "")
-                
+
                 if not _is_auto_excluded(exe_path) and name != "[Idle]":
                     self.app_times[name] = secs
                     self.app_included[name] = included
-                
+
             self.timeline.clear()
             for t in rep['timeline']:
                 # load_session_json returns datetime objects; handle both formats
@@ -860,33 +926,33 @@ class AppTracker:
                 else:
                     t_start = datetime.strptime(rep['date'] + " " + t['start'], "%Y-%m-%d %H:%M:%S")
                     t_end = datetime.strptime(rep['date'] + " " + t['end'], "%Y-%m-%d %H:%M:%S")
-                
+
                 # Midnight crossover guard
                 if t_end <= t_start:
                     t_end += timedelta(days=1)
-                    
+
                 self.timeline.append({
                     "app": t['app'],
                     "start": t_start,
                     "end": t_end
                 })
-                
+
             self._current_app = None
             self._current_start = None
             self._current_block_start = None
             self._current_block_active = 0
             self.integrity_warnings = []
-            
+
             # Initialize security detector for resumed session
             reset_detector()
             self.security_detector = get_detector()
             self.security_detector.start_session()
-            
+
             # Important: Adjust paused time so the timer respects the saved duration
             # (Now - Start) - Paused = Saved_Duration
             now = datetime.now()
             self._total_paused_time = (now - self.session_start).total_seconds() - rep['total_seconds']
-            
+
             self.paused = False
             self._pause_start = None
             self.running = True
@@ -902,70 +968,21 @@ class AppTracker:
             logger.warning(f"Failed to load from report: {e}")
             return False
 
-    def load_crash_data(self):
-        """Loads crash data into the tracker instance without starting the thread."""
-        if not os.path.exists(ACTIVE_SESSION_FILE):
-            return False
-        try:
-            with open(ACTIVE_SESSION_FILE, "r", encoding="utf-8") as f:
-                state = json.load(f)
-            self.session_start = datetime.fromtimestamp(state["session_start"])
-            self.session_name = state.get("session_name", "")
-            self.app_times = state["app_times"]
-            self.app_included = state.get("app_included", {})
-            self.app_exe_paths = state.get("app_exe_paths", {})
-            self.timeline = []
-            for t in state["timeline"]:
-                self.timeline.append({
-                    "app": t["app"],
-                    "start": datetime.fromtimestamp(t["start"]),
-                    "end": datetime.fromtimestamp(t["end"])
-                })
-            
-            # Restore pause data
-            self.paused = state.get("paused", False)
-            self._pause_start = time.time() if self.paused else None
-            self._total_paused_time = state.get("_total_paused_time", 0)
-            
-            # Flush any current app active during the crash
-            c_app = state.get("_current_app")
-            c_start = state.get("_current_start")
-            c_block_start = state.get("_current_block_start")
-            c_block_active = state.get("_current_block_active", 0)
-            if c_app and c_block_start:
-                crash_time = os.path.getmtime(ACTIVE_SESSION_FILE)
-                if c_start:
-                    elapsed = crash_time - c_start
-                    if elapsed > 0:
-                        if elapsed > self.poll_interval + 2.0:
-                            elapsed = self.poll_interval
-                        if self.app_included.get(c_app, True):
-                            self.app_times[c_app] = self.app_times.get(c_app, 0) + elapsed
-                            c_block_active += elapsed
-                
-                if c_block_active >= self.min_track_seconds:
-                    self.timeline.append({
-                        "app": c_app,
-                        "start": datetime.fromtimestamp(c_block_start),
-                        "end": datetime.fromtimestamp(c_block_start + c_block_active)
-                    })
-            
-            self.session_end = datetime.fromtimestamp(os.path.getmtime(ACTIVE_SESSION_FILE))
-            self.is_recovered = True
-            
-            # Initialize security detector for recovered session
-            self.security_detector = get_detector()
-            return True
-        except Exception:
-            return False
 
-    def toggle_pause(self):
+    def toggle_pause(self, is_idle=False):
         with self._lock:
             if not self.running:
                 return False
             self.paused = not self.paused
             now = time.time()
             if self.paused:
+                if is_idle:
+                    deduct = self.idle_threshold_seconds
+                    if self._current_app:
+                        self.app_times[self._current_app] = max(0.0, self.app_times.get(self._current_app, 0.0) - deduct)
+                        self._current_block_active = max(0.0, self._current_block_active - deduct)
+                    self._total_paused_time += deduct
+
                 self._flush_current_unlocked(now)
                 self._current_app = None
                 self._current_start = None
@@ -985,15 +1002,12 @@ class AppTracker:
                 self.persistent_excluded.discard(app_name)
             self._save_settings()
 
-    def get_included(self, app_name):
-        with self._lock:
-            return self.app_included.get(app_name, True)
 
     def get_app_times_sorted(self):
         # Fast path: avoid lock if no apps tracked yet
         if not self.app_times:
             return []
-        
+
         with self._lock:
             return [
                 (name, secs, self.app_included.get(name, True))
@@ -1019,15 +1033,6 @@ class AppTracker:
                 and not _is_auto_excluded(self.app_exe_paths.get(a, ""))
             )
 
-    def get_total_seconds(self):
-        # Fast path: avoid lock if no apps tracked yet
-        if not self.app_times:
-            return 0
-        with self._lock:
-            return sum(
-                s for a, s in self.app_times.items()
-                if not _is_auto_excluded(self.app_exe_paths.get(a, ""))
-            )
 
     def get_elapsed(self):
         """Seconds since session started."""
@@ -1113,7 +1118,7 @@ class AppTracker:
         """Main tracking loop - optimized to reduce callback overhead."""
         last_callback_time = 0
         callback_interval = 0.5  # Only trigger UI update every 500ms max
-        
+
         while self.running:
             # ── Idle auto-pause check ────────────────────────────────
             if self.idle_threshold_seconds > 0:
@@ -1121,7 +1126,7 @@ class AppTracker:
                 if not self.paused and idle_secs >= self.idle_threshold_seconds:
                     # User went idle — auto-pause
                     self._idle_paused = True
-                    self.toggle_pause()
+                    self.toggle_pause(is_idle=True)
                     if self.on_update:
                         try: self.on_update()
                         except: pass
@@ -1141,7 +1146,7 @@ class AppTracker:
             now = time.time()
 
             should_callback = (now - last_callback_time) >= callback_interval
-            
+
             with self._lock:
                 # Completely skip auto-excluded apps — do not record, do not store.
                 # Instead, we "pretend" the last real app is still focused.
@@ -1163,7 +1168,7 @@ class AppTracker:
                             self.app_included[app] = False
                         else:
                             self.app_included[app] = (app != "[Idle]")
-                    
+
                     # Always callback on app switch for immediate UI response
                     should_callback = True
                 else:
@@ -1180,14 +1185,14 @@ class AppTracker:
                         )
                         self._current_block_active += elapsed
                         self._current_start = now
-                        
+
                         # Security: Validate and record with tamper detection
                         if self.security_detector and self._current_app and self.app_included.get(self._current_app, True):
                             validation = self.security_detector.validate_and_record(
-                                self._current_app, 
+                                self._current_app,
                                 elapsed
                             )
-                            
+
                             # Log integrity issues
                             if validation["integrity_status"] == "TAMPER_DETECTED":
                                 warning = {
@@ -1221,4 +1226,4 @@ class AppTracker:
             time.sleep(self.poll_interval)
 
     def _save_active_state(self):
-        SessionStorage.save_state(self, ACTIVE_SESSION_FILE) 
+        SessionStorage.save_state(self, ACTIVE_SESSION_FILE)

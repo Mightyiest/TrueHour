@@ -10,7 +10,7 @@ report_queue = Queue()
 def add_report_job(report_type: str, start_date: str, end_date: str, output_path: str = None) -> str:
     job_id = str(uuid.uuid4())
     created_at = datetime.now().isoformat()
-    
+
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -21,7 +21,7 @@ def add_report_job(report_type: str, start_date: str, end_date: str, output_path
         conn.commit()
     finally:
         conn.close()
-        
+
     report_queue.put(job_id)
     return job_id
 
@@ -54,7 +54,7 @@ def update_job(job_id: str, status: str, progress: int, error_message: str = Non
     try:
         cursor = conn.cursor()
         completed_at = datetime.now().isoformat() if status in (ReportStatus.COMPLETE, ReportStatus.FAILED) else None
-        
+
         if output_path is not None:
             cursor.execute("""
                 UPDATE report_jobs
@@ -74,12 +74,12 @@ def update_job(job_id: str, status: str, progress: int, error_message: str = Non
 def process_reports():
     # Import builder dynamically to avoid circular references
     from core.reporting.builder import generate_report
-    
+
     while True:
         job_id = report_queue.get()
         if job_id is None:
             break
-            
+
         try:
             update_job(job_id, ReportStatus.RUNNING, 5)
             generate_report(job_id)

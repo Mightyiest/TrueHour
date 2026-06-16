@@ -1,13 +1,12 @@
 """
 TrueHour — Custom Reusable UI Widgets & Dialog Component Leaf Nodes
 """
-import os
 from PyQt6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QCheckBox, QDialog, QLayout, QInputDialog, QSizePolicy
 )
-from PyQt6.QtCore import Qt, QSize, QPoint, QRect, QRectF
-from PyQt6.QtGui import QPixmap, QPainter, QBrush, QColor, QPen, QPainterPath
+from PyQt6.QtCore import Qt, QSize, QPoint, QRect
+from PyQt6.QtGui import QPixmap, QPainter, QBrush, QColor, QPainterPath
 
 from theme import get_svg_icon, get_tag_color
 from assets import EDIT_SVG
@@ -23,7 +22,7 @@ class QRThumbnailWidget(QFrame):
         self.link_url = initial_url
         self.on_remove = on_remove
         self.on_link_changed = on_link_changed
-        
+
         self.setFixedSize(72, 72)
         self.setStyleSheet("""
             QRThumbnailWidget {
@@ -35,11 +34,11 @@ class QRThumbnailWidget(QFrame):
                 border-color: #0078D4;
             }
         """)
-        
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(0)
-        
+
         # QR image thumbnail
         pix = QPixmap(qr_full_path)
         self.thumb_lbl = QLabel(self)
@@ -51,7 +50,7 @@ class QRThumbnailWidget(QFrame):
         self.thumb_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.thumb_lbl.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(self.thumb_lbl)
-        
+
         # Overlay remove button
         self.remove_btn = QPushButton("✕", self)
         self.remove_btn.setFixedSize(18, 18)
@@ -71,12 +70,12 @@ class QRThumbnailWidget(QFrame):
         """)
         self.remove_btn.move(54, 0)
         self.remove_btn.clicked.connect(self.on_remove)
-        
+
         # Overlay edit button (pencil icon in the middle)
         self.edit_btn = QPushButton(self)
         self.edit_btn.setFixedSize(24, 24)
         self.edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        
+
         # SVG icon
         self.edit_btn.setIcon(get_svg_icon(EDIT_SVG, QSize(16, 16)))
         self.edit_btn.setIconSize(QSize(16, 16))
@@ -97,7 +96,7 @@ class QRThumbnailWidget(QFrame):
         self.edit_btn.setVisible(False)
         self.edit_btn.setToolTip("Add/Edit QR Code Link")
         self.edit_btn.clicked.connect(self._edit_link)
-        
+
         # Overlay for URL status indicator
         self.link_indicator = QLabel(self)
         self.link_indicator.setFixedSize(10, 10)
@@ -108,8 +107,8 @@ class QRThumbnailWidget(QFrame):
 
     def _edit_link(self):
         url, ok = QInputDialog.getText(
-            self, 
-            "Edit QR Code Link", 
+            self,
+            "Edit QR Code Link",
             "Enter hyperlink for this QR code (when clicked on invoice):",
             QLineEdit.EchoMode.Normal,
             self.link_url
@@ -154,7 +153,7 @@ class EmailChipWidget(QWidget):
 
         self._input.returnPressed.connect(self._on_commit)
         self._input.textChanged.connect(self._on_text_changed)
-        
+
         self.update_theme()
 
     def update_theme(self):
@@ -164,11 +163,11 @@ class EmailChipWidget(QWidget):
         win = self.window()
         if win:
             is_dark = win.palette().color(win.backgroundRole()).value() < 128
-        bg_widget = "#161D30" if is_dark else "#FFFFFF"
-        border_color = "#24304F" if is_dark else "#E2E8F0"
-        text_color = "#F3F4F6" if is_dark else "#0F172A"
-        accent = "#38BDF8" if is_dark else "#0078D4"
-        
+        bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
+        border_color = "#333333" if is_dark else "#E2E8F0"
+        text_color = "#e0e0e0" if is_dark else "#0F172A"
+        accent = "#d1d5db" if is_dark else "#0078D4"
+
         self._input.setStyleSheet(f"""
             QLineEdit {{
                 border: 1px solid {border_color};
@@ -217,10 +216,10 @@ class EmailChipWidget(QWidget):
         win = self.window()
         if win:
             is_dark = win.palette().color(win.backgroundRole()).value() < 128
-        chip_bg = "#1E293B" if is_dark else "#EEF2FF"
-        chip_border = "#334155" if is_dark else "#C7D2FE"
-        chip_text = "#38BDF8" if is_dark else "#3730A3"
-        chip_close = "#94A3B8" if is_dark else "#6366F1"
+        chip_bg = "#262626" if is_dark else "#EEF2FF"
+        chip_border = "#333333" if is_dark else "#C7D2FE"
+        chip_text = "#d1d5db" if is_dark else "#3730A3"
+        chip_close = "#888" if is_dark else "#6366F1"
 
         chip = QFrame(self._chip_container)
         chip.setStyleSheet(f"""
@@ -359,27 +358,27 @@ class FlowLayout(QLayout):
         row_height = 0
         space_x = self.spacing()
         space_y = self.spacing()
-        
+
         for item in self._items:
             widget = item.widget()
             if not widget:
                 continue
             item_width = item.sizeHint().width()
             item_height = item.sizeHint().height()
-            
+
             next_x = x + item_width + space_x
             if next_x - space_x > rect.right() - margins.right() and row_height > 0:
                 x = rect.x() + margins.left()
                 y = y + row_height + space_y
                 next_x = x + item_width + space_x
                 row_height = 0
-                
+
             if not test_only:
                 item.setGeometry(QRect(QPoint(x, y), item.sizeHint()))
-                
+
             x = next_x
             row_height = max(row_height, item_height)
-            
+
         return y + row_height - rect.y() + margins.bottom()
 
 # ── Invoice Privacy Options Dialog ──────────────────────────────────
@@ -389,7 +388,7 @@ class InvoicePrivacyOptionsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Invoice Privacy Options")
         self.setFixedSize(380, 240)
-        
+
         # Robust theme detection
         self.is_dark = False
         if is_dark is not None:
@@ -404,62 +403,62 @@ class InvoicePrivacyOptionsDialog(QDialog):
             elif hasattr(parent, "window") and parent.window():
                 p_win = parent.window()
                 self.is_dark = p_win.palette().color(p_win.backgroundRole()).value() < 128
-        
+
         # Apply dialog-level Fluent Design styling
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(self.is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon())
+        qss = get_qss_style(self.is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.is_dark))
         self.setStyleSheet(qss)
         self.setPalette(get_dark_palette() if self.is_dark else get_light_palette())
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
-        
+
         self.title = QLabel("Privacy & Masking Options", self)
         layout.addWidget(self.title)
-        
+
         self.desc = QLabel("Select which sensitive details you would like to mask on this invoice:", self)
         self.desc.setWordWrap(True)
         layout.addWidget(self.desc)
-        
+
         # Options Group
         self.options_box = QFrame(self)
         options_layout = QVBoxLayout(self.options_box)
         options_layout.setContentsMargins(12, 8, 12, 8)
         options_layout.setSpacing(6)
-        
+
         self.cb_biz_email = QCheckBox("Mask business contact emails (e.g. bu**@****.com)", self.options_box)
         self.cb_biz_email.setChecked(default_biz_email)
         options_layout.addWidget(self.cb_biz_email)
-        
+
         self.cb_biz_phone = QCheckBox("Mask business contact phone (e.g. +1***)", self.options_box)
         self.cb_biz_phone.setChecked(default_biz_phone)
         options_layout.addWidget(self.cb_biz_phone)
-        
+
         self.cb_client_email = QCheckBox("Mask client contact emails (e.g. cl**@****.com)", self.options_box)
         self.cb_client_email.setChecked(default_client_email)
         options_layout.addWidget(self.cb_client_email)
-        
+
         layout.addWidget(self.options_box)
-        
+
         # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        
+
         cancel_btn = QPushButton("Cancel", self)
         cancel_btn.setObjectName("NormalButton")
         cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         cancel_btn.clicked.connect(self.reject)
-        
+
         gen_btn = QPushButton("Generate", self)
         gen_btn.setObjectName("AccentButton")
         gen_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         gen_btn.clicked.connect(self.accept)
-        
+
         btn_layout.addWidget(cancel_btn)
         btn_layout.addWidget(gen_btn)
         layout.addLayout(btn_layout)
-        
+
         self._apply_theme()
 
     def changeEvent(self, event):
@@ -474,26 +473,26 @@ class InvoicePrivacyOptionsDialog(QDialog):
     def _apply_theme(self):
         if not hasattr(self, "title"):
             return
-            
+
         is_dark = self.is_dark
-            
+
         if is_dark:
-            title_color = "#F3F4F6"
-            desc_color = "#94A3B8"
-            box_bg = "#1E293B"
-            box_border = "#334155"
-            cb_color = "#F3F4F6"
+            title_color = "#e0e0e0"
+            desc_color = "#aaa"
+            box_bg = "#262626"
+            box_border = "#333333"
+            cb_color = "#e0e0e0"
         else:
             title_color = "#1A1A1A"
             desc_color = "#64748B"
             box_bg = "#F8FAFC"
             box_border = "#E2E8F0"
             cb_color = "#1A1A1A"
-            
+
         self.title.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: {title_color}; border: none; background: transparent;")
         self.desc.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: {desc_color}; border: none; background: transparent;")
         self.options_box.setStyleSheet(f"QFrame {{ background-color: {box_bg}; border: 1px solid {box_border}; border-radius: 8px; }}")
-        
+
         cb_style = f"border: none; background: transparent; font-family: 'Segoe UI'; font-size: 12px; color: {cb_color};"
         self.cb_biz_email.setStyleSheet(cb_style)
         self.cb_biz_phone.setStyleSheet(cb_style)
@@ -513,10 +512,10 @@ class SegmentedAllocationBar(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
+
         w = self.width()
         h = self.height()
-        
+
         total_secs = sum(pb["seconds"] for pb in self.project_breakdown)
         if total_secs <= 0:
             # Draw placeholder gray bar
@@ -580,45 +579,45 @@ class AppUsageRow(QFrame):
         self.on_toggle = on_toggle
         self.on_tag_click = on_tag_click
         self._icon_loaded = False
-        
+
         self.setObjectName("AppUsageRow")
         self.init_ui()
-        
+
     def init_ui(self):
         self.setFixedHeight(32)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 0, 8, 0)
         layout.setSpacing(8)
-        
+
         self.cb = QCheckBox(self)
         self.cb.setChecked(self.included)
         self.cb.stateChanged.connect(self._cb_changed)
         layout.addWidget(self.cb)
-        
+
         self.icon_lbl = QLabel(self)
         self.icon_lbl.setFixedSize(16, 16)
         self.icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.icon_lbl)
-        
+
         self.name_lbl = ElidedLabel(self.app_name, self)
         self.name_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
         layout.addWidget(self.name_lbl)
-        
+
         layout.addStretch()
-        
+
         self.tag_lbl = QPushButton(self.tag, self)
         self.tag_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
         self.tag_lbl.setFixedWidth(90)
         self._update_tag_style()
         self.tag_lbl.clicked.connect(lambda: self.on_tag_click(self.app_name, self.tag_lbl))
         layout.addWidget(self.tag_lbl)
-        
+
         self.time_lbl = QLabel(format_duration(self.secs), self)
         self.time_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; font-weight: 500;")
         self.time_lbl.setFixedWidth(80)
         self.time_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(self.time_lbl)
-        
+
         self._apply_row_style()
 
     def update_time(self, secs):
@@ -676,6 +675,6 @@ class AppUsageRow(QFrame):
             text_color = "#F3F4F6" if self.included else "#64748B"
         else:
             text_color = "#1A1A1A" if self.included else "#ABABAB"
-            
+
         self.name_lbl.setStyleSheet(f"color: {text_color}; font-family: 'Segoe UI'; font-size: 13px;")
         self.time_lbl.setStyleSheet(f"color: {text_color}; font-family: 'Segoe UI'; font-size: 13px; font-weight: 500;")

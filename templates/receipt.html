@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Receipt - {{BUSINESS_NAME}}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-body: #f6f6f6;
+            --bg-card: #ffffff;
+            --border: #e8e8e8;
+            --text-main: #1a1a1a;
+            --text-muted: #555555;
+            --text-light: #717171;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            
+            --accent: #1e3050;
+            --accent-hover: #0f1d35;
+            --accent-gradient-start: #1e3050;
+            --accent-gradient-end: #1e3050;
+            --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
+        }
+
+        body.dark {
+            --bg-body: #141414;
+            --bg-card: #1e1e1e;
+            --border: #333333;
+            --text-main: #e0e0e0;
+            --text-muted: #aaa;
+            --text-light: #888;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            
+            --accent: #e0e0e0;
+            --accent-hover: #ffffff;
+            --accent-gradient-start: #e0e0e0;
+            --accent-gradient-end: #e0e0e0;
+            --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
+        }
+
+        body.dark .print-actions-bar {
+            background: rgba(30, 30, 30, 0.75);
+            border-color: rgba(51, 51, 51, 0.8);
+        }
+        body.dark .print-btn {
+            background: #27272a;
+            color: #f4f4f5;
+            border: 1px solid #3f3f46;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+        body.dark .print-btn:hover {
+            background: #3f3f46;
+            color: #ffffff;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+        }
+
+        .theme-toggle-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+        .theme-toggle-btn:hover {
+            background-color: var(--bg-body);
+            border-color: var(--accent);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+            background-color: var(--bg-body); 
+            color: var(--text-main); 
+            line-height: 1.5; 
+            padding: 20px 16px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            transition: background 0.3s ease;
+        }
+
+        .print-actions-bar { 
+            width: 100%; 
+            max-width: 650px; 
+            background: rgba(255, 255, 255, 0.75); 
+            backdrop-filter: blur(16px); 
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(226, 232, 240, 0.8); 
+            border-radius: 10px; 
+            padding: 8px 16px; 
+            margin-bottom: 12px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: var(--card-shadow);
+        }
+        .action-left-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .status-pill {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .print-btn { 
+            background: var(--accent-gradient-start);
+            background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            font-family: 'Outfit', sans-serif;
+            font-size: 13.5px;
+            font-weight: 600; 
+            cursor: pointer; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        .print-btn:hover { 
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.2);
+        }
+
+        .receipt-container { 
+            position: relative;
+            width: 100%; 
+            max-width: 650px; 
+            background-color: var(--bg-card); 
+            border: 1px solid var(--border); 
+            border-radius: 16px; 
+            padding: 32px 40px; 
+            box-shadow: var(--card-shadow); 
+            transition: all 0.3s ease;
+        }
+        
+        .receipt-header-row { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            border-bottom: 2px solid var(--bg-body); 
+            padding-bottom: 20px; 
+            margin-bottom: 24px; 
+        }
+        .receipt-logo { 
+            max-width: 180px; 
+            max-height: 52px; 
+            object-fit: contain; 
+            margin-bottom: 8px; 
+            display: block; 
+        }
+        .profile-title { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px; 
+            font-weight: 700; 
+            color: var(--text-main); 
+            letter-spacing: -0.02em; 
+        }
+        .profile-details { 
+            font-size: 12px; 
+            color: var(--text-muted); 
+            margin-top: 4px; 
+            line-height: 1.4; 
+        }
+        
+        .meta-column { text-align: right; }
+        .receipt-badge { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 24px; 
+            font-weight: 800; 
+            background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.03em; 
+            margin-bottom: 8px; 
+        }
+        .meta-item { 
+            font-size: 12px; 
+            color: var(--text-muted); 
+            margin-bottom: 4px; 
+        }
+        .meta-item strong {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        .section-label { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 10px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            color: var(--accent); 
+            letter-spacing: 0.1em; 
+            margin-bottom: 8px; 
+        }
+        .party-name { 
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px; 
+            font-weight: 700; 
+            color: var(--text-main); 
+        }
+        .party-address { 
+            font-size: 12px; 
+            color: var(--text-muted); 
+            margin-top: 4px; 
+            line-height: 1.45; 
+        }
+
+        .summary-box { 
+            background-color: var(--bg-body); 
+            border: 1px solid var(--border); 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin-bottom: 24px;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dashed var(--border);
+        }
+        .summary-row:last-child {
+            border-bottom: none;
+            padding-top: 12px;
+        }
+        .summary-label {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .summary-value {
+            font-size: 13px;
+            color: var(--text-main);
+            font-weight: 600;
+        }
+        .summary-value.highlight {
+            font-family: 'Outfit', sans-serif;
+            font-size: 20px;
+            color: var(--success);
+            font-weight: 800;
+        }
+
+        .receipt-footer { 
+            margin-top: 12px; 
+            text-align: center; 
+            padding: 10px; 
+            font-size: 11px;
+            color: var(--text-light);
+        }
+
+        @page {
+            size: auto;
+            margin: 0; 
+        }
+
+        @media print { 
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background-color: #ffffff; color: #1a1a1a; padding: 8mm 12mm; margin: 0; font-size: 11px; } 
+            body.dark { background-color: var(--bg-card); color: var(--text-main); }
+            .print-actions-bar { display: none; } 
+            .receipt-container { background-color: transparent !important; border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; } 
+            .receipt-header-row { padding-bottom: 14px; margin-bottom: 14px; }
+            .receipt-badge { font-size: 20px; margin-bottom: 4px; }
+            .receipt-logo { max-height: 40px; margin-bottom: 4px; }
+            .summary-box { padding: 12px; }
+            .receipt-footer { margin-top: 14px; padding: 6px 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-actions-bar">
+        <div class="action-left-info">
+            <div class="status-pill">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <span>Receipt Confirmed</span>
+            </div>
+            
+            <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
+                <svg id="theme-icon-dark" class="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+                <svg id="theme-icon-light" class="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <span id="theme-text">Dark Mode</span>
+            </button>
+        </div>
+        
+        <button class="print-btn" onclick="window.print()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            Print / Save PDF
+        </button>
+    </div>
+    
+    <div class="receipt-container">
+        <div style="position: absolute; top: 30px; right: 40px; border: 4px double var(--success); color: var(--success); font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; padding: 4px 14px; border-radius: 8px; transform: rotate(-8deg); text-transform: uppercase; letter-spacing: 0.1em; background-color: var(--success-bg); pointer-events: none; user-select: none; z-index: 10;">PAID RECEIPT</div>
+
+        <div class="receipt-header-row">
+            <div>
+                {{LOGO_HTML}}
+                <div class="profile-title">{{BUSINESS_NAME}}</div>
+                <div class="profile-details">
+                    {{BUSINESS_ADDRESS}}<br>
+                    {{BUSINESS_CONTACT}}
+                </div>
+            </div>
+            <div class="meta-column">
+                <div class="receipt-badge">RECEIPT</div>
+                <div class="meta-item"><strong>Receipt No:</strong> {{RECEIPT_NO}}</div>
+                <div class="meta-item"><strong>Date:</strong> {{DATE}}</div>
+            </div>
+        </div>
+        
+        <div class="details-grid">
+            <div>
+                <div class="section-label">Issued By</div>
+                <div class="party-name">{{BUSINESS_NAME}}</div>
+                <div class="party-address">{{BUSINESS_ADDRESS}}</div>
+            </div>
+            <div>
+                <div class="section-label">Billed To</div>
+                <div class="party-name">{{CLIENT_NAME}}</div>
+                <div class="party-address">{{CLIENT_ADDRESS}}</div>
+                {{CLIENT_EMAILS_HTML}}
+            </div>
+        </div>
+        
+        <div class="summary-box">
+            <div class="section-label" style="margin-bottom: 12px;">Payment Summary</div>
+            <div class="summary-row">
+                <span class="summary-label">Total Time Tracked</span>
+                <span class="summary-value">{{HOURS_COUNTED}} hrs</span>
+            </div>
+            <div class="summary-row">
+                <span class="summary-label">Hourly Billing Rate</span>
+                <span class="summary-value">{{HOURLY_RATE}}</span>
+            </div>
+            <div class="summary-row">
+                <span class="summary-label">Total Amount Paid</span>
+                <span class="summary-value highlight">{{TOTAL_AMOUNT_PAID}}</span>
+            </div>
+        </div>
+        
+        <div class="receipt-footer">
+            Thank you for your business! Powered by TrueHour.
+        </div>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('dark');
+            const themeText = document.getElementById('theme-text');
+            const iconLight = document.getElementById('theme-icon-light');
+            const iconDark = document.getElementById('theme-icon-dark');
+            
+            if (isDark) {
+                themeText.textContent = 'Light Mode';
+                iconLight.style.display = 'none';
+                iconDark.style.display = 'inline-block';
+            } else {
+                themeText.textContent = 'Dark Mode';
+                iconLight.style.display = 'inline-block';
+                iconDark.style.display = 'none';
+            }
+            try {
+                localStorage.setItem('truehour-theme', isDark ? 'dark' : 'light');
+            } catch(e) {}
+        }
+        
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                const savedTheme = localStorage.getItem('truehour-theme') || (document.body.classList.contains('dark') ? 'dark' : 'light');
+                if (savedTheme === 'dark') {
+                    document.body.classList.add('dark');
+                    document.getElementById('theme-text').textContent = 'Light Mode';
+                    document.getElementById('theme-icon-light').style.display = 'none';
+                    document.getElementById('theme-icon-dark').style.display = 'inline-block';
+                } else {
+                    document.body.classList.remove('dark');
+                    document.getElementById('theme-text').textContent = 'Dark Mode';
+                    document.getElementById('theme-icon-light').style.display = 'inline-block';
+                    document.getElementById('theme-icon-dark').style.display = 'none';
+                }
+            } catch(e) {}
+        });
+    </script>
+</body>
+</html>

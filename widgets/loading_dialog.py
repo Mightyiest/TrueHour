@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QProgressBar, QPushButton, QHBoxLayout
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt
 from theme import get_qss_style, get_dark_palette, get_light_palette
 
 class LoadingDialog(QDialog):
@@ -10,15 +10,15 @@ class LoadingDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Processing")
         self.setFixedSize(300, 140)
-        
+
         # Frameless native UI look
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
-        
+
         # Styling Setup
         self.setStyleSheet(get_qss_style(is_dark))
         self.setPalette(get_dark_palette() if is_dark else get_light_palette())
-        
+
         self.worker = worker
         self.compiled_report = None
         self.error_message = None
@@ -26,25 +26,25 @@ class LoadingDialog(QDialog):
             self.worker.status_changed.connect(self.update_status)
             self.worker.finished.connect(self._on_worker_finished)
             self.worker.error.connect(self._on_worker_error)
-            
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(12)
-        
+
         # Message Label
         self.label = QLabel(message, self)
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; font-weight: 600; border: none;")
         layout.addWidget(self.label)
-        
+
         # Infinite Animated Progress Bar
         self.progress = QProgressBar(self)
         self.progress.setRange(0, 0) # Infinite state
         self.progress.setFixedHeight(6)
-        
+
         # Apply specific accent colors
-        accent = "#38BDF8" if is_dark else "#0078D4"
-        bg_bar = "#24304F" if is_dark else "#E2E8F0"
+        accent = "#d1d5db" if is_dark else "#0078D4"
+        bg_bar = "#333333" if is_dark else "#E2E8F0"
         self.progress.setStyleSheet(f"""
             QProgressBar {{
                 border: none;
@@ -57,7 +57,7 @@ class LoadingDialog(QDialog):
             }}
         """)
         layout.addWidget(self.progress)
-        
+
         # Cancel option
         self.was_cancelled = False
         if can_cancel:
@@ -80,10 +80,10 @@ class LoadingDialog(QDialog):
         if isinstance(percent, str):
             text = percent
             percent = -1
-            
+
         if text:
             self.label.setText(text)
-            
+
         if percent >= 0:
             self.progress.setRange(0, 100)
             self.progress.setValue(percent)

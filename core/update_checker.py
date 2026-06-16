@@ -37,10 +37,10 @@ CHANNEL_RANK = {
     "stable": 3,
 }
 
-# Regex for versions like: 3.1.1, 3.1.1-beta.2, 3.1.1-alpha.1, 3.1.1-rc.3
+# Regex for versions like: 3.1.1, 3.1.1-beta.2, 3.1.1-beta2, 3.1.1-alpha.1, 3.1.1-rc.3
 _VERSION_RE = re.compile(
     r"^v?(\d+)\.(\d+)\.(\d+)"           # major.minor.patch
-    r"(?:-(alpha|beta|rc)(?:\.(\d+))?)?" # optional -channel.N
+    r"(?:-(alpha|beta|rc)(?:\.?(\d+))?)?" # optional -channel.N or -channelN
     r"$",
     re.IGNORECASE,
 )
@@ -163,6 +163,10 @@ def _fetch_latest_releases() -> list[ReleaseInfo]:
             data = json.loads(resp.read().decode("utf-8"))
     except Exception as e:
         logger.debug(f"[UpdateChecker] Failed to fetch releases: {e}")
+        return []
+
+    if not isinstance(data, list):
+        logger.debug(f"[UpdateChecker] GitHub API response is not a list: {data}")
         return []
 
     releases = []

@@ -33,7 +33,6 @@ OVERRIDES_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "name_over
 _NAME_OVERRIDES = {}
 
 def _load_name_overrides():
-    global _NAME_OVERRIDES, _name_cache
     _NAME_OVERRIDES.clear()
     _name_cache.clear()
     if not os.path.exists(OVERRIDES_FILE):
@@ -69,14 +68,20 @@ def get_foreground_app_info():
             active_app = NSWorkspace.sharedWorkspace().activeApplication()
             if not active_app:
                 return "[Idle]", ""
+            
+            # Check if active app is our own process
+            import os
+            if active_app.get("NSApplicationProcessIdentifier") == os.getpid():
+                return "TrueHour", "truehour.exe"
+
             friendly = active_app.get("NSApplicationName", "[Idle]")
             exe_path = active_app.get("NSApplicationPath", "")
-            
+
             # Match against name overrides
             key = friendly.lower()
             if key in _NAME_OVERRIDES:
                 friendly = _NAME_OVERRIDES[key]
-                
+
             return friendly, exe_path
         except Exception as e:
             logger.warning(f"Error getting foreground app info on macOS: {e}")
@@ -90,6 +95,12 @@ def get_foreground_app_info():
         _, pid = win32process.GetWindowThreadProcessId(hwnd)
         if pid <= 0:
             return "[Idle]", ""
+        
+        # Check if the foreground window belongs to our own TrueHour process
+        import os
+        if pid == os.getpid():
+            return "TrueHour", "truehour.exe"
+
         try:
             proc = psutil.Process(pid)
             exe_path = proc.exe()
@@ -129,6 +140,34 @@ def _get_file_description(exe_path):
         logger.debug(f"Failed to get file description for {exe_path}: {e}")
     return None
 
+def get_company_name(exe_path):
+    """Extract CompanyName from an executable's version info."""
+    if SYSTEM != "Windows":
+        return None
+    try:
+        lang, codepage = win32api.GetFileVersionInfo(exe_path, '\\VarFileInfo\\Translation')[0]
+        path = f'\\StringFileInfo\\{lang:04X}{codepage:04X}\\CompanyName'
+        desc = win32api.GetFileVersionInfo(exe_path, path)
+        if desc and desc.strip():
+            return desc.strip()
+    except Exception as e:
+        logger.debug(f"Failed to get company name for {exe_path}: {e}")
+    return None
+
+def get_product_name(exe_path):
+    """Extract ProductName from an executable's version info."""
+    if SYSTEM != "Windows":
+        return None
+    try:
+        lang, codepage = win32api.GetFileVersionInfo(exe_path, '\\VarFileInfo\\Translation')[0]
+        path = f'\\StringFileInfo\\{lang:04X}{codepage:04X}\\ProductName'
+        desc = win32api.GetFileVersionInfo(exe_path, path)
+        if desc and desc.strip():
+            return desc.strip()
+    except Exception as e:
+        logger.debug(f"Failed to get product name for {exe_path}: {e}")
+    return None
+
 @lru_cache(maxsize=128)
 def get_icon_image(exe_path: str, size: int = 16):
     if not exe_path: return None
@@ -141,7 +180,7 @@ def _extract_icon(exe_path, size=16):
             # pyrefly: ignore [missing-import]
             from AppKit import NSWorkspace
             import io
-            
+
             workspace = NSWorkspace.sharedWorkspace()
             ns_image = workspace.iconForFile_(exe_path)
             if ns_image:
@@ -172,15 +211,15 @@ def _extract_icon(exe_path, size=16):
         bmp = win32ui.CreateBitmap()
         bmp.CreateCompatibleBitmap(hdc, size, size)
         old_bmp = mem_dc.SelectObject(bmp)
-        
+
         brush = win32gui.GetSysColorBrush(win32con.COLOR_WINDOW)
         win32gui.FillRect(mem_dc.GetHandleOutput(), (0, 0, size, size), brush)
         win32gui.DrawIconEx(mem_dc.GetHandleOutput(), 0, 0, hicon, size, size, 0, None, win32con.DI_NORMAL)
-        
+
         bmp_info = bmp.GetInfo()
         bmp_bits = bmp.GetBitmapBits()
         img = Image.frombuffer('RGBA', (bmp_info['bmWidth'], bmp_info['bmHeight']), bmp_bits, 'raw', 'BGRA', 0, 1)
-        
+
         # Handle Pillow deprecation
         resampler = getattr(Image, 'Resampling', Image).LANCZOS
         return img.resize((size, size), resampler)
@@ -207,52 +246,4 @@ def _extract_icon(exe_path, size=16):
             try: win32gui.DestroyIcon(icon)
             except Exception: pass
 
-def get_running_applications():
-    apps = set()
-    results = []
-    
-    if SYSTEM != "Windows":
-        # macOS Implementation using Cocoa / AppKit
-        try:
-            # pyrefly: ignore [missing-import]
-            from AppKit import NSWorkspace, NSApplicationActivationPolicyRegular
-            running_apps = NSWorkspace.sharedWorkspace().runningApplications()
-            for app in running_apps:
-                if app.activationPolicy() == NSApplicationActivationPolicyRegular:
-                    name = app.localizedName()
-                    bundle_path = app.bundleURL().path() if app.bundleURL() else ""
-                    
-                    # Match against overrides
-                    key = name.lower()
-                    if key in _NAME_OVERRIDES:
-                        name = _NAME_OVERRIDES[key]
-                        
-                    if name and name not in apps:
-                        apps.add(name)
-                        results.append((name, bundle_path))
-        except Exception as e:
-            logger.debug(f"Failed to get running apps on macOS: {e}")
-        return sorted(results, key=lambda x: x[0].lower())
 
-    # Windows Implementation
-    def enum_windows_proc(hwnd, lParam):
-        if win32gui.IsWindowVisible(hwnd) and win32gui.GetWindowText(hwnd):
-            ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
-            if not (ex_style & win32con.WS_EX_TOOLWINDOW):
-                try:
-                    _, pid = win32process.GetWindowThreadProcessId(hwnd)
-                    if pid > 0:
-                        proc = psutil.Process(pid)
-                        exe_path = proc.exe()
-                        base = proc.name()
-                        if base.lower().endswith(".exe"):
-                            base = base[:-4]
-                        friendly = resolve_name(exe_path, base)
-                        if friendly and friendly != "[Idle]" and friendly not in apps:
-                            apps.add(friendly)
-                            results.append((friendly, exe_path))
-                except Exception as e:
-                    logger.debug(f"Error enumerating window {hwnd}: {e}")
-        return True
-    win32gui.EnumWindows(enum_windows_proc, 0)
-    return sorted(results, key=lambda x: x[0].lower())

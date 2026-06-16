@@ -8,45 +8,76 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* Common Design Variables */
-            --bg-body: #F8FAFC;
-            --bg-card: #FFFFFF;
-            --border: #E2E8F0;
-            --text-main: #0F172A;
-            --text-muted: #64748B;
-            --text-light: #94A3B8;
-            --card-shadow: 0 8px 24px -10px rgba(15, 23, 42, 0.04);
-            --hover-shadow: 0 16px 32px -12px rgba(15, 23, 42, 0.06);
+            /* Common Design Variables (Light Theme) */
+            --bg-body: #f6f6f6;
+            --bg-card: #ffffff;
+            --border: #e8e8e8;
+            --text-main: #1a1a1a;
+            --text-muted: #555555;
+            --text-light: #717171;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
             
-            /* Themes Override Fallbacks */
-            --accent: #4F46E5;
-            --accent-hover: #4338CA;
-            --accent-gradient-start: #6366F1;
-            --accent-gradient-end: #4F46E5;
+            --accent: #1e3050;
+            --accent-hover: #0f1d35;
+            --accent-gradient-start: #1e3050;
+            --accent-gradient-end: #1e3050;
             --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
         }
 
-        /* Premium Theme Schemes */
-        body.theme-indigo {
-            --accent: #4F46E5;
-            --accent-hover: #4338CA;
-            --accent-gradient-start: #6366F1;
-            --accent-gradient-end: #4F46E5;
+        body.dark {
+            --bg-body: #0a0a0a;
+            --bg-card: #141414;
+            --border: #262626;
+            --text-main: #ededed;
+            --text-muted: #a3a3a3;
+            --text-light: #737373;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+            
+            --accent: #ededed;
+            --accent-hover: #ffffff;
+            --accent-gradient-start: #ededed;
+            --accent-gradient-end: #ededed;
             --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
         }
-        body.theme-teal {
-            --accent: #0D9488;
-            --accent-hover: #0F766E;
-            --accent-gradient-start: #14B8A6;
-            --accent-gradient-end: #0D9488;
-            --success: #10B981;
+
+        body.dark .print-actions-bar {
+            background: rgba(30, 30, 30, 0.75);
+            border-color: rgba(51, 51, 51, 0.8);
         }
-        body.theme-slate {
-            --accent: #334155;
-            --accent-hover: #1E293B;
-            --accent-gradient-start: #475569;
-            --accent-gradient-end: #334155;
-            --success: #059669;
+        body.dark .print-btn {
+            background: #27272a;
+            color: #f4f4f5;
+            border: 1px solid #3f3f46;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+        body.dark .print-btn:hover {
+            background: #3f3f46;
+            color: #ffffff;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+        }
+
+        .theme-toggle-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+        .theme-toggle-btn:hover {
+            background-color: var(--bg-body);
+            border-color: var(--accent);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -132,6 +163,43 @@
         .theme-pill-btn[data-theme="slate"] { background: linear-gradient(135deg, #475569, #334155); }
 
         /* Modernized Buttons */
+        .action-buttons-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .save-app-btn {
+            background: #10B981;
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            font-family: 'Outfit', sans-serif;
+            font-size: 13.5px;
+            font-weight: 600; 
+            cursor: pointer; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            box-shadow: 0 3px 10px rgba(16, 185, 129, 0.12);
+        }
+        .save-app-btn:hover { 
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.2);
+        }
+        body.dark .save-app-btn {
+            background: #064e3b;
+            color: #a7f3d0;
+            border: 1px solid #047857;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+        body.dark .save-app-btn:hover {
+            background: #047857;
+            color: #ffffff;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+        }
         .print-btn { 
             background: var(--accent-gradient-start);
             background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
@@ -156,6 +224,7 @@
 
         /* Invoice Container Overhaul */
         .invoice-container { 
+            position: relative;
             width: 100%; 
             max-width: 850px; 
             background-color: var(--bg-card); 
@@ -397,7 +466,7 @@
             display: flex; 
             flex-direction: column; 
             align-items: center; 
-            background: #FFFFFF; 
+            background: var(--bg-card); 
             border: 1px solid var(--border); 
             border-radius: 8px; 
             padding: 6px; 
@@ -459,13 +528,7 @@
             background-color: var(--bg-body); 
             border: 1px solid var(--border);
         }
-        .footer-link:hover { 
-            background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
-            color: white; 
-            border-color: transparent;
-            transform: translateY(-1px); 
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15); 
-        }
+
 
         /* Responsive Print Adjustments */
         @page {
@@ -475,9 +538,10 @@
 
         @media print { 
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            body { background-color: white; padding: 8mm 12mm; margin: 0; font-size: 11px; } 
+            body { background-color: #ffffff; color: #1a1a1a; padding: 8mm 12mm; margin: 0; font-size: 11px; } 
+            body.dark { background-color: var(--bg-card); color: var(--text-main); }
             .print-actions-bar { display: none; } 
-            .invoice-container { border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; } 
+            .invoice-container { background-color: transparent !important; border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; } 
             .invoice-header-row { padding-bottom: 14px; margin-bottom: 14px; }
             .invoice-badge { font-size: 20px; margin-bottom: 4px; }
             .invoice-logo { max-height: 40px; margin-bottom: 4px; }
@@ -496,7 +560,7 @@
         }
     </style>
 </head>
-<body class="theme-indigo">
+<body>
     <div class="print-actions-bar">
         <div class="action-left-info">
             <div class="status-pill">
@@ -507,25 +571,48 @@
                 <span>Invoice Generated</span>
             </div>
             
-            <!-- Dynamic Theme Selector Button Group -->
-            <div class="theme-selector">
-                <button class="theme-pill-btn active" data-theme="indigo" onclick="switchTheme('indigo')" title="Indigo Violet Theme"></button>
-                <button class="theme-pill-btn" data-theme="teal" onclick="switchTheme('teal')" title="Emerald Teal Theme"></button>
-                <button class="theme-pill-btn" data-theme="slate" onclick="switchTheme('slate')" title="Slate Charcoal Theme"></button>
-            </div>
+            <!-- Light/Dark Mode Switcher -->
+            <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
+                <svg id="theme-icon-dark" class="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+                <svg id="theme-icon-light" class="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <span id="theme-text">Dark Mode</span>
+            </button>
         </div>
         
-        <button class="print-btn" onclick="window.print()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                <rect x="6" y="14" width="12" height="8"></rect>
-            </svg>
-            Print / Save PDF
-        </button>
+        <div class="action-buttons-group">
+            <button id="save-app-btn" class="save-app-btn" onclick="saveToApp()" style="display: none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                    <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+                Save to Invoice Tab
+            </button>
+            <button class="print-btn" onclick="handlePrintClick()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                    <rect x="6" y="14" width="12" height="8"></rect>
+                </svg>
+                Print / Save PDF
+            </button>
+        </div>
     </div>
     
     <div class="invoice-container">
+        {{PAYMENT_CONFIRMATION_STAMP}}
         <div class="invoice-header-row">
             <div>
                 {{LOGO_HTML}}
@@ -536,7 +623,7 @@
                 </div>
             </div>
             <div class="meta-column">
-                <div class="invoice-badge">INVOICE</div>
+                <div class="invoice-badge">{{INVOICE_BADGE}}</div>
                 <div class="meta-item"><strong>Invoice No:</strong> {{INVOICE_NO}}</div>
                 <div class="meta-item"><strong>Date:</strong> {{DATE}}</div>
                 <div class="meta-item"><strong>Sessions:</strong> {{SESSIONS_COMPILED}}</div>
@@ -556,7 +643,7 @@
                 <div class="kpi-val">{{HOURS_COUNTED}} hrs</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Total Amount Due</div>
+                <div class="kpi-label">{{TOTAL_DUE_LABEL}}</div>
                 <div class="kpi-val amount-val">{{TOTAL_AMOUNT_DUE}}</div>
             </div>
         </div>
@@ -602,22 +689,130 @@
 
     <!-- Interactive Theme Changer Scripts -->
     <script>
-        function switchTheme(themeName) {
-            document.body.className = 'theme-' + themeName;
-            document.querySelectorAll('.theme-pill-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.getAttribute('data-theme') === themeName);
-            });
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('dark');
+            const themeText = document.getElementById('theme-text');
+            const iconLight = document.getElementById('theme-icon-light');
+            const iconDark = document.getElementById('theme-icon-dark');
+            
+            if (isDark) {
+                themeText.textContent = 'Light Mode';
+                iconLight.style.display = 'none';
+                iconDark.style.display = 'inline-block';
+            } else {
+                themeText.textContent = 'Dark Mode';
+                iconLight.style.display = 'inline-block';
+                iconDark.style.display = 'none';
+            }
             try {
-                localStorage.setItem('truehour-theme', themeName);
+                localStorage.setItem('truehour-theme', isDark ? 'dark' : 'light');
             } catch(e) {}
         }
         
-        // Auto-load client theme preference
+        function isPreviewMode() {
+            return window.location.protocol === 'http:' || window.location.protocol === 'https:';
+        }
+
+        let isSaving = false;
+
+        function saveToApp(silent = false) {
+            if (!isPreviewMode()) return Promise.resolve();
+            if (isSaving) return Promise.resolve();
+            
+            isSaving = true;
+            const saveBtn = document.getElementById('save-app-btn');
+            if (saveBtn) {
+                saveBtn.style.opacity = "0.6";
+                saveBtn.style.cursor = "wait";
+            }
+            
+            return fetch('/save', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    isSaving = false;
+                    if (saveBtn) {
+                        saveBtn.style.opacity = "";
+                        saveBtn.style.cursor = "";
+                    }
+                    if (data.status === 'success') {
+                        const statusSpan = document.querySelector('.status-pill span');
+                        if (statusSpan) {
+                            statusSpan.textContent = "Invoice Saved to Tab";
+                        }
+                        const statusIcon = document.querySelector('.status-pill svg');
+                        if (statusIcon) {
+                            statusIcon.style.stroke = "#10B981";
+                        }
+                        if (saveBtn) {
+                            saveBtn.textContent = "Saved to App";
+                        }
+                        if (!silent) {
+                            alert("Invoice saved successfully to the TrueHour app's Invoices tab!");
+                        }
+                    } else if (data.status === 'already_saved') {
+                        if (saveBtn) {
+                            saveBtn.textContent = "Saved to App";
+                        }
+                        if (!silent) {
+                            alert("This invoice has already been saved to the TrueHour app!");
+                        }
+                    } else {
+                        if (!silent) {
+                            alert("Failed to save invoice: " + (data.message || "Unknown error"));
+                        }
+                    }
+                })
+                .catch(err => {
+                    isSaving = false;
+                    if (saveBtn) {
+                        saveBtn.style.opacity = "";
+                        saveBtn.style.cursor = "";
+                    }
+                    console.error("Error saving invoice:", err);
+                    if (!silent) {
+                        alert("Error communicating with TrueHour app: " + err);
+                    }
+                });
+        }
+
+        function handlePrintClick() {
+            window.print();
+            if (isPreviewMode()) {
+                saveToApp(true);
+            }
+        }
+
+        // Auto-load theme preference
         window.addEventListener('DOMContentLoaded', () => {
             try {
-                const savedTheme = localStorage.getItem('truehour-theme') || 'indigo';
-                switchTheme(savedTheme);
+                const savedTheme = localStorage.getItem('truehour-theme') || (document.body.classList.contains('dark') ? 'dark' : 'light');
+                if (savedTheme === 'dark') {
+                    document.body.classList.add('dark');
+                    document.getElementById('theme-text').textContent = 'Light Mode';
+                    document.getElementById('theme-icon-light').style.display = 'none';
+                    document.getElementById('theme-icon-dark').style.display = 'inline-block';
+                } else {
+                    document.body.classList.remove('dark');
+                    document.getElementById('theme-text').textContent = 'Dark Mode';
+                    document.getElementById('theme-icon-light').style.display = 'inline-block';
+                    document.getElementById('theme-icon-dark').style.display = 'none';
+                }
             } catch(e) {}
+
+            if (isPreviewMode()) {
+                const saveBtn = document.getElementById('save-app-btn');
+                if (saveBtn) {
+                    saveBtn.style.display = 'inline-flex';
+                }
+                const statusSpan = document.querySelector('.status-pill span');
+                if (statusSpan) {
+                    statusSpan.textContent = "Draft Preview (Unsaved)";
+                }
+                const statusIcon = document.querySelector('.status-pill svg');
+                if (statusIcon) {
+                    statusIcon.style.stroke = "#F59E0B"; // orange
+                }
+            }
         });
     </script>
 </body>
