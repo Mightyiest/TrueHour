@@ -569,7 +569,7 @@ class ElidedLabel(QLabel):
 
 # ── Custom List App Usage Row Widget ─────────────────────────────────
 class AppUsageRow(QFrame):
-    def __init__(self, app_name, secs, included, tag, exe_path, on_toggle, on_tag_click, parent=None):
+    def __init__(self, app_name, secs, included, tag, exe_path, on_toggle, on_tag_click, on_context_menu=None, parent=None):
         super().__init__(parent)
         self.app_name = app_name
         self.secs = secs
@@ -578,10 +578,18 @@ class AppUsageRow(QFrame):
         self.exe_path = exe_path
         self.on_toggle = on_toggle
         self.on_tag_click = on_tag_click
+        self.on_context_menu = on_context_menu
         self._icon_loaded = False
 
         self.setObjectName("AppUsageRow")
         self.init_ui()
+
+    def contextMenuEvent(self, event):
+        if self.on_context_menu:
+            self.on_context_menu(self.app_name, self.exe_path, event.globalPos())
+            event.accept()
+        else:
+            super().contextMenuEvent(event)
 
     def init_ui(self):
         self.setFixedHeight(32)

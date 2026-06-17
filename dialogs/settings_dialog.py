@@ -18,6 +18,155 @@ from assets import INFO_SVG
 
 logger = logging.getLogger(__name__)
 
+class DistractionAppsDialog(QDialog):
+    def __init__(self, current_distractions, parent=None):
+        super().__init__(parent)
+        self.distraction_apps = list(current_distractions)
+        self.setWindowTitle("Manage Distraction Apps")
+        self.resize(360, 480)
+        self.setMinimumSize(300, 400)
+
+        self.is_dark = False
+        if parent:
+            self.is_dark = parent.settings.get("dark_mode", False)
+
+        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
+        qss = get_qss_style(self.is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.is_dark))
+        self.setStyleSheet(qss)
+        self.setPalette(get_dark_palette() if self.is_dark else get_light_palette())
+
+        self.init_ui()
+
+    def _get_all_tracked_apps(self):
+        apps = set()
+        # 1. Add current session tracker apps if parent's parent (TrueHourApp) is available
+        if self.parent() and hasattr(self.parent(), "parent") and self.parent().parent():
+            main_app = self.parent().parent()
+            if hasattr(main_app, "tracker") and main_app.tracker:
+                apps.update(main_app.tracker.app_times.keys())
+                apps.update(main_app.tracker.app_included.keys())
+
+        # 2. Scan sessions/autosave folders
+        from config import get_app_data_dir
+        import glob
+        for folder in ["sessions", "autosave"]:
+            dirpath = os.path.join(get_app_data_dir(), folder)
+            if os.path.exists(dirpath):
+                for path in glob.glob(os.path.join(dirpath, "*.json")):
+                    try:
+                        with open(path, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                            for app in data.get("apps", []):
+                                if isinstance(app, dict) and "name" in app:
+                                    apps.add(app["name"])
+                                elif isinstance(app, list) and len(app) > 0:
+                                    apps.add(app[0])
+                    except Exception:
+                        pass
+        return sorted(list(apps), key=lambda x: x.lower())
+
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
+
+        title = QLabel("Manage Distracting Apps", self)
+        title.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold;")
+        layout.addWidget(title)
+
+        self.search_input = QLineEdit(self)
+        self.search_input.setPlaceholderText("Search tracked apps...")
+        self.search_input.textChanged.connect(self._filter_apps)
+        layout.addWidget(self.search_input)
+
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll_border = "#333333" if self.is_dark else "#E2E8F0"
+        scroll.setStyleSheet(f"QScrollArea {{ border: 1px solid {scroll_border}; border-radius: 6px; }}")
+
+        self.scroll_content = QWidget()
+        self.scroll_layout = QVBoxLayout(self.scroll_content)
+        self.scroll_layout.setContentsMargins(8, 8, 8, 8)
+        self.scroll_layout.setSpacing(6)
+        self.scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        self.checkboxes = {}
+        all_apps = self._get_all_tracked_apps()
+
+        for app in self.distraction_apps:
+            if app not in all_apps:
+                all_apps.append(app)
+        all_apps = sorted(all_apps, key=lambda x: x.lower())
+
+        for app in all_apps:
+            self._create_app_row(app)
+
+        scroll.setWidget(self.scroll_content)
+        layout.addWidget(scroll)
+
+        actions = QHBoxLayout()
+        add_custom_btn = QPushButton("+ Add Custom App...", self)
+        add_custom_btn.setObjectName("NormalButton")
+        add_custom_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_custom_btn.clicked.connect(self._add_custom_app)
+        actions.addWidget(add_custom_btn)
+        actions.addStretch()
+        layout.addLayout(actions)
+
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+
+        save_btn = QPushButton("Save", self)
+        save_btn.setObjectName("AccentButton")
+        save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        save_btn.clicked.connect(self._save_changes)
+        btn_layout.addWidget(save_btn)
+
+        cancel_btn = QPushButton("Cancel", self)
+        cancel_btn.setObjectName("NormalButton")
+        cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(cancel_btn)
+
+        layout.addLayout(btn_layout)
+
+    def _create_app_row(self, app):
+        cb = QCheckBox(app, self.scroll_content)
+        cb.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px;")
+        is_checked = any(d.lower() == app.lower() for d in self.distraction_apps)
+        cb.setChecked(is_checked)
+        self.scroll_layout.addWidget(cb)
+        self.checkboxes[app] = cb
+
+    def _filter_apps(self, text):
+        text = text.lower().strip()
+        for app, cb in self.checkboxes.items():
+            cb.setVisible(not text or text in app.lower())
+
+    def _add_custom_app(self):
+        text, ok = QInputDialog.getText(
+            self, "Add Custom App",
+            "Enter application name or executable (e.g. steam.exe, game.exe):"
+        )
+        if ok and text.strip():
+            app = text.strip()
+            match_key = None
+            for existing in self.checkboxes:
+                if existing.lower() == app.lower():
+                    match_key = existing
+                    break
+            
+            if match_key:
+                self.checkboxes[match_key].setChecked(True)
+                self.checkboxes[match_key].setVisible(True)
+            else:
+                self._create_app_row(app)
+                self.checkboxes[app].setChecked(True)
+
+    def _save_changes(self):
+        self.distraction_apps = [app for app, cb in self.checkboxes.items() if cb.isChecked()]
+        self.accept()
+
 class SettingsDialog(QDialog):
     manage_categories_requested = pyqtSignal()
     about_requested = pyqtSignal()
@@ -223,6 +372,35 @@ class SettingsDialog(QDialog):
         form_general.addRow("Hourly rate:", self.rate_entry)
 
         tg_layout.addLayout(form_general)
+
+        # Distraction Auto-Pause Group
+        distract_box = QGroupBox("Distraction Auto-Pause", scroll_general_content)
+        distract_layout = QVBoxLayout(distract_box)
+        distract_layout.setContentsMargins(8, 8, 8, 8)
+        distract_layout.setSpacing(6)
+
+        self.cb_distract = QCheckBox("Automatically pause tracking on distracting apps", distract_box)
+        self.cb_distract.setChecked(self.settings.get("enable_distraction_auto_pause", False))
+        self.cb_distract.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
+        distract_layout.addWidget(self.cb_distract)
+
+        self._distraction_apps_local = list(self.settings.get("distraction_apps", []))
+
+        def _manage_distraction_apps():
+            dialog = DistractionAppsDialog(self._distraction_apps_local, self)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                self._distraction_apps_local = dialog.distraction_apps
+
+        self.manage_distract_btn = QPushButton("Manage Distraction Apps...", distract_box)
+        self.manage_distract_btn.setObjectName("NormalButton")
+        self.manage_distract_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.manage_distract_btn.clicked.connect(_manage_distraction_apps)
+        distract_layout.addWidget(self.manage_distract_btn)
+
+        self.cb_distract.toggled.connect(self.manage_distract_btn.setEnabled)
+        self.manage_distract_btn.setEnabled(self.cb_distract.isChecked())
+
+        tg_layout.addWidget(distract_box)
 
         # Config Files Group
         config_box = QGroupBox("Configuration && Categories", scroll_general_content)
@@ -696,6 +874,8 @@ class SettingsDialog(QDialog):
             )
             self.settings["developer_mode"] = self.cb_dev.isChecked()
             self.settings["dark_mode"] = self.cb_dark.isChecked()
+            self.settings["enable_distraction_auto_pause"] = self.cb_distract.isChecked()
+            self.settings["distraction_apps"] = list(self._distraction_apps_local)
 
             self.settings_saved.emit(self.settings)
             self.accept()

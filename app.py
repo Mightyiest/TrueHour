@@ -1117,6 +1117,7 @@ class TrueHourApp(QMainWindow):
                         app_name, secs, included, tag, exe_path,
                         on_toggle=self._toggle_include,
                         on_tag_click=self._show_tag_menu,
+                        on_context_menu=self._show_app_context_menu,
                         parent=self.scroll_widget
                     )
 
@@ -1173,6 +1174,37 @@ class TrueHourApp(QMainWindow):
     def _toggle_include(self, app_name, is_checked):
         self.tracker.set_included(app_name, is_checked)
         self._schedule_refresh()
+
+    def _show_app_context_menu(self, app_name, exe_path, global_pos):
+        menu = QMenu(self)
+        exe_name = os.path.basename(exe_path).lower() if exe_path else ""
+        target = exe_name if exe_name else app_name
+        if not target:
+            return
+
+        is_distracting = any(d.lower() == target.lower() for d in self.distraction_apps)
+
+        if is_distracting:
+            action = menu.addAction("Remove from Distracting Apps")
+            action.triggered.connect(lambda: self._remove_distraction_app(target))
+        else:
+            action = menu.addAction("Mark as Distracting App")
+            action.triggered.connect(lambda: self._add_distraction_app(target))
+
+        menu.exec(global_pos)
+
+    def _add_distraction_app(self, target):
+        if target and target not in self.distraction_apps:
+            logger.info(f"[Action] Added '{target}' to distracting apps")
+            self.distraction_apps.append(target)
+            self.tracker.distraction_apps = self.distraction_apps
+            self._save_app_settings()
+
+    def _remove_distraction_app(self, target):
+        self.distraction_apps = [d for d in self.distraction_apps if d.lower() != target.lower()]
+        self.tracker.distraction_apps = self.distraction_apps
+        self._save_app_settings()
+        logger.info(f"[Action] Removed '{target}' from distracting apps")
 
 
     def _show_tag_menu(self, app_name, button):
@@ -1343,6 +1375,8 @@ class TrueHourApp(QMainWindow):
         self.weekly_earnings_goal = 0.0
         self.earnings_goal_period = "weekly"
         self.enable_goal_tray_alerts = True
+        self.enable_distraction_auto_pause = False
+        self.distraction_apps = []
         self.weekly_base_focus_seconds = {}
         self.earnings_goal_reset_timestamp = ""
         self._goals_initialized = False
@@ -1395,6 +1429,10 @@ class TrueHourApp(QMainWindow):
                     _old_min = data.get("idle_threshold_minutes", 2) * 60
                     self.idle_threshold_seconds_total = data.get("idle_threshold_seconds_total", _old_min)
                     self.tracker.idle_threshold_seconds = self.idle_threshold_seconds_total
+                    self.enable_distraction_auto_pause = data.get("enable_distraction_auto_pause", False)
+                    self.distraction_apps = data.get("distraction_apps", [])
+                    self.tracker.enable_distraction_auto_pause = self.enable_distraction_auto_pause
+                    self.tracker.distraction_apps = self.distraction_apps
 
                     self.business_name = data.get("business_name", "")
                     self.business_phone = data.get("business_phone", "")
@@ -1513,6 +1551,8 @@ class TrueHourApp(QMainWindow):
                 "enable_goal_tray_alerts": self.enable_goal_tray_alerts,
                 "earnings_goal_reset_timestamp": getattr(self, "earnings_goal_reset_timestamp", ""),
                 "anonymous_user_id": self.anonymous_user_id,
+                "enable_distraction_auto_pause": self.enable_distraction_auto_pause,
+                "distraction_apps": self.distraction_apps,
             }
             with open(APP_SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
@@ -1706,6 +1746,8 @@ class TrueHourApp(QMainWindow):
             "weekly_earnings_goal": getattr(self, "weekly_earnings_goal", 0.0),
             "earnings_goal_period": getattr(self, "earnings_goal_period", "weekly"),
             "enable_goal_tray_alerts": self.enable_goal_tray_alerts,
+            "enable_distraction_auto_pause": self.enable_distraction_auto_pause,
+            "distraction_apps": self.distraction_apps,
         }
 
         dialog = SettingsDialog(current_settings, self)
@@ -1776,6 +1818,10 @@ class TrueHourApp(QMainWindow):
             self.weekly_earnings_goal = new_settings.get("weekly_earnings_goal", 0.0)
             self.earnings_goal_period = new_settings.get("earnings_goal_period", "weekly")
             self.enable_goal_tray_alerts = new_settings.get("enable_goal_tray_alerts", True)
+            self.enable_distraction_auto_pause = new_settings.get("enable_distraction_auto_pause", False)
+            self.distraction_apps = new_settings.get("distraction_apps", [])
+            self.tracker.enable_distraction_auto_pause = self.enable_distraction_auto_pause
+            self.tracker.distraction_apps = self.distraction_apps
             if self.notified_goals is not None:
                 self.notified_goals.clear()
             if self.notified_earnings_goal is not None:
