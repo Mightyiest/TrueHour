@@ -1065,7 +1065,6 @@ class SessionManagerDialog(QDialog):
             session_filenames = [os.path.basename(path) for path in self.selected_sessions]
 
             # Save immediately as a draft
-            from database.schema import save_invoice
             save_invoice(
                 invoice_no=inv_no,
                 client_name=settings_data.get("client_name", "Valued Client"),

@@ -642,7 +642,7 @@ class SettingsDialog(QDialog):
 
     def _save_and_close(self):
         try:
-            logger.info(f"[Action] Adjusted Settings:")
+            logger.info("[Action] Adjusted Settings:")
             logger.info(f"  - Confirm close: {self.cb_confirm.isChecked()}")
             logger.info(f"  - Min track seconds: {self.min_sec_entry.text()}")
             logger.info(f"  - Auto-save seconds: {self.auto_save_entry.text()}")

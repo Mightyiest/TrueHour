@@ -244,6 +244,8 @@ class TrueHourApp(QMainWindow):
             print(f"[TrueHour] Failed database bootstrap: {e}")
 
         self.tracker = AppTracker(poll_interval=1.0, min_track_seconds=2)
+        self.notified_goals = None
+        self.notified_earnings_goal = None
         self._load_app_settings()
         self._init_posthog()
         self._track_event("app_started", {"version": VERSION_FULL, "platform": sys.platform})
@@ -873,9 +875,9 @@ class TrueHourApp(QMainWindow):
         if getattr(self, "last_week_start_date", None) != expected_start:
             self.last_week_start_date = expected_start
             self._recalculate_weekly_base_focus_seconds()
-            if hasattr(self, "notified_goals"):
+            if self.notified_goals is not None:
                 self.notified_goals.clear()
-            if hasattr(self, "notified_earnings_goal"):
+            if self.notified_earnings_goal is not None:
                 self.notified_earnings_goal.clear()
 
         project_seconds = dict(getattr(self, "weekly_base_focus_seconds", {}))
@@ -894,7 +896,7 @@ class TrueHourApp(QMainWindow):
 
         # Check weekly earnings goal milestones
         if weekly_earnings_goal > 0 and getattr(self, "hourly_rate", 0.0) > 0:
-            if not hasattr(self, "notified_earnings_goal"):
+            if self.notified_earnings_goal is None:
                 self.notified_earnings_goal = set()
                 if total_earnings >= weekly_earnings_goal:
                     self.notified_earnings_goal.add(100)
@@ -918,7 +920,7 @@ class TrueHourApp(QMainWindow):
 
         # Check project goals
         if weekly_goals:
-            if not hasattr(self, "notified_goals"):
+            if self.notified_goals is None:
                 self.notified_goals = {}
                 for proj, goal_hours in weekly_goals.items():
                     if goal_hours <= 0:
@@ -990,9 +992,9 @@ class TrueHourApp(QMainWindow):
         if tracker_was_running:
             self.tracker.stop()
         self.earnings_goal_reset_timestamp = datetime.now().isoformat()
-        if hasattr(self, "notified_goals"):
+        if self.notified_goals is not None:
             self.notified_goals.clear()
-        if hasattr(self, "notified_earnings_goal"):
+        if self.notified_earnings_goal is not None:
             self.notified_earnings_goal.clear()
         self._recalculate_weekly_base_focus_seconds()
         self._save_app_settings()
@@ -1007,15 +1009,15 @@ class TrueHourApp(QMainWindow):
         logger.info(f"[Web Server] Weekly goals updated: {goals_data}")
         if "weekly_goals" in goals_data:
             self.weekly_goals = goals_data["weekly_goals"]
-            if hasattr(self, "notified_goals"):
+            if self.notified_goals is not None:
                 self.notified_goals.clear()
         if "weekly_earnings_goal" in goals_data:
             self.weekly_earnings_goal = goals_data["weekly_earnings_goal"]
-            if hasattr(self, "notified_earnings_goal"):
+            if self.notified_earnings_goal is not None:
                 self.notified_earnings_goal.clear()
         if "earnings_goal_period" in goals_data:
             self.earnings_goal_period = str(goals_data["earnings_goal_period"])
-            if hasattr(self, "notified_earnings_goal"):
+            if self.notified_earnings_goal is not None:
                 self.notified_earnings_goal.clear()
         self._recalculate_weekly_base_focus_seconds()
         self._save_app_settings()
@@ -1774,9 +1776,9 @@ class TrueHourApp(QMainWindow):
             self.weekly_earnings_goal = new_settings.get("weekly_earnings_goal", 0.0)
             self.earnings_goal_period = new_settings.get("earnings_goal_period", "weekly")
             self.enable_goal_tray_alerts = new_settings.get("enable_goal_tray_alerts", True)
-            if hasattr(self, "notified_goals"):
+            if self.notified_goals is not None:
                 self.notified_goals.clear()
-            if hasattr(self, "notified_earnings_goal"):
+            if self.notified_earnings_goal is not None:
                 self.notified_earnings_goal.clear()
             self._recalculate_weekly_base_focus_seconds()
 

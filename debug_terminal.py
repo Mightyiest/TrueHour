@@ -12,7 +12,7 @@ from datetime import datetime
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPlainTextEdit, QLineEdit,
-    QPushButton, QCheckBox, QLabel, QFileDialog, QMessageBox, QApplication
+    QPushButton, QCheckBox, QFileDialog, QMessageBox, QApplication
 )
 
 class LogSignalEmitter(QObject):

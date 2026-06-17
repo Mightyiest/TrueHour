@@ -1129,7 +1129,7 @@ class AppTracker:
                     self.toggle_pause(is_idle=True)
                     if self.on_update:
                         try: self.on_update()
-                        except: pass
+                        except Exception: pass
                 elif self._idle_paused and idle_secs < self.idle_threshold_seconds:
                     # Activity resumed — auto-resume
                     self._idle_paused = False
@@ -1137,7 +1137,7 @@ class AppTracker:
                         self.toggle_pause()
                     if self.on_update:
                         try: self.on_update()
-                        except: pass
+                        except Exception: pass
             if self.paused:
                 time.sleep(self.poll_interval)
                 continue
