@@ -21,6 +21,6 @@ class VersionInfo:
     def full(self) -> str:
         return f"v{self.version} · Build {self.build_date}"
 
-INFO = VersionInfo(version=__version__, build_date="2026.06.17", build_number=29)
+INFO = VersionInfo(version=__version__, build_date="2026.06.18", build_number=30)
 VERSION_SHORT = INFO.short
 VERSION_FULL = INFO.full

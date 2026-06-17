@@ -1855,19 +1855,34 @@ class TrueHourApp(QMainWindow):
         self._center_window(dialog, 360, 310)
         dialog.setModal(True)
 
+        # Apply stylesheet and palette on start
+        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
+        qss = get_qss_style(self.dark_mode).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.dark_mode))
+        dialog.setStyleSheet(qss)
+        dialog.setPalette(get_dark_palette() if self.dark_mode else get_light_palette())
+
+        # Dynamic theme colors
+        text_primary = "#e0e0e0" if self.dark_mode else "#0F172A"
+        text_secondary = "#888888" if self.dark_mode else "#64748B"
+        border_color = "#333333" if self.dark_mode else "#E2E8F0"
+        btn_bg = "#262626" if self.dark_mode else "#F8FAFC"
+        btn_border = "#333333" if self.dark_mode else "#E2E8F0"
+        btn_hover = "#333333" if self.dark_mode else "#F1F5F9"
+        btn_border_hover = "#444444" if self.dark_mode else "#CBD5E1"
+
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(12)
 
         # Title & Icon/Label
         title = QLabel("TrueHour", dialog)
-        title.setStyleSheet("font-family: 'Segoe UI'; font-size: 22px; font-weight: bold; color: #0F172A;")
+        title.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 22px; font-weight: bold; color: {text_primary};")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
         # Subtitle or description
         desc = QLabel("Automated Time Tracker & Productivity Assistant", dialog)
-        desc.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B; font-weight: 500;")
+        desc.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: {text_secondary}; font-weight: 500;")
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(desc)
 
@@ -1875,7 +1890,7 @@ class TrueHourApp(QMainWindow):
         divider = QFrame(dialog)
         divider.setFrameShape(QFrame.Shape.HLine)
         divider.setFrameShadow(QFrame.Shadow.Sunken)
-        divider.setStyleSheet("background-color: #E2E8F0; min-height: 1px; max-height: 1px; border: none;")
+        divider.setStyleSheet(f"background-color: {border_color}; min-height: 1px; max-height: 1px; border: none;")
         layout.addWidget(divider)
 
         # Version & Build details
@@ -1883,12 +1898,12 @@ class TrueHourApp(QMainWindow):
         details_layout.setSpacing(4)
 
         ver_lbl = QLabel(f"Version: {INFO.version}", dialog)
-        ver_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; color: #0F172A;")
+        ver_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_primary};")
         ver_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         details_layout.addWidget(ver_lbl)
 
         build_lbl = QLabel(f"Build: {INFO.build_number} ({INFO.build_date})", dialog)
-        build_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; color: #64748B;")
+        build_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_secondary};")
         build_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         details_layout.addWidget(build_lbl)
 
@@ -1900,22 +1915,22 @@ class TrueHourApp(QMainWindow):
         links_row.setSpacing(12)
 
         github_btn = QPushButton(dialog)
-        github_btn.setIcon(get_svg_icon(GITHUB_SVG, QSize(20, 20)))
+        github_btn.setIcon(get_svg_icon(GITHUB_SVG, QSize(20, 20), color_hex=text_primary))
         github_btn.setIconSize(QSize(20, 20))
         github_btn.setToolTip("Visit TrueHour on GitHub")
         github_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         github_btn.setFixedSize(32, 32)
-        github_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #F8FAFC;
-                border: 1px solid #E2E8F0;
+        github_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {btn_bg};
+                border: 1px solid {btn_border};
                 border-radius: 16px;
                 padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #F1F5F9;
-                border-color: #CBD5E1;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {btn_hover};
+                border-color: {btn_border_hover};
+            }}
         """)
         github_btn.clicked.connect(lambda: webbrowser.open("https://mightyiest.github.io/TrueHour/"))
         links_row.addWidget(github_btn)
