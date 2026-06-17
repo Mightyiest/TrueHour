@@ -1,4 +1,4 @@
-# True Hours v3.3.1
+# True Hours v3.3.1 (Beta)
 
 > **A lightweight, privacy-first desktop time tracker with a modern Fluent Design UI, supporting Windows & macOS.**
 
