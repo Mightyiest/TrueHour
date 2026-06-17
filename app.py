@@ -1704,7 +1704,7 @@ class TrueHourApp(QMainWindow):
         if msg.clickedButton() == github_btn:
             webbrowser.open("https://github.com/Mightyiest/TrueHour/issues")
         elif msg.clickedButton() == form_btn:
-            webbrowser.open("https://forms.gle/Kqqb32i1ZE3d3vY8A")
+            webbrowser.open("https://forms.gle/798MkSd5Yyps3Uv18")
 
     def _show_settings(self):
         logger.info("[Action] Opened Settings")
