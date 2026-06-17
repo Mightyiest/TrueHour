@@ -18,8 +18,24 @@
             --text-muted: #94a3b8;
             --accent: #0078d4;
             --border: #e2e8f0;
+            --bg-dots: #e2e8f0;
+            --card-bg: #ffffff;
+            --header-bg: rgba(255, 255, 255, 0.85);
             --font-display: 'Space Grotesk', sans-serif;
             --font-sans: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --accent: #38bdf8;
+            --border: #334155;
+            --bg-dots: #334155;
+            --card-bg: #1e293b;
+            --header-bg: rgba(15, 23, 42, 0.85);
         }
 
         * {
@@ -31,12 +47,17 @@
 
         body {
             background-color: var(--bg-primary);
-            background-image: radial-gradient(#e2e8f0 1.2px, transparent 1.2px);
+            background-image: radial-gradient(var(--bg-dots) 1.2px, transparent 1.2px);
             background-size: 20px 20px;
             color: var(--text-primary);
             font-family: var(--font-sans);
             overflow-x: hidden;
             line-height: 1.5;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        header, nav, .feature-card, .matrix-container, .stats-strip, .changelog-item, .license-card, .faq-card {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
         }
 
         header {
@@ -45,7 +66,7 @@
             left: 0;
             width: 100%;
             height: 60px;
-            background: rgba(255, 255, 255, 0.85);
+            background: var(--header-bg);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             border-bottom: 1px solid var(--border);
@@ -227,7 +248,7 @@
         }
 
         .feature-card {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             padding: 28px;
             border-radius: 12px;
@@ -322,7 +343,7 @@
         }
 
         .matrix-container {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 12px;
             overflow: hidden;
@@ -369,7 +390,7 @@
         }
 
         .stats-strip {
-            background: #ffffff;
+            background: var(--card-bg);
             border-bottom: 1px solid var(--border);
             padding: 40px 6%;
         }
@@ -521,7 +542,7 @@
         }
 
         .license-card {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             padding: 40px;
             border-radius: 16px;
@@ -681,7 +702,7 @@
         }
 
         .faq-card {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 12px;
             overflow: hidden;
@@ -780,7 +801,7 @@
                 top: 60px;
                 left: 0;
                 width: 100%;
-                background: #ffffff;
+                background: var(--bg-primary);
                 border-bottom: 1px solid var(--border);
                 flex-direction: column;
                 padding: 24px;
@@ -818,7 +839,7 @@
         }
 
         .changelog-item {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             padding: 24px;
             border-radius: 12px;
@@ -916,6 +937,22 @@
             <a href="#setup" onclick="switchTab('changelog')">Changelog</a>
             <a href="#faq">FAQ</a>
             <a href="#license">License</a>
+            <button id="themeToggleBtn" class="btn btn-secondary" aria-label="Toggle dark mode" style="padding: 8px 12px; margin-right: 4px;">
+                <svg id="sunIcon" style="display:none; width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg id="moonIcon" style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
             <a href="https://github.com/Mightyiest/TrueHour" class="btn btn-secondary" target="_blank" rel="noopener">GitHub</a>
         </nav>
     </header>
@@ -1428,6 +1465,36 @@ chmod +x build.sh
 
         menuToggle.addEventListener('click', () => {
             navigation.classList.toggle('mobile-active');
+        });
+
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const sunIcon = document.getElementById('sunIcon');
+        const moonIcon = document.getElementById('moonIcon');
+
+        const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (currentTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            sunIcon.style.display = 'block';
+            moonIcon.style.display = 'none';
+        } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+            sunIcon.style.display = 'none';
+            moonIcon.style.display = 'block';
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            let theme = 'light';
+            if (document.documentElement.getAttribute('data-theme') === 'light') {
+                theme = 'dark';
+                document.documentElement.setAttribute('data-theme', 'dark');
+                sunIcon.style.display = 'block';
+                moonIcon.style.display = 'none';
+            } else {
+                document.documentElement.setAttribute('data-theme', 'light');
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'block';
+            }
+            localStorage.setItem('theme', theme);
         });
 
         function switchTab(tabName) {
