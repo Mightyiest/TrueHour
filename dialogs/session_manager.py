@@ -160,8 +160,8 @@ class SessionManagerDialog(QDialog):
         border_color = "#333333" if is_dark else "#CBD5E1"
         text_sec = "#aaa" if is_dark else "#475569"
         bg_hover = "#262626" if is_dark else "#F1F5F9"
-        accent = "#d1d5db" if is_dark else "#0078D4"
-        accent_hover = "#ffffff" if is_dark else "#106EBE"
+        accent = "#ef4444" if is_dark else "#0078D4"
+        accent_hover = "#dc2626" if is_dark else "#106EBE"
 
         self.edit_btn = QPushButton("Edit", self)
         self.edit_btn.setCheckable(True)
