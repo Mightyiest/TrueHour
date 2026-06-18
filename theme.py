@@ -266,7 +266,12 @@ def get_qss_style(is_dark: bool) -> str:
     accent = "#d1d5db" if is_dark else "#0078D4"
     accent_hover = "#ffffff" if is_dark else "#106EBE"
     bg_hover = "#262626" if is_dark else "#F1F5F9"
-    accent_btn_text = "#141414" if is_dark else "#FFFFFF"
+    
+    # Accent Button (Start / Resume) styles mirroring the interactive previewer
+    accent_btn_bg = "#262626" if is_dark else "#1e293b"
+    accent_btn_text = "#ffffff"
+    accent_btn_hover = "#383838" if is_dark else "#334155"
+    accent_btn_disabled_bg = "#16161a" if is_dark else "#e2e8f0"
 
     return f"""
 QWidget {{
@@ -340,7 +345,7 @@ QPushButton {{
     font-size: 13px;
 }}
 QPushButton#AccentButton {{
-    background-color: {accent};
+    background-color: {accent_btn_bg};
     color: {accent_btn_text};
     border: none;
     border-radius: 14px;
@@ -348,15 +353,15 @@ QPushButton#AccentButton {{
     font-weight: bold;
 }}
 QPushButton#AccentButton:hover {{
-    background-color: {accent_hover};
+    background-color: {accent_btn_hover};
     color: {accent_btn_text};
 }}
 QPushButton#AccentButton:pressed {{
-    background-color: {accent_hover};
+    background-color: {accent_btn_hover};
     color: {accent_btn_text};
 }}
 QPushButton#AccentButton:disabled {{
-    background-color: {bg_hover};
+    background-color: {accent_btn_disabled_bg};
     color: {text_secondary};
 }}
 QPushButton#NormalButton {{
