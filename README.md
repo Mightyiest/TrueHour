@@ -1,4 +1,4 @@
-# True Hours v3.3.1 (Beta)
+# True Hours v3.3.1
 
 > **A lightweight, privacy-first desktop time tracker with a modern Fluent Design UI, supporting Windows & macOS.**
 
@@ -246,11 +246,11 @@ A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!
 
 ## 📅 Changelog
 
-### v3.3.1-beta.1 (2026.06.17)
+### v3.3.1 (2026.06.18)
 - **App-Specific Distraction Auto-Pause**: Automatically pauses tracking when switching to a designated distracting application (e.g. Chrome, games, Spotify) and auto-resumes when returning to a productive task.
 - **App List Context Menu**: Right-click any application in the live tracking list to quickly mark or unmark it as distracting.
 - **Manage Distraction Apps**: Added a dedicated checklist dialog in Settings to manage, search, and manually add custom application executables.
-- **Dynamic Beta Build Naming**: Updated the unofficial build script to query both version and build number from `version.py` and programmatically construct the output filename at compile time.
+- **Dynamic Build Naming**: Updated the unofficial build script to query both version and build number from `version.py` and programmatically construct the output filename at compile time.
 
 ### v3.3.0 (2026.06.16)
 - **Priority Counted Time View**: Swapped the primary display elements: the big main UI clock now displays the productive **Counted Work Time** (`00:00:00`), while the bottom footer displays the overall **Total Session Time** (`Xh XXm XXs`).
