@@ -15,9 +15,27 @@ class LoadingDialog(QDialog):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
 
+        # Robust theme detection
+        self.theme_style = "light"
+        if parent:
+            if hasattr(parent, "theme_style"):
+                self.theme_style = parent.theme_style
+            elif hasattr(parent, "settings") and isinstance(parent.settings, dict):
+                self.theme_style = parent.settings.get("theme_style", "modern-dark" if parent.settings.get("dark_mode", False) else "light")
+            elif hasattr(parent, "dark_mode"):
+                self.theme_style = "modern-dark" if parent.dark_mode else "light"
+                
+        if is_dark is not None and is_dark is not False:
+            if isinstance(is_dark, str):
+                self.theme_style = is_dark
+            else:
+                self.theme_style = "modern-dark" if is_dark else "light"
+
+        is_dark_bool = (self.theme_style in ["modern-dark", "classic-dark"])
+
         # Styling Setup
-        self.setStyleSheet(get_qss_style(is_dark))
-        self.setPalette(get_dark_palette() if is_dark else get_light_palette())
+        self.setStyleSheet(get_qss_style(self.theme_style))
+        self.setPalette(get_dark_palette(self.theme_style) if is_dark_bool else get_light_palette())
 
         self.worker = worker
         self.compiled_report = None
@@ -43,8 +61,15 @@ class LoadingDialog(QDialog):
         self.progress.setFixedHeight(6)
 
         # Apply specific accent colors
-        accent = "#d1d5db" if is_dark else "#0078D4"
-        bg_bar = "#333333" if is_dark else "#E2E8F0"
+        if self.theme_style == "classic-dark":
+            accent = "#d1d5db"
+            bg_bar = "#333333"
+        elif self.theme_style == "modern-dark":
+            accent = "#2563EB"
+            bg_bar = "#232329"
+        else: # light
+            accent = "#0078D4"
+            bg_bar = "#E2E8F0"
         self.progress.setStyleSheet(f"""
             QProgressBar {{
                 border: none;

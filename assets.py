@@ -41,6 +41,32 @@ MOON_SVG = b"""<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns
 <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" stroke="#0078D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>"""
 
+SOLID_MOON_SVG = b"""<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" fill="#0078D4"/>
+</svg>"""
+
+HALF_MOON_SVG = b"""<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" stroke="#0078D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>"""
+
+FULL_MOON_SVG = b"""<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="12" cy="12" r="8" stroke="#0078D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="12" cy="12" r="5" stroke="#0078D4" stroke-width="1.5" stroke-dasharray="2 2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>"""
+
+PLAY_SVG = b"""<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<polygon points="5,3 19,12 5,21" fill="#0078D4"/>
+</svg>"""
+
+PAUSE_SVG = b"""<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="6" y="4" width="4" height="16" fill="#0078D4"/>
+<rect x="14" y="4" width="4" height="16" fill="#0078D4"/>
+</svg>"""
+
 BUG_SVG = b"""<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512" xml:space="preserve" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <rect y="262.912" style="fill:#8E8D91;" width="90.353" height="45.176"></rect> <rect x="61.746" y="411.98" transform="matrix(-0.7071 0.7071 -0.7071 -0.7071 489.8141 666.249)" style="fill:#8E8D91;" width="90.352" height="45.176"></rect> </g> <g> <rect x="359.894" y="411.991" transform="matrix(0.7071 0.7071 -0.7071 0.7071 425.9363 -159.1427)" style="fill:#272729;" width="90.352" height="45.176"></rect> <rect x="421.647" y="262.912" style="fill:#272729;" width="90.353" height="45.176"></rect> <rect x="359.902" y="113.842" transform="matrix(0.7071 -0.7071 0.7071 0.7071 22.1736 326.3927)" style="fill:#272729;" width="90.352" height="45.176"></rect> </g> <g> <rect x="61.754" y="113.847" transform="matrix(-0.7071 -0.7071 0.7071 -0.7071 86.0663 308.5191)" style="fill:#8E8D91;" width="90.352" height="45.176"></rect> <path style="fill:#8E8D91;" d="M256,29.504c-41.583,0-75.294,33.711-75.294,75.294c0,10.249,2.048,20.019,5.755,28.925 l138.915,0.382c3.81-9.008,5.917-18.912,5.917-29.307C331.294,63.213,297.583,29.504,256,29.504z"></path> </g> <path style="fill:#272729;" d="M256,29.504v104.41l69.378,0.191c3.81-9.008,5.917-18.912,5.917-29.307 C331.294,63.213,297.583,29.504,256,29.504z"></path> <circle style="fill:#CCCCCC;" cx="256" cy="285.5" r="180.706"></circle> <path style="fill:#999999;" d="M256,104.798V466.21c99.801,0,180.706-80.905,180.706-180.706S355.801,104.798,256,104.798z"></path> <g> <path style="fill:#8E8D91;" d="M278.588,225.269h-45.176v239.538c7.4,0.923,14.938,1.403,22.588,1.403 c7.65,0,15.188-0.48,22.588-1.403V225.269z"></path> <path style="fill:#8E8D91;" d="M165.647,345.74c-16.607,0-30.118-13.511-30.118-30.118s13.511-30.118,30.118-30.118 s30.118,13.511,30.118,30.118S182.254,345.74,165.647,345.74z"></path> </g> <path style="fill:#272729;" d="M346.353,345.74c-16.607,0-30.118-13.511-30.118-30.118s13.511-30.118,30.118-30.118 s30.118,13.511,30.118,30.118S362.96,345.74,346.353,345.74z"></path> <path style="fill:#8E8D91;" d="M79.234,247.857h353.535c-3.378-15.935-8.85-31.095-16.124-45.176H95.357 C88.082,216.761,82.61,231.922,79.234,247.857z"></path> <path style="fill:#272729;" d="M256,247.857h176.767c-3.378-15.935-8.85-31.095-16.123-45.176H256V247.857z"></path> </g></svg>"""
+
+SHIELD_SVG = b"""<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 22C12 22 20 18 20 12V5L12 2L4 5V12C4 18 12 22 12 22Z" stroke="#0078D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>"""
 
 
