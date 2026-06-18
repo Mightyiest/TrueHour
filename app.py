@@ -722,7 +722,7 @@ class TrueHourApp(QMainWindow):
                 self.pause_btn.setStyleSheet("color: #ffffff; background-color: #262626; font-weight: bold;")
                 self.active_label.setStyleSheet("color: #ffffff; font-size: 10px;")
             else:
-                self.pause_btn.setStyleSheet("color: #0078D4; background-color: #E8F1FB; font-weight: bold;")
+                self.pause_btn.setStyleSheet("color: #ffffff; background-color: #1e293b; font-weight: bold;")
                 self.active_label.setStyleSheet("color: #CA5010; font-size: 10px;")
             self.active_label.setText("⏸ Session paused")
         else:
