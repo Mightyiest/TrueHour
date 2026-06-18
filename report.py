@@ -812,6 +812,17 @@ default_receipt_template = """<!DOCTYPE html>
             background: rgba(30, 30, 30, 0.75);
             border-color: rgba(51, 51, 51, 0.8);
         }
+        body.dark .print-btn {
+            background: #27272a;
+            color: #f4f4f5;
+            border: 1px solid #3f3f46;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+        body.dark .print-btn:hover {
+            background: #3f3f46;
+            color: #ffffff;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+        }
 
         .theme-toggle-btn {
             background: transparent;
@@ -1523,6 +1534,17 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
         body.dark .print-actions-bar {
             background: rgba(30, 30, 30, 0.75);
             border-color: rgba(51, 51, 51, 0.8);
+        }
+        body.dark .print-btn {
+            background: #27272a;
+            color: #f4f4f5;
+            border: 1px solid #3f3f46;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+        body.dark .print-btn:hover {
+            background: #3f3f46;
+            color: #ffffff;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
         }
 
         .theme-toggle-btn {
@@ -2489,6 +2511,17 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         body.dark .print-actions-bar {
             background: rgba(30, 30, 30, 0.75);
             border-color: rgba(51, 51, 51, 0.8);
+        }
+        body.dark .print-btn {
+            background: #27272a;
+            color: #f4f4f5;
+            border: 1px solid #3f3f46;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+        body.dark .print-btn:hover {
+            background: #3f3f46;
+            color: #ffffff;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
         }
         body.dark .theme-selector {
             display: none !important;
