@@ -11,15 +11,31 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8fafc;
-            --text-primary: #0f172a;
-            --text-secondary: #475569;
-            --text-muted: #94a3b8;
-            --accent: #0078d4;
-            --border: #e2e8f0;
+            --bg-primary: #f6f6f6;
+            --bg-secondary: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #555555;
+            --text-muted: #717171;
+            --accent: #1e3050;
+            --border: #e8e8e8;
+            --bg-dots: #e8e8e8;
+            --card-bg: #ffffff;
+            --header-bg: rgba(246, 246, 246, 0.85);
             --font-display: 'Space Grotesk', sans-serif;
             --font-sans: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #141414;
+            --text-primary: #ededed;
+            --text-secondary: #a3a3a3;
+            --text-muted: #737373;
+            --accent: #cbd5e1;
+            --border: #262626;
+            --bg-dots: #262626;
+            --card-bg: #141414;
+            --header-bg: rgba(10, 10, 10, 0.85);
         }
 
         * {
@@ -31,12 +47,17 @@
 
         body {
             background-color: var(--bg-primary);
-            background-image: radial-gradient(#e2e8f0 1.2px, transparent 1.2px);
+            background-image: radial-gradient(var(--bg-dots) 1.2px, transparent 1.2px);
             background-size: 20px 20px;
             color: var(--text-primary);
             font-family: var(--font-sans);
             overflow-x: hidden;
             line-height: 1.5;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        header, nav, .feature-card, .matrix-container, .stats-strip, .changelog-item, .license-card, .faq-card {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
         }
 
         header {
@@ -45,7 +66,7 @@
             left: 0;
             width: 100%;
             height: 60px;
-            background: rgba(255, 255, 255, 0.85);
+            background: var(--header-bg);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             border-bottom: 1px solid var(--border);
@@ -227,7 +248,7 @@
         }
 
         .feature-card {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             padding: 28px;
             border-radius: 12px;
@@ -322,7 +343,7 @@
         }
 
         .matrix-container {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 12px;
             overflow: hidden;
@@ -369,7 +390,7 @@
         }
 
         .stats-strip {
-            background: #ffffff;
+            background: var(--card-bg);
             border-bottom: 1px solid var(--border);
             padding: 40px 6%;
         }
@@ -449,18 +470,19 @@
         }
 
         .code-container {
-            background: #0f172a;
+            background: #0a0a0a;
             border-radius: 8px;
             overflow: hidden;
-            border: 1px solid #1e293b;
+            border: 1px solid #262626;
         }
 
         .code-header {
-            background: #1e293b;
+            background: #141414;
             padding: 8px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 1px solid #262626;
         }
 
         .code-lang {
@@ -521,7 +543,7 @@
         }
 
         .license-card {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             padding: 40px;
             border-radius: 16px;
@@ -681,7 +703,7 @@
         }
 
         .faq-card {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 12px;
             overflow: hidden;
@@ -780,7 +802,7 @@
                 top: 60px;
                 left: 0;
                 width: 100%;
-                background: #ffffff;
+                background: var(--bg-primary);
                 border-bottom: 1px solid var(--border);
                 flex-direction: column;
                 padding: 24px;
@@ -807,6 +829,92 @@
                 justify-content: center;
             }
         }
+
+        /* Changelog Section Styles */
+        .changelog-list {
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+            text-align: left;
+            padding: 10px 0;
+        }
+
+        .changelog-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            padding: 24px;
+            border-radius: 12px;
+        }
+
+        .changelog-version {
+            font-family: var(--font-display);
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .changelog-tag {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .changelog-tag.beta {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+        }
+
+        .changelog-tag.stable {
+            background: #f0fdf4;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+
+        .changelog-date {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-left: auto;
+        }
+
+        .changelog-changes {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .changelog-changes li {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            position: relative;
+            padding-left: 20px;
+            line-height: 1.6;
+        }
+
+        .changelog-changes li::before {
+            content: "•";
+            color: var(--accent);
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+            position: absolute;
+            left: 12px;
+        }
+
+        .changelog-changes li:last-child {
+            margin-bottom: 0;
+        }
     </style>
 </head>
 <body>
@@ -827,8 +935,25 @@
             <a href="#features">Features</a>
             <a href="#security">Security</a>
             <a href="#setup" onclick="switchTab('setup')">Setup</a>
+            <a href="#setup" onclick="switchTab('changelog')">Changelog</a>
             <a href="#faq">FAQ</a>
             <a href="#license">License</a>
+            <button id="themeToggleBtn" class="btn btn-secondary" aria-label="Toggle dark mode" style="padding: 8px 12px; margin-right: 4px;">
+                <svg id="sunIcon" style="display:none; width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg id="moonIcon" style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
             <a href="https://github.com/Mightyiest/TrueHour" class="btn btn-secondary" target="_blank" rel="noopener">GitHub</a>
         </nav>
     </header>
@@ -1030,6 +1155,7 @@
             <div class="tab-nav">
                 <button class="tab-btn active" id="btnTabApi" onclick="switchTab('api')">Security API</button>
                 <button class="tab-btn" id="btnTabSetup" onclick="switchTab('setup')">Developer Setup</button>
+                <button class="tab-btn" id="btnTabChangelog" onclick="switchTab('changelog')">Changelog</button>
             </div>
             <div class="tab-content">
                 <div class="tab-pane active" id="paneApi">
@@ -1143,6 +1269,57 @@ chmod +x build.sh
 # Standalone double-clickable app bundle is generated in root:
 # ./TrueHour.app</pre>
                             </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane" id="paneChangelog">
+                    <div class="changelog-list">
+                        <div class="changelog-item">
+                            <div class="changelog-version">
+                                <span>v3.3.1</span>
+                                <span class="changelog-tag stable">Stable</span>
+                                <span class="changelog-date">2026.06.18</span>
+                            </div>
+                            <ul class="changelog-changes">
+                                <li><strong>App-Specific Distraction Auto-Pause</strong>: Automatically pauses tracking when switching to a designated distracting application (e.g. Chrome, games, Spotify) and auto-resumes when returning to a productive task.</li>
+                                <li><strong>App List Context Menu</strong>: Right-click any application in the live tracking list to quickly mark or unmark it as distracting.</li>
+                                <li><strong>Manage Distraction Apps</strong>: Added a dedicated checklist dialog in Settings to manage, search, and manually add custom application executables.</li>
+                                <li><strong>Dynamic Build Naming</strong>: Updated the unofficial build script to query both version and build number from `version.py` and programmatically construct the output filename at compile time.</li>
+                            </ul>
+                        </div>
+                        <div class="changelog-item">
+                            <div class="changelog-version">
+                                <span>v3.3.0</span>
+                                <span class="changelog-tag stable">Stable</span>
+                                <span class="changelog-date">2026.06.16</span>
+                            </div>
+                            <ul class="changelog-changes">
+                                <li><strong>Priority Counted Time View</strong>: Swapped the primary display elements: the big main UI clock now displays the productive Counted Work Time (`00:00:00`), while the bottom footer displays the overall Total Session Time.</li>
+                                <li><strong>Retroactive Idle Deduction</strong>: Integrated smart idle auto-pause math. The moment the idle threshold is reached, the inactive period is retroactively deducted from both the active foreground application's tracked time and the overall session duration.</li>
+                                <li><strong>Process-Level Self-Exclusion</strong>: TrueHour now detects its own Process ID (PID) on both Windows and macOS and automatically marks itself as ignored, preventing tracking active window updates inside itself.</li>
+                            </ul>
+                        </div>
+                        <div class="changelog-item">
+                            <div class="changelog-version">
+                                <span>v3.2.0-beta</span>
+                                <span class="changelog-tag beta">Beta</span>
+                                <span class="changelog-date">2026.06.04</span>
+                            </div>
+                            <ul class="changelog-changes">
+                                <li><strong>Update Channel & Notification Label</strong>: Replaced the static footer version label with a fade-in/fade-out animated update label that alerts users when a newer release is available.</li>
+                                <li><strong>Channel-Aware Update Checking</strong>: Built an asynchronous background updater that supports semantic versioning (SemVer) and release channel ranking (Alpha, Beta, RC, Stable).</li>
+                            </ul>
+                        </div>
+                        <div class="changelog-item">
+                            <div class="changelog-version">
+                                <span>v3.1.1-beta.2</span>
+                                <span class="changelog-tag beta">Beta</span>
+                                <span class="changelog-date">2026.06.03</span>
+                            </div>
+                            <ul class="changelog-changes">
+                                <li><strong>App List Layout & Elision Fix</strong>: Re-engineered the application usage rows with a custom ElidedLabel that automatically truncates long process titles using ellipsis (...).</li>
+                                <li><strong>Dynamic Build Naming</strong>: Upgraded the pre-release build script to dynamically parse the version string directly from `version.py` at compile-time and name the output executable to match.</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -1263,6 +1440,7 @@ chmod +x build.sh
                             <li><a href="#features">Features</a></li>
                             <li><a href="#security">Security</a></li>
                             <li><a href="#setup" onclick="switchTab('setup')">Setup Guides</a></li>
+                            <li><a href="#setup" onclick="switchTab('changelog')">Changelog</a></li>
                             <li><a href="#faq">FAQ</a></li>
                         </ul>
                     </div>
@@ -1273,10 +1451,28 @@ chmod +x build.sh
                             <li><a href="https://polyformproject.org/licenses/noncommercial/1.0.0/" target="_blank" rel="noopener">PolyForm Noncommercial 1.0.0</a></li>
                         </ul>
                     </div>
+                    <div class="footer-col">
+                        <h5>Feedback &amp; Contact</h5>
+                        <ul>
+                            <li><a href="https://forms.gle/798MkSd5Yyps3Uv18" target="_blank" rel="noopener">Feedback &amp; Suggestions</a></li>
+                            <li><a href="https://forms.gle/c1z3XprNSkKkGLTf9" target="_blank" rel="noopener">Business Inquiries</a></li>
+                            <li style="margin-top: 12px; font-size: 11px; color: var(--text-muted); max-width: 220px; line-height: 1.4;">
+                                Or reach out directly via social media:
+                            </li>
+                            <li style="display: flex; gap: 12px; margin-top: 8px;">
+                                <a href="https://www.facebook.com/mightyiestt" target="_blank" rel="noopener" aria-label="Facebook" style="display: flex; align-items: center; color: var(--text-secondary); transition: color 0.2s ease;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c4.56-.93 8-4.96 8-9.75z"/></svg>
+                                </a>
+                                <a href="https://www.instagram.com/mightyiest/" target="_blank" rel="noopener" aria-label="Instagram" style="display: flex; align-items: center; color: var(--text-secondary); transition: color 0.2s ease;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 True Hours · v2.1.0 (Build 2026.05.27.12). All rights reserved. Maintained locally for complete user privacy.</p>
+                <p>&copy; 2026 True Hours · v3.3.1 (Build 2026.06.18). All rights reserved. Maintained locally for complete user privacy.</p>
                 <p>Built with <a href="https://www.python.org/" target="_blank" rel="noopener">Python</a> &amp; <a href="https://www.riverbankcomputing.com/software/pyqt/" target="_blank" rel="noopener">PyQt6</a>.</p>
             </div>
         </div>
@@ -1288,6 +1484,36 @@ chmod +x build.sh
 
         menuToggle.addEventListener('click', () => {
             navigation.classList.toggle('mobile-active');
+        });
+
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const sunIcon = document.getElementById('sunIcon');
+        const moonIcon = document.getElementById('moonIcon');
+
+        const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (currentTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            sunIcon.style.display = 'block';
+            moonIcon.style.display = 'none';
+        } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+            sunIcon.style.display = 'none';
+            moonIcon.style.display = 'block';
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            let theme = 'light';
+            if (document.documentElement.getAttribute('data-theme') === 'light') {
+                theme = 'dark';
+                document.documentElement.setAttribute('data-theme', 'dark');
+                sunIcon.style.display = 'block';
+                moonIcon.style.display = 'none';
+            } else {
+                document.documentElement.setAttribute('data-theme', 'light');
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'block';
+            }
+            localStorage.setItem('theme', theme);
         });
 
         function switchTab(tabName) {
@@ -1304,6 +1530,9 @@ chmod +x build.sh
             } else if (tabName === 'api') {
                 document.getElementById('btnTabApi').classList.add('active');
                 document.getElementById('paneApi').classList.add('active');
+            } else if (tabName === 'changelog') {
+                document.getElementById('btnTabChangelog').classList.add('active');
+                document.getElementById('paneChangelog').classList.add('active');
             }
         }
 
@@ -1313,6 +1542,8 @@ chmod +x build.sh
                 switchTab('setup');
             } else if (hash === '#api') {
                 switchTab('api');
+            } else if (hash === '#changelog') {
+                switchTab('changelog');
             }
         }
 

@@ -459,9 +459,9 @@ class TrueHourDashboard(QDialog):
             import webbrowser
             if hasattr(self.main_app, "web_server_mgr") and self.main_app.web_server_mgr:
                 port = self.main_app.web_server_mgr.port
-                webbrowser.open(f"http://localhost:{port}/")
+                webbrowser.open(f"http://127.0.0.1:{port}/")
             else:
-                webbrowser.open("http://localhost:5080/") # fallback
+                webbrowser.open("http://127.0.0.1:5080/") # fallback
 
         launch_btn.clicked.connect(launch_web_console)
         self.goals_layout.addWidget(launch_btn, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -565,7 +565,7 @@ class TrueHourDashboard(QDialog):
             row_layout.addWidget(lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             pct_lbl = QLabel(f"{pb['percent']:.1f}%", row_f)
-            pct_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: #64748B; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
+            pct_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
             pct_lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
             row_layout.addWidget(pct_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
@@ -730,7 +730,7 @@ class TrueHourDashboard(QDialog):
                 row_layout.addWidget(lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
                 pct_lbl = QLabel(f"{pb['percent']:.1f}%", row_f)
-                pct_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: #64748B; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
+                pct_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
                 pct_lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
                 row_layout.addWidget(pct_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 

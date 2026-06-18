@@ -244,6 +244,8 @@ class TrueHourApp(QMainWindow):
             print(f"[TrueHour] Failed database bootstrap: {e}")
 
         self.tracker = AppTracker(poll_interval=1.0, min_track_seconds=2)
+        self.notified_goals = None
+        self.notified_earnings_goal = None
         self._load_app_settings()
         self._init_posthog()
         self._track_event("app_started", {"version": VERSION_FULL, "platform": sys.platform})
@@ -873,9 +875,9 @@ class TrueHourApp(QMainWindow):
         if getattr(self, "last_week_start_date", None) != expected_start:
             self.last_week_start_date = expected_start
             self._recalculate_weekly_base_focus_seconds()
-            if hasattr(self, "notified_goals"):
+            if self.notified_goals is not None:
                 self.notified_goals.clear()
-            if hasattr(self, "notified_earnings_goal"):
+            if self.notified_earnings_goal is not None:
                 self.notified_earnings_goal.clear()
 
         project_seconds = dict(getattr(self, "weekly_base_focus_seconds", {}))
@@ -894,7 +896,7 @@ class TrueHourApp(QMainWindow):
 
         # Check weekly earnings goal milestones
         if weekly_earnings_goal > 0 and getattr(self, "hourly_rate", 0.0) > 0:
-            if not hasattr(self, "notified_earnings_goal"):
+            if self.notified_earnings_goal is None:
                 self.notified_earnings_goal = set()
                 if total_earnings >= weekly_earnings_goal:
                     self.notified_earnings_goal.add(100)
@@ -918,7 +920,7 @@ class TrueHourApp(QMainWindow):
 
         # Check project goals
         if weekly_goals:
-            if not hasattr(self, "notified_goals"):
+            if self.notified_goals is None:
                 self.notified_goals = {}
                 for proj, goal_hours in weekly_goals.items():
                     if goal_hours <= 0:
@@ -990,9 +992,9 @@ class TrueHourApp(QMainWindow):
         if tracker_was_running:
             self.tracker.stop()
         self.earnings_goal_reset_timestamp = datetime.now().isoformat()
-        if hasattr(self, "notified_goals"):
+        if self.notified_goals is not None:
             self.notified_goals.clear()
-        if hasattr(self, "notified_earnings_goal"):
+        if self.notified_earnings_goal is not None:
             self.notified_earnings_goal.clear()
         self._recalculate_weekly_base_focus_seconds()
         self._save_app_settings()
@@ -1007,15 +1009,15 @@ class TrueHourApp(QMainWindow):
         logger.info(f"[Web Server] Weekly goals updated: {goals_data}")
         if "weekly_goals" in goals_data:
             self.weekly_goals = goals_data["weekly_goals"]
-            if hasattr(self, "notified_goals"):
+            if self.notified_goals is not None:
                 self.notified_goals.clear()
         if "weekly_earnings_goal" in goals_data:
             self.weekly_earnings_goal = goals_data["weekly_earnings_goal"]
-            if hasattr(self, "notified_earnings_goal"):
+            if self.notified_earnings_goal is not None:
                 self.notified_earnings_goal.clear()
         if "earnings_goal_period" in goals_data:
             self.earnings_goal_period = str(goals_data["earnings_goal_period"])
-            if hasattr(self, "notified_earnings_goal"):
+            if self.notified_earnings_goal is not None:
                 self.notified_earnings_goal.clear()
         self._recalculate_weekly_base_focus_seconds()
         self._save_app_settings()
@@ -1115,6 +1117,7 @@ class TrueHourApp(QMainWindow):
                         app_name, secs, included, tag, exe_path,
                         on_toggle=self._toggle_include,
                         on_tag_click=self._show_tag_menu,
+                        on_context_menu=self._show_app_context_menu,
                         parent=self.scroll_widget
                     )
 
@@ -1171,6 +1174,37 @@ class TrueHourApp(QMainWindow):
     def _toggle_include(self, app_name, is_checked):
         self.tracker.set_included(app_name, is_checked)
         self._schedule_refresh()
+
+    def _show_app_context_menu(self, app_name, exe_path, global_pos):
+        menu = QMenu(self)
+        exe_name = os.path.basename(exe_path).lower() if exe_path else ""
+        target = exe_name if exe_name else app_name
+        if not target:
+            return
+
+        is_distracting = any(d.lower() == target.lower() for d in self.distraction_apps)
+
+        if is_distracting:
+            action = menu.addAction("Remove from Distracting Apps")
+            action.triggered.connect(lambda: self._remove_distraction_app(target))
+        else:
+            action = menu.addAction("Mark as Distracting App")
+            action.triggered.connect(lambda: self._add_distraction_app(target))
+
+        menu.exec(global_pos)
+
+    def _add_distraction_app(self, target):
+        if target and target not in self.distraction_apps:
+            logger.info(f"[Action] Added '{target}' to distracting apps")
+            self.distraction_apps.append(target)
+            self.tracker.distraction_apps = self.distraction_apps
+            self._save_app_settings()
+
+    def _remove_distraction_app(self, target):
+        self.distraction_apps = [d for d in self.distraction_apps if d.lower() != target.lower()]
+        self.tracker.distraction_apps = self.distraction_apps
+        self._save_app_settings()
+        logger.info(f"[Action] Removed '{target}' from distracting apps")
 
 
     def _show_tag_menu(self, app_name, button):
@@ -1341,6 +1375,8 @@ class TrueHourApp(QMainWindow):
         self.weekly_earnings_goal = 0.0
         self.earnings_goal_period = "weekly"
         self.enable_goal_tray_alerts = True
+        self.enable_distraction_auto_pause = False
+        self.distraction_apps = []
         self.weekly_base_focus_seconds = {}
         self.earnings_goal_reset_timestamp = ""
         self._goals_initialized = False
@@ -1393,6 +1429,10 @@ class TrueHourApp(QMainWindow):
                     _old_min = data.get("idle_threshold_minutes", 2) * 60
                     self.idle_threshold_seconds_total = data.get("idle_threshold_seconds_total", _old_min)
                     self.tracker.idle_threshold_seconds = self.idle_threshold_seconds_total
+                    self.enable_distraction_auto_pause = data.get("enable_distraction_auto_pause", False)
+                    self.distraction_apps = data.get("distraction_apps", [])
+                    self.tracker.enable_distraction_auto_pause = self.enable_distraction_auto_pause
+                    self.tracker.distraction_apps = self.distraction_apps
 
                     self.business_name = data.get("business_name", "")
                     self.business_phone = data.get("business_phone", "")
@@ -1511,6 +1551,8 @@ class TrueHourApp(QMainWindow):
                 "enable_goal_tray_alerts": self.enable_goal_tray_alerts,
                 "earnings_goal_reset_timestamp": getattr(self, "earnings_goal_reset_timestamp", ""),
                 "anonymous_user_id": self.anonymous_user_id,
+                "enable_distraction_auto_pause": self.enable_distraction_auto_pause,
+                "distraction_apps": self.distraction_apps,
             }
             with open(APP_SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
@@ -1662,7 +1704,7 @@ class TrueHourApp(QMainWindow):
         if msg.clickedButton() == github_btn:
             webbrowser.open("https://github.com/Mightyiest/TrueHour/issues")
         elif msg.clickedButton() == form_btn:
-            webbrowser.open("https://forms.gle/Kqqb32i1ZE3d3vY8A")
+            webbrowser.open("https://forms.gle/798MkSd5Yyps3Uv18")
 
     def _show_settings(self):
         logger.info("[Action] Opened Settings")
@@ -1704,6 +1746,8 @@ class TrueHourApp(QMainWindow):
             "weekly_earnings_goal": getattr(self, "weekly_earnings_goal", 0.0),
             "earnings_goal_period": getattr(self, "earnings_goal_period", "weekly"),
             "enable_goal_tray_alerts": self.enable_goal_tray_alerts,
+            "enable_distraction_auto_pause": self.enable_distraction_auto_pause,
+            "distraction_apps": self.distraction_apps,
         }
 
         dialog = SettingsDialog(current_settings, self)
@@ -1774,9 +1818,13 @@ class TrueHourApp(QMainWindow):
             self.weekly_earnings_goal = new_settings.get("weekly_earnings_goal", 0.0)
             self.earnings_goal_period = new_settings.get("earnings_goal_period", "weekly")
             self.enable_goal_tray_alerts = new_settings.get("enable_goal_tray_alerts", True)
-            if hasattr(self, "notified_goals"):
+            self.enable_distraction_auto_pause = new_settings.get("enable_distraction_auto_pause", False)
+            self.distraction_apps = new_settings.get("distraction_apps", [])
+            self.tracker.enable_distraction_auto_pause = self.enable_distraction_auto_pause
+            self.tracker.distraction_apps = self.distraction_apps
+            if self.notified_goals is not None:
                 self.notified_goals.clear()
-            if hasattr(self, "notified_earnings_goal"):
+            if self.notified_earnings_goal is not None:
                 self.notified_earnings_goal.clear()
             self._recalculate_weekly_base_focus_seconds()
 
@@ -1807,19 +1855,34 @@ class TrueHourApp(QMainWindow):
         self._center_window(dialog, 360, 310)
         dialog.setModal(True)
 
+        # Apply stylesheet and palette on start
+        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
+        qss = get_qss_style(self.dark_mode).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.dark_mode))
+        dialog.setStyleSheet(qss)
+        dialog.setPalette(get_dark_palette() if self.dark_mode else get_light_palette())
+
+        # Dynamic theme colors
+        text_primary = "#e0e0e0" if self.dark_mode else "#0F172A"
+        text_secondary = "#888888" if self.dark_mode else "#64748B"
+        border_color = "#333333" if self.dark_mode else "#E2E8F0"
+        btn_bg = "#262626" if self.dark_mode else "#F8FAFC"
+        btn_border = "#333333" if self.dark_mode else "#E2E8F0"
+        btn_hover = "#333333" if self.dark_mode else "#F1F5F9"
+        btn_border_hover = "#444444" if self.dark_mode else "#CBD5E1"
+
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(12)
 
         # Title & Icon/Label
         title = QLabel("TrueHour", dialog)
-        title.setStyleSheet("font-family: 'Segoe UI'; font-size: 22px; font-weight: bold; color: #0F172A;")
+        title.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 22px; font-weight: bold; color: {text_primary};")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
         # Subtitle or description
         desc = QLabel("Automated Time Tracker & Productivity Assistant", dialog)
-        desc.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B; font-weight: 500;")
+        desc.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: {text_secondary}; font-weight: 500;")
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(desc)
 
@@ -1827,7 +1890,7 @@ class TrueHourApp(QMainWindow):
         divider = QFrame(dialog)
         divider.setFrameShape(QFrame.Shape.HLine)
         divider.setFrameShadow(QFrame.Shadow.Sunken)
-        divider.setStyleSheet("background-color: #E2E8F0; min-height: 1px; max-height: 1px; border: none;")
+        divider.setStyleSheet(f"background-color: {border_color}; min-height: 1px; max-height: 1px; border: none;")
         layout.addWidget(divider)
 
         # Version & Build details
@@ -1835,12 +1898,12 @@ class TrueHourApp(QMainWindow):
         details_layout.setSpacing(4)
 
         ver_lbl = QLabel(f"Version: {INFO.version}", dialog)
-        ver_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; color: #0F172A;")
+        ver_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_primary};")
         ver_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         details_layout.addWidget(ver_lbl)
 
         build_lbl = QLabel(f"Build: {INFO.build_number} ({INFO.build_date})", dialog)
-        build_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; color: #64748B;")
+        build_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_secondary};")
         build_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         details_layout.addWidget(build_lbl)
 
@@ -1852,22 +1915,22 @@ class TrueHourApp(QMainWindow):
         links_row.setSpacing(12)
 
         github_btn = QPushButton(dialog)
-        github_btn.setIcon(get_svg_icon(GITHUB_SVG, QSize(20, 20)))
+        github_btn.setIcon(get_svg_icon(GITHUB_SVG, QSize(20, 20), color_hex=text_primary))
         github_btn.setIconSize(QSize(20, 20))
         github_btn.setToolTip("Visit TrueHour on GitHub")
         github_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         github_btn.setFixedSize(32, 32)
-        github_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #F8FAFC;
-                border: 1px solid #E2E8F0;
+        github_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {btn_bg};
+                border: 1px solid {btn_border};
                 border-radius: 16px;
                 padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #F1F5F9;
-                border-color: #CBD5E1;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {btn_hover};
+                border-color: {btn_border_hover};
+            }}
         """)
         github_btn.clicked.connect(lambda: webbrowser.open("https://mightyiest.github.io/TrueHour/"))
         links_row.addWidget(github_btn)

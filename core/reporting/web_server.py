@@ -86,7 +86,7 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
         if post_data:
             try:
                 payload = json.loads(post_data.decode("utf-8"))
-            except Exception as e:
+            except Exception:
                 self._set_headers(status=400)
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode("utf-8"))
                 return
@@ -169,7 +169,7 @@ class WebServerManager(QObject):
         if self.running:
             return
 
-        self.server = GoalsWebServer(("localhost", self.port), GoalsHTTPRequestHandler, self.get_state_callback, self.signals)
+        self.server = GoalsWebServer(("127.0.0.1", self.port), GoalsHTTPRequestHandler, self.get_state_callback, self.signals)
         self.thread = threading.Thread(target=self._run_server, daemon=True)
         self.running = True
         self.thread.start()

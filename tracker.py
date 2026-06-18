@@ -690,6 +690,11 @@ class AppTracker:
         self.idle_threshold_seconds = 0  # 0 = disabled
         self._idle_paused = False
 
+        # Distraction auto-pause
+        self.enable_distraction_auto_pause = False
+        self.distraction_apps = []
+        self._distraction_paused = False
+
         # Security: Time tamper detection
         self.security_detector = None
         self.integrity_warnings = []
@@ -1129,7 +1134,7 @@ class AppTracker:
                     self.toggle_pause(is_idle=True)
                     if self.on_update:
                         try: self.on_update()
-                        except: pass
+                        except Exception: pass
                 elif self._idle_paused and idle_secs < self.idle_threshold_seconds:
                     # Activity resumed — auto-resume
                     self._idle_paused = False
@@ -1137,12 +1142,46 @@ class AppTracker:
                         self.toggle_pause()
                     if self.on_update:
                         try: self.on_update()
-                        except: pass
-            if self.paused:
+                        except Exception: pass
+            if self.paused and not self._distraction_paused:
                 time.sleep(self.poll_interval)
                 continue
 
             app, exe_path = get_foreground_app_info()
+
+            # Check if this app/exe is a distraction
+            is_distracting = False
+            if self.enable_distraction_auto_pause:
+                import os
+                exe_name = os.path.basename(exe_path).lower() if exe_path else ""
+                app_lower = app.lower() if app else ""
+                for dist in self.distraction_apps:
+                    dist_lower = dist.strip().lower()
+                    if not dist_lower:
+                        continue
+                    if dist_lower == exe_name or dist_lower in app_lower:
+                        is_distracting = True
+                        break
+
+            if is_distracting:
+                if not self.paused:
+                    self._distraction_paused = True
+                    self.toggle_pause()
+                    if self.on_update:
+                        try: self.on_update()
+                        except Exception: pass
+            else:
+                if self._distraction_paused:
+                    self._distraction_paused = False
+                    if self.paused:
+                        self.toggle_pause()
+                    if self.on_update:
+                        try: self.on_update()
+                        except Exception: pass
+
+            if self.paused:
+                time.sleep(self.poll_interval)
+                continue
             now = time.time()
 
             should_callback = (now - last_callback_time) >= callback_interval
