@@ -300,7 +300,7 @@ def _load_auto_excluded():
             for line in f:
                 line = line.strip().lower()
                 if line and not line.startswith("#") and line[0].isalnum():
-                    if not line.endswith(".exe"):
+                    if _SYSTEM == "Windows" and not line.endswith(".exe"):
                         line += ".exe"
                     _AUTO_EXCLUDED_EXES.add(line)
     except (OSError, IOError) as e:
@@ -329,7 +329,7 @@ def reload_auto_excluded():
                 for line in f:
                     line = line.strip().lower()
                     if line and not line.startswith("#") and line[0].isalnum():
-                        if not line.endswith(".exe"):
+                        if _SYSTEM == "Windows" and not line.endswith(".exe"):
                             line += ".exe"
                         new_set.add(line)
         except (OSError, IOError) as e:
@@ -373,18 +373,19 @@ class TagManager:
         "Documentation": ["word", "excel", "pdf", "document", "notion", "obsidian", "writer", "spreadsheet", "powerpoint", "slides", "notes", "acrobat", "typora", "logseq"],
         "Communication": ["slack", "teams", "discord", "zoom", "outlook", "whatsapp", "messenger", "skype", "telegram", "thunderbird", "mail", "chat", "meeting"],
         "Research": ["chrome", "firefox", "edge", "safari", "browser", "google", "search", "wikipedia", "navigator", "opera", "brave"],
-        "Management": ["project", "jira", "trello", "asana", "trello", "clickup", "monday.com", "board", "gantt", "backlog"]
+        "Management": ["project", "jira", "trello", "asana", "clickup", "monday.com", "board", "gantt", "backlog"]
     }
 
     def __init__(self):
         self.lock = threading.Lock()
         self.projects = list(self.DEFAULT_PROJECTS)
         self.mappings = {}
+        self.dirty = False
         self._load_tags()
 
     def _load_tags(self):
         if not os.path.exists(TAGS_FILE):
-            self._save_tags()
+            self._save_tags(force=True)
             return
         try:
             with open(TAGS_FILE, "r", encoding="utf-8") as f:
@@ -399,7 +400,10 @@ class TagManager:
             self.projects = list(self.DEFAULT_PROJECTS)
             self.mappings = {}
 
-    def _save_tags(self):
+    def _save_tags(self, force=False):
+        if not force:
+            self.dirty = True
+            return
         try:
             dirpath = os.path.dirname(TAGS_FILE)
             if dirpath:
@@ -411,8 +415,14 @@ class TagManager:
                     "mappings": self.mappings
                 }, f, indent=2, ensure_ascii=False)
             os.replace(temp_file, TAGS_FILE)
+            self.dirty = False
         except Exception as e:
             logger.warning(f"Failed to save tags config: {e}")
+
+    def save_if_dirty(self):
+        with self.lock:
+            if self.dirty:
+                self._save_tags(force=True)
 
     def get_tag(self, app_name: str, exe_path: str = "") -> str:
         """Get tag for app. If not mapped, runs offline heuristics + asynchronous online fallback."""
@@ -427,14 +437,14 @@ class TagManager:
         if matched_tag:
             with self.lock:
                 self.mappings[key] = matched_tag
-                self._save_tags()
+                self._save_tags(force=True)
             return matched_tag
 
         # If offline fails, start a background online fetch
         # Set to "Unassigned" temporarily, then update asynchronously
         with self.lock:
             self.mappings[key] = "Unassigned"
-            self._save_tags()
+            self._save_tags(force=True)
 
         # Start background thread to query DDG API
         threading.Thread(target=self._fetch_and_update_tag_online, args=(app_name, exe_path), daemon=True).start()
@@ -445,7 +455,7 @@ class TagManager:
         with self.lock:
             if tag in self.projects or tag == "Unassigned":
                 self.mappings[key] = tag
-                self._save_tags()
+                self._save_tags(force=True)
 
     def add_project(self, project: str) -> bool:
         project = project.strip()
@@ -454,7 +464,7 @@ class TagManager:
         with self.lock:
             if project not in self.projects:
                 self.projects.append(project)
-                self._save_tags()
+                self._save_tags(force=True)
                 return True
         return False
 
@@ -468,7 +478,7 @@ class TagManager:
                 for k, v in list(self.mappings.items()):
                     if v == project:
                         self.mappings[k] = "Unassigned"
-                self._save_tags()
+                self._save_tags(force=True)
                 return True
         return False
 
@@ -796,6 +806,7 @@ class AppTracker:
                     "events_count": security_report.get("tamper_events_count", len(security_report.get("tamper_events", [])))
                 })
 
+        self.tag_manager.save_if_dirty()
         if os.path.exists(ACTIVE_SESSION_FILE):
             try:
                 # Validate file path before deletion
@@ -1152,7 +1163,6 @@ class AppTracker:
             # Check if this app/exe is a distraction
             is_distracting = False
             if self.enable_distraction_auto_pause:
-                import os
                 exe_name = os.path.basename(exe_path).lower() if exe_path else ""
                 app_lower = app.lower() if app else ""
                 for dist in self.distraction_apps:
@@ -1241,6 +1251,8 @@ class AppTracker:
                                     "timestamp": datetime.now().isoformat()
                                 }
                                 self.integrity_warnings.append(warning)
+                                if len(self.integrity_warnings) > 100:
+                                    self.integrity_warnings = self.integrity_warnings[-100:]
                             elif validation["integrity_status"] == "SUSPICIOUS":
                                 warning = {
                                     "type": "SUSPICIOUS_TIME_CHANGE",
@@ -1249,6 +1261,8 @@ class AppTracker:
                                     "timestamp": datetime.now().isoformat()
                                 }
                                 self.integrity_warnings.append(warning)
+                                if len(self.integrity_warnings) > 100:
+                                    self.integrity_warnings = self.integrity_warnings[-100:]
 
             # Throttled callback to reduce UI update frequency
             if should_callback and self.on_update:
@@ -1266,3 +1280,4 @@ class AppTracker:
 
     def _save_active_state(self):
         SessionStorage.save_state(self, ACTIVE_SESSION_FILE)
+        self.tag_manager.save_if_dirty()

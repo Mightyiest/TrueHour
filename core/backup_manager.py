@@ -110,6 +110,12 @@ def import_settings(src_zip_path: str, target_profile_name: str, password: str =
         # Extract to validation temp workspace
         try:
             with zipfile.ZipFile(src_zip_path, 'r') as zipf:
+                # Zip Slip prevention: validate all member target paths
+                for member in zipf.namelist():
+                    target_path = os.path.abspath(os.path.join(tmpdir, member))
+                    if not target_path.startswith(os.path.abspath(tmpdir)):
+                        logger.error(f"Security Alert: Unsafe zip entry prevented (path traversal): {member}")
+                        return "error"
                 zipf.extractall(tmpdir)
         except Exception as e:
             logger.error(f"Failed to extract zip file: {e}")

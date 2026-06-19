@@ -123,6 +123,11 @@ def resolve_name(exe_path, base_name):
     if key in _NAME_OVERRIDES: friendly = _NAME_OVERRIDES[key]
     if not friendly: friendly = _get_file_description(exe_path)
     if not friendly: friendly = base_name.replace("_", " ").replace("-", " ").title()
+    if len(_name_cache) >= 500:
+        try:
+            del _name_cache[next(iter(_name_cache))]
+        except Exception:
+            _name_cache.clear()
     _name_cache[exe_path] = friendly
     return friendly
 

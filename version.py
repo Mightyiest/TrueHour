@@ -5,7 +5,7 @@ Single source of truth for version and build metadata.
 
 from dataclasses import dataclass
 
-__version__ = "3.3.2"
+__version__ = "3.3.2-beta.2"
 
 @dataclass(frozen=True)
 class VersionInfo:
