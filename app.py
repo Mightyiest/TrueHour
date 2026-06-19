@@ -60,30 +60,9 @@ def pil_to_pixmap(pil_img):
         logger.debug("pil_to_pixmap failed: %s", e)
         return None
 
-def _get_secure_key(seed: str) -> str:
-    if not seed:
-        return "default_key_seed"
-    machine_id = os.environ.get("COMPUTERNAME", "") or os.environ.get("HOSTNAME", "default_host")
-    combined = f"{seed}:{machine_id}"
-    return hashlib.sha256(combined.encode("utf-8")).hexdigest()
+from crypto import _get_secure_key, _encrypt_string, _decrypt_string
 
-def _encrypt_string(plain_text: str, key: str) -> str:
-    if not plain_text:
-        return ""
-    key_len = len(key)
-    xor_bytes = bytearray(ord(c) ^ ord(key[i % key_len]) for i, c in enumerate(plain_text))
-    return base64.b64encode(xor_bytes).decode("utf-8")
-
-def _decrypt_string(cipher_text: str, key: str) -> str:
-    if not cipher_text:
-        return ""
-    try:
-        raw_bytes = base64.b64decode(cipher_text)
-        key_len = len(key)
-        plain_bytes = bytearray(b ^ ord(key[i % key_len]) for i, b in enumerate(raw_bytes))
-        return plain_bytes.decode("utf-8")
-    except Exception:
-        return ""
+# ── Crypto Key Bindings (Moved to crypto.py) ──────────────────
 
 _ICON_PROVIDER = None
 

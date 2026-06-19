@@ -14,7 +14,7 @@ from theme import get_svg_icon
 from config import get_app_data_dir, open_file, get_app_data_root
 from tracker import AUTO_EXCLUDE_FILE, create_auto_excluded_if_missing
 from appinfo import OVERRIDES_FILE
-from assets import INFO_SVG
+from assets import INFO_SVG, LOCK_SVG
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +168,86 @@ class DistractionAppsDialog(QDialog):
 
     def _save_changes(self):
         self.distraction_apps = [app for app, cb in self.checkboxes.items() if cb.isChecked()]
+        self.accept()
+
+class BackupTypeDialog(QDialog):
+    def __init__(self, theme_style, parent=None):
+        super().__init__(parent)
+        self.theme_style = theme_style
+        self.selected_type = None  # "standard", "encrypted", or None
+        self.setWindowTitle("Select Backup Type")
+        self._center_window(360, 220)
+
+        # Style matching parent
+        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
+        is_dark = (theme_style in ["modern-dark", "classic-dark"])
+        qss = get_qss_style(theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(theme_style))
+        self.setStyleSheet(qss)
+        self.setPalette(get_dark_palette(theme_style) if is_dark else get_light_palette())
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(10)
+
+        title = QLabel("Select Backup Type", self)
+        title.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold;")
+        layout.addWidget(title)
+
+        desc = QLabel(
+            "Standard backup removes sensitive banking info. "
+            "Encrypted backup protects it with a password for transfer to other devices.",
+            self
+        )
+        desc.setWordWrap(True)
+        desc.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B;")
+        layout.addWidget(desc)
+
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(8)
+
+        self.btn_standard = QPushButton("Standard Backup", self)
+        self.btn_standard.setObjectName("NormalButton")
+        self.btn_standard.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_standard.setMinimumHeight(34)
+        self.btn_standard.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; font-weight: bold;")
+        self.btn_standard.clicked.connect(self._on_standard)
+        buttons_layout.addWidget(self.btn_standard, 1)
+
+        self.btn_encrypted = QPushButton("  Encrypted Backup", self)
+        self.btn_encrypted.setObjectName("AccentButton")
+        self.btn_encrypted.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_encrypted.setMinimumHeight(34)
+        self.btn_encrypted.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; font-weight: bold;")
+        self.btn_encrypted.setIcon(get_svg_icon(LOCK_SVG, QSize(14, 14), color_hex="#FFFFFF"))
+        self.btn_encrypted.setIconSize(QSize(14, 14))
+        self.btn_encrypted.clicked.connect(self._on_encrypted)
+        buttons_layout.addWidget(self.btn_encrypted, 1)
+
+        layout.addLayout(buttons_layout)
+
+        cancel_layout = QHBoxLayout()
+        cancel_layout.addStretch()
+        self.btn_cancel = QPushButton("Cancel", self)
+        self.btn_cancel.setObjectName("NormalButton")
+        self.btn_cancel.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_cancel.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; padding: 4px 12px;")
+        self.btn_cancel.clicked.connect(self.reject)
+        cancel_layout.addWidget(self.btn_cancel)
+        layout.addLayout(cancel_layout)
+
+    def _center_window(self, width, height):
+        self.resize(width, height)
+        screen = QApplication.primaryScreen().geometry()
+        x = (screen.width() - width) // 2
+        y = (screen.height() - height) // 2
+        self.move(x, y)
+
+    def _on_standard(self):
+        self.selected_type = "standard"
+        self.accept()
+
+    def _on_encrypted(self):
+        self.selected_type = "encrypted"
         self.accept()
 
 class SettingsDialog(QDialog):
@@ -1014,6 +1094,36 @@ class SettingsDialog(QDialog):
         from datetime import datetime
         from core.backup_manager import backup_settings
 
+        theme_style = self.settings.get("theme_style", "modern-dark")
+        type_dialog = BackupTypeDialog(theme_style, self)
+        if type_dialog.exec() != QDialog.DialogCode.Accepted or not type_dialog.selected_type:
+            return
+
+        password = None
+        if type_dialog.selected_type == "encrypted":
+            pwd1, ok1 = QInputDialog.getText(
+                self, "Backup Password",
+                "Enter a password to encrypt your banking details (min 4 characters):",
+                QLineEdit.EchoMode.Password, ""
+            )
+            if not ok1:
+                return
+            if not pwd1 or len(pwd1) < 4:
+                QMessageBox.critical(self, "Invalid Password", "Password must be at least 4 characters long.")
+                return
+
+            pwd2, ok2 = QInputDialog.getText(
+                self, "Confirm Password",
+                "Re-enter password to confirm:",
+                QLineEdit.EchoMode.Password, ""
+            )
+            if not ok2:
+                return
+            if pwd1 != pwd2:
+                QMessageBox.critical(self, "Passwords Mismatch", "Passwords do not match. Backup aborted.")
+                return
+            password = pwd1
+
         default_name = f"backup_{self.active_profile}_{datetime.now().strftime('%Y%m%d')}.truehour"
         dest_path, _ = QFileDialog.getSaveFileName(
             self, "Backup Settings & History", default_name, "TrueHour Backup Files (*.truehour)"
@@ -1021,16 +1131,22 @@ class SettingsDialog(QDialog):
         if not dest_path:
             return
 
-        # Ensure it has .truehour extension
         if not dest_path.endswith(".truehour"):
             dest_path += ".truehour"
 
-        success = backup_settings(dest_path, self.active_profile)
+        anon_user_id = self.settings.get("anonymous_user_id", "")
+        success = backup_settings(dest_path, self.active_profile, password, anon_user_id)
         if success:
-            QMessageBox.information(
-                self, "Backup Successful",
-                f"Profile '{self.active_profile}' settings, categories, payment QR codes, and session logs have been successfully backed up to:\n{dest_path}"
-            )
+            if password:
+                QMessageBox.information(
+                    self, "Backup Successful",
+                    f"Encrypted profile backup created successfully! Banking credentials are protected.\n\nFile location:\n{dest_path}"
+                )
+            else:
+                QMessageBox.information(
+                    self, "Backup Successful",
+                    f"Profile backup created successfully! Note that sensitive banking details were omitted for security.\n\nFile location:\n{dest_path}"
+                )
         else:
             QMessageBox.critical(
                 self, "Backup Failed",
@@ -1047,12 +1163,10 @@ class SettingsDialog(QDialog):
         if not src_path:
             return
 
-        # Parse suggested profile name from filename
         base_fn = os.path.basename(src_path)
         match = re.match(r"backup_(.*?)_\d+", base_fn)
         suggested_name = match.group(1) if match else os.path.splitext(base_fn)[0]
 
-        # Ask what name to restore as
         imported_name, ok = QInputDialog.getText(
             self, "Import Profile Name",
             "Enter the profile name to restore this backup as:",
@@ -1062,7 +1176,6 @@ class SettingsDialog(QDialog):
             return
         imported_name = imported_name.strip()
 
-        # Name validation
         if not all(c.isalnum() or c in " _-" for c in imported_name):
             QMessageBox.critical(
                 self, "Invalid Name",
@@ -1070,7 +1183,6 @@ class SettingsDialog(QDialog):
             )
             return
 
-        # Overwrite warning if exists
         if imported_name in self.profiles_list:
             overwrite_confirm = QMessageBox.question(
                 self, "Overwrite Profile?",
@@ -1081,8 +1193,52 @@ class SettingsDialog(QDialog):
             if overwrite_confirm != QMessageBox.StandardButton.Yes:
                 return
 
-        success = import_settings(src_path, imported_name)
-        if success:
+        # Attempt standard/default import (password=None, strip_if_encrypted=False)
+        status = import_settings(src_path, imported_name, password=None, strip_if_encrypted=False)
+
+        if status == "password_required":
+            password, ok = QInputDialog.getText(
+                self, "Encrypted Backup Detected",
+                "This backup is encrypted. Please enter the password to restore banking details:",
+                QLineEdit.EchoMode.Password, ""
+            )
+            if not ok:
+                return
+            status = import_settings(src_path, imported_name, password=password)
+
+            while status == "wrong_password":
+                retry = QMessageBox.question(
+                    self, "Incorrect Password",
+                    "Incorrect password entered. Would you like to try again?\n\n(Click 'No' to import without banking details, or 'Cancel' to abort)",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Yes
+                )
+                if retry == QMessageBox.StandardButton.Yes:
+                    password, ok = QInputDialog.getText(
+                        self, "Enter Backup Password",
+                        "Enter the password to decrypt banking details:",
+                        QLineEdit.EchoMode.Password, ""
+                    )
+                    if not ok:
+                        return
+                    status = import_settings(src_path, imported_name, password=password)
+                elif retry == QMessageBox.StandardButton.No:
+                    status = import_settings(src_path, imported_name, password=None, strip_if_encrypted=True)
+                else:
+                    return
+
+        if status == "success":
+            QMessageBox.information(
+                self, "Import Successful",
+                f"Profile '{imported_name}' imported successfully including all preferences, session history, and decrypted banking credentials."
+            )
+            self.settings_imported.emit(imported_name)
+            self.accept()
+        elif status == "banking_stripped":
+            QMessageBox.information(
+                self, "Import Successful",
+                f"Profile '{imported_name}' imported successfully. Note that sensitive banking details were omitted or stripped — you can re-enter them under Billing & Invoices."
+            )
             self.settings_imported.emit(imported_name)
             self.accept()
         else:
