@@ -91,15 +91,10 @@ def get_light_palette() -> QPalette:
 
     return palette
 
-def get_dark_palette(theme_style: str = "modern-dark") -> QPalette:
-    if theme_style == "classic-dark":
-        return get_classic_dark_palette()
-    return get_modern_dark_palette()
-
-def get_classic_dark_palette() -> QPalette:
+def get_dark_palette() -> QPalette:
     palette = QPalette()
 
-    # Active Colors (Classic Minimalistic Dark Theme)
+    # Active Colors (Frankfurter Minimalistic Dark Theme)
     palette.setColor(QPalette.ColorRole.Window, QColor("#141414"))
     palette.setColor(QPalette.ColorRole.WindowText, QColor("#e0e0e0"))
     palette.setColor(QPalette.ColorRole.Base, QColor("#1e1e1e"))
@@ -146,70 +141,12 @@ def get_classic_dark_palette() -> QPalette:
 
     return palette
 
-def get_modern_dark_palette() -> QPalette:
-    palette = QPalette()
-
-    # Active Colors (Modern Premium Dark Theme)
-    palette.setColor(QPalette.ColorRole.Window, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorRole.WindowText, QColor("#EDEDED"))
-    palette.setColor(QPalette.ColorRole.Base, QColor("#16161A"))
-    palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor("#16161A"))
-    palette.setColor(QPalette.ColorRole.ToolTipText, QColor("#EDEDED"))
-    palette.setColor(QPalette.ColorRole.Text, QColor("#EDEDED"))
-    palette.setColor(QPalette.ColorRole.Button, QColor("#16161A"))
-    palette.setColor(QPalette.ColorRole.ButtonText, QColor("#EDEDED"))
-    palette.setColor(QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorRole.Link, QColor("#2563EB"))
-    palette.setColor(QPalette.ColorRole.Highlight, QColor("#232329"))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
-
-    # Inactive Colors (match Active)
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.WindowText, QColor("#EDEDED"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Base, QColor("#16161A"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.AlternateBase, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipBase, QColor("#16161A"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipText, QColor("#EDEDED"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Text, QColor("#EDEDED"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Button, QColor("#16161A"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ButtonText, QColor("#EDEDED"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Link, QColor("#2563EB"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Highlight, QColor("#232329"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
-
-    # Disabled Colors (grayed out modern dark theme)
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#555555"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Base, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.AlternateBase, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipBase, QColor("#16161A"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipText, QColor("#555555"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor("#555555"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Button, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#555555"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Link, QColor("#2563EB"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Highlight, QColor("#232329"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.HighlightedText, QColor("#555555"))
-
-    return palette
-
 _GENERATED_CHECKMARKS = set()
 
 # ── Dynamic Checkmark Icon Generator ─────────────────────────────────
-def ensure_checkmark_icon(theme_style_or_is_dark=False) -> str:
+def ensure_checkmark_icon(is_dark: bool = False) -> str:
     from config import get_app_data_dir
-    
-    if isinstance(theme_style_or_is_dark, bool):
-        use_dark_checkmark = theme_style_or_is_dark
-    else:
-        # For strings, only classic-dark needs a dark checkmark (accent is light gray).
-        # modern-dark and light have dark/blue accents so they need a white checkmark.
-        use_dark_checkmark = (theme_style_or_is_dark == "classic-dark")
-        
-    filename = "checkmark_dark.png" if use_dark_checkmark else "checkmark_light.png"
+    filename = "checkmark_dark.png" if is_dark else "checkmark_light.png"
     checkmark_path = os.path.join(get_app_data_dir(), filename).replace("\\", "/")
 
     if filename in _GENERATED_CHECKMARKS and os.path.exists(checkmark_path):
@@ -226,7 +163,7 @@ def ensure_checkmark_icon(theme_style_or_is_dark=False) -> str:
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        fill_color = QColor(20, 20, 20) if use_dark_checkmark else QColor(255, 255, 255)
+        fill_color = QColor(20, 20, 20) if is_dark else QColor(255, 255, 255)
         pen = QPen(fill_color, 2)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
@@ -241,7 +178,7 @@ def ensure_checkmark_icon(theme_style_or_is_dark=False) -> str:
     except Exception:
         try:
             import base64
-            if use_dark_checkmark:
+            if is_dark:
                 # Dark checkmark fallback
                 png_base64 = b"iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAADpJREFUOBFjYBgFMMCEw/wnHGaE4D//kXWgm2DCwADCYEDQAWBsICwAGBsYiwfG4oHRcMAoGAWDEAMAANbQDBW/k19vAAAAAElFTkSuQmCC"
             else:
@@ -319,50 +256,22 @@ def create_minimalist_icon(icon_type, color_hex, size=16) -> QIcon:
     return QIcon(pixmap)
 
 # ── Unified Styled Window Palette (QSS) ──────────────────────────────
-def get_qss_style(theme_style) -> str:
-    if isinstance(theme_style, bool):
-        style_name = "modern-dark" if theme_style else "light"
-    else:
-        style_name = theme_style
-
+def get_qss_style(is_dark: bool) -> str:
+    # Color tokens based on theme
+    bg_window = "#141414" if is_dark else "#F8FAFC"
+    bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
+    text_primary = "#e0e0e0" if is_dark else "#0F172A"
+    text_secondary = "#aaa" if is_dark else "#475569"
+    border_color = "#333333" if is_dark else "#E2E8F0"
+    accent = "#d1d5db" if is_dark else "#0078D4"
+    accent_hover = "#ffffff" if is_dark else "#106EBE"
+    bg_hover = "#262626" if is_dark else "#F1F5F9"
+    
+    # Accent Button (Start / Resume) styles mirroring the interactive previewer
+    accent_btn_bg = "#262626" if is_dark else "#1e293b"
     accent_btn_text = "#ffffff"
-
-    if style_name == "classic-dark":
-        bg_window = "#141414"
-        bg_widget = "#1e1e1e"
-        text_primary = "#e0e0e0"
-        text_secondary = "#aaa"
-        border_color = "#333333"
-        accent = "#d1d5db"
-        accent_hover = "#ffffff"
-        bg_hover = "#262626"
-        accent_btn_bg = "#262626"
-        accent_btn_hover = "#383838"
-        accent_btn_disabled_bg = "#16161a"
-    elif style_name == "modern-dark":
-        bg_window = "#0F0F11"
-        bg_widget = "#16161A"
-        text_primary = "#EDEDED"
-        text_secondary = "#A3A3A3"
-        border_color = "#232329"
-        accent = "#2563EB"
-        accent_hover = "#3B82F6"
-        bg_hover = "#232329"
-        accent_btn_bg = "#2563EB"
-        accent_btn_hover = "#3B82F6"
-        accent_btn_disabled_bg = "#16161A"
-    else: # light
-        bg_window = "#F8FAFC"
-        bg_widget = "#FFFFFF"
-        text_primary = "#0F172A"
-        text_secondary = "#475569"
-        border_color = "#E2E8F0"
-        accent = "#0078D4"
-        accent_hover = "#106EBE"
-        bg_hover = "#F1F5F9"
-        accent_btn_bg = "#1e293b"
-        accent_btn_hover = "#334155"
-        accent_btn_disabled_bg = "#e2e8f0"
+    accent_btn_hover = "#383838" if is_dark else "#334155"
+    accent_btn_disabled_bg = "#16161a" if is_dark else "#e2e8f0"
 
     return f"""
 QWidget {{
