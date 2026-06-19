@@ -26,14 +26,17 @@ class DistractionAppsDialog(QDialog):
         self.resize(360, 480)
         self.setMinimumSize(300, 400)
 
-        self.is_dark = False
+        self.theme_style = "light"
         if parent:
-            self.is_dark = parent.settings.get("dark_mode", False)
+            self.theme_style = parent.settings.get("theme_style", "modern-dark" if parent.settings.get("dark_mode", False) else "light")
+        if isinstance(self.theme_style, bool):
+            self.theme_style = "modern-dark" if self.theme_style else "light"
+        self.is_dark = (self.theme_style in ["modern-dark", "classic-dark"])
 
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(self.is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.is_dark))
+        qss = get_qss_style(self.theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style))
         self.setStyleSheet(qss)
-        self.setPalette(get_dark_palette() if self.is_dark else get_light_palette())
+        self.setPalette(get_dark_palette(self.theme_style) if self.is_dark else get_light_palette())
 
         self.init_ui()
 
@@ -172,7 +175,7 @@ class SettingsDialog(QDialog):
     about_requested = pyqtSignal()
     reload_exclusions_requested = pyqtSignal()
     settings_saved = pyqtSignal(dict)
-    theme_toggled = pyqtSignal(bool)
+    theme_toggled = pyqtSignal(str)
     profile_changed = pyqtSignal(str)
     profile_renamed = pyqtSignal(str, str)
     profile_deleted = pyqtSignal(str)
@@ -204,11 +207,14 @@ class SettingsDialog(QDialog):
         self._qr_thumb_refs = []
 
         # Apply stylesheet and palette on start
-        is_dark = self.settings.get("dark_mode", False)
+        theme_style = self.settings.get("theme_style", "modern-dark" if self.settings.get("dark_mode", False) else "light")
+        if isinstance(theme_style, bool):
+            theme_style = "modern-dark" if theme_style else "light"
+        is_dark = (theme_style in ["modern-dark", "classic-dark"])
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon(is_dark))
+        qss = get_qss_style(theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(theme_style))
         self.setStyleSheet(qss)
-        self.setPalette(get_dark_palette() if is_dark else get_light_palette())
+        self.setPalette(get_dark_palette(theme_style) if is_dark else get_light_palette())
 
         self._build_ui()
 
@@ -299,22 +305,47 @@ class SettingsDialog(QDialog):
         self.cb_dev.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
         tg_layout.addWidget(self.cb_dev)
 
-        # Checkbox for Dark Mode
-        self.cb_dark = QCheckBox("Enable Dark Mode", scroll_general_content)
-        self.cb_dark.setChecked(self.settings.get("dark_mode", False))
-        self.cb_dark.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
-        tg_layout.addWidget(self.cb_dark)
+        # Dropdown selection for Theme Style
+        theme_row = QHBoxLayout()
+        theme_lbl = QLabel("Theme Style:", scroll_general_content)
+        theme_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; font-weight: 500;")
+        theme_row.addWidget(theme_lbl)
 
-        def _on_theme_toggled(checked):
-            self.settings["dark_mode"] = checked
+        self.theme_combo = QComboBox(scroll_general_content)
+        self.theme_combo.addItems(["Light", "Modern Dark", "Classic Dark"])
+        
+        current_style = self.settings.get("theme_style", "modern-dark" if self.settings.get("dark_mode", False) else "light")
+        if current_style == "light":
+            self.theme_combo.setCurrentText("Light")
+        elif current_style == "classic-dark":
+            self.theme_combo.setCurrentText("Classic Dark")
+        else:
+            self.theme_combo.setCurrentText("Modern Dark")
+            
+        theme_row.addWidget(self.theme_combo)
+        theme_row.addStretch()
+        tg_layout.addLayout(theme_row)
+
+        def _on_theme_combo_changed(text):
+            if text == "Light":
+                style_name = "light"
+            elif text == "Classic Dark":
+                style_name = "classic-dark"
+            else:
+                style_name = "modern-dark"
+                
+            self.settings["theme_style"] = style_name
+            self.settings["dark_mode"] = (style_name in ["modern-dark", "classic-dark"])
+            is_dark = self.settings["dark_mode"]
+            
             # Instantly apply stylesheet to SettingsDialog itself!
             from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-            qss = get_qss_style(checked).replace("CHECKMARK_PATH", ensure_checkmark_icon(checked))
+            qss = get_qss_style(style_name).replace("CHECKMARK_PATH", ensure_checkmark_icon(style_name))
             self.setStyleSheet(qss)
-            self.setPalette(get_dark_palette() if checked else get_light_palette())
-            self.theme_toggled.emit(checked)
+            self.setPalette(get_dark_palette(style_name) if is_dark else get_light_palette())
+            self.theme_toggled.emit(style_name)
 
-        self.cb_dark.toggled.connect(_on_theme_toggled)
+        self.theme_combo.currentTextChanged.connect(_on_theme_combo_changed)
 
         form_general = QFormLayout()
         form_general.setSpacing(6)
@@ -873,7 +904,14 @@ class SettingsDialog(QDialog):
                 self.settings["mask_client_emails"]
             )
             self.settings["developer_mode"] = self.cb_dev.isChecked()
-            self.settings["dark_mode"] = self.cb_dark.isChecked()
+            theme_text = self.theme_combo.currentText()
+            if theme_text == "Light":
+                self.settings["theme_style"] = "light"
+            elif theme_text == "Classic Dark":
+                self.settings["theme_style"] = "classic-dark"
+            else:
+                self.settings["theme_style"] = "modern-dark"
+            self.settings["dark_mode"] = (self.settings["theme_style"] in ["modern-dark", "classic-dark"])
             self.settings["enable_distraction_auto_pause"] = self.cb_distract.isChecked()
             self.settings["distraction_apps"] = list(self._distraction_apps_local)
 
