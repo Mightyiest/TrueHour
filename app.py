@@ -1776,6 +1776,7 @@ class TrueHourApp(QMainWindow):
             "enable_bank_details": self.enable_bank_details,
             "developer_mode": self.developer_mode,
             "dark_mode": self.dark_mode,
+            "theme_style": self.theme_style,
             "weekly_goals": self.weekly_goals,
             "weekly_earnings_goal": getattr(self, "weekly_earnings_goal", 0.0),
             "earnings_goal_period": getattr(self, "earnings_goal_period", "weekly"),
