@@ -1715,7 +1715,6 @@ class TrueHourApp(QMainWindow):
         logger.info(f"[Action] Cycling theme to: {new_style}")
         self.apply_theme(new_style)
         self._save_app_settings()
-        self._save_app_settings()
 
     def _show_bug_report_menu(self):
         import webbrowser

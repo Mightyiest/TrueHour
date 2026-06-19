@@ -318,12 +318,17 @@ def create_minimalist_icon(icon_type, color_hex, size=16) -> QIcon:
     painter.end()
     return QIcon(pixmap)
 
+_QSS_STYLE_CACHE = {}
+
 # ── Unified Styled Window Palette (QSS) ──────────────────────────────
 def get_qss_style(theme_style) -> str:
     if isinstance(theme_style, bool):
         style_name = "modern-dark" if theme_style else "light"
     else:
         style_name = theme_style
+
+    if style_name in _QSS_STYLE_CACHE:
+        return _QSS_STYLE_CACHE[style_name]
 
     accent_btn_text = "#ffffff"
 
@@ -364,7 +369,7 @@ def get_qss_style(theme_style) -> str:
         accent_btn_hover = "#334155"
         accent_btn_disabled_bg = "#e2e8f0"
 
-    return f"""
+    qss_content = f"""
 QWidget {{
     color: {text_primary};
     background-color: transparent;
@@ -660,3 +665,5 @@ QMessageBox QPushButton {{
     padding: 4px 12px;
 }}
 """
+    _QSS_STYLE_CACHE[style_name] = qss_content
+    return qss_content
