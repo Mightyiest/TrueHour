@@ -287,14 +287,14 @@ class SettingsDialog(QDialog):
         self._qr_thumb_refs = []
 
         # Apply stylesheet and palette on start
-        theme_style = self.settings.get("theme_style", "modern-dark" if self.settings.get("dark_mode", False) else "light")
-        if isinstance(theme_style, bool):
-            theme_style = "modern-dark" if theme_style else "light"
-        is_dark = (theme_style in ["modern-dark", "classic-dark"])
+        self.theme_style = self.settings.get("theme_style", "modern-dark" if self.settings.get("dark_mode", False) else "light")
+        if isinstance(self.theme_style, bool):
+            self.theme_style = "modern-dark" if self.theme_style else "light"
+        is_dark = (self.theme_style in ["modern-dark", "classic-dark"])
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(theme_style))
+        qss = get_qss_style(self.theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style))
         self.setStyleSheet(qss)
-        self.setPalette(get_dark_palette(theme_style) if is_dark else get_light_palette())
+        self.setPalette(get_dark_palette(self.theme_style) if is_dark else get_light_palette())
 
         self._build_ui()
 
@@ -415,6 +415,7 @@ class SettingsDialog(QDialog):
                 style_name = "modern-dark"
                 
             self.settings["theme_style"] = style_name
+            self.theme_style = style_name
             self.settings["dark_mode"] = (style_name in ["modern-dark", "classic-dark"])
             is_dark = self.settings["dark_mode"]
             
