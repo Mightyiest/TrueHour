@@ -103,42 +103,11 @@ class SessionManagerDialog(QDialog):
         self._center_window(520, 540)
 
         # Apply stylesheet and palette on start
-        theme_style = self.settings.get("theme_style", "modern-dark" if self.settings.get("dark_mode", False) else "light")
-        if isinstance(theme_style, bool):
-            theme_style = "modern-dark" if theme_style else "light"
-        is_dark = (theme_style in ["modern-dark", "classic-dark"])
+        is_dark = self.settings.get("dark_mode", False)
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(theme_style))
+        qss = get_qss_style(is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon(is_dark))
         self.setStyleSheet(qss)
-        self.setPalette(get_dark_palette(theme_style) if is_dark else get_light_palette())
-
-        # Resolve local style attributes
-        self.theme_style = theme_style
-        self.is_dark = is_dark
-        if self.theme_style == "classic-dark":
-            self.bg_widget = "#1e1e1e"
-            self.border_color = "#333333"
-            self.text_primary = "#e0e0e0"
-            self.text_sec = "#aaa"
-            self.bg_hover = "#262626"
-            self.accent = "#ef4444"
-            self.accent_hover = "#dc2626"
-        elif self.theme_style == "modern-dark":
-            self.bg_widget = "#16161A"
-            self.border_color = "#232329"
-            self.text_primary = "#EDEDED"
-            self.text_sec = "#A3A3A3"
-            self.bg_hover = "#232329"
-            self.accent = "#2563EB"
-            self.accent_hover = "#3B82F6"
-        else: # light
-            self.bg_widget = "#FFFFFF"
-            self.border_color = "#CBD5E1"
-            self.text_primary = "#0F172A"
-            self.text_sec = "#475569"
-            self.bg_hover = "#F1F5F9"
-            self.accent = "#0078D4"
-            self.accent_hover = "#106EBE"
+        self.setPalette(get_dark_palette() if is_dark else get_light_palette())
 
         self.selected_sessions = set()
         self._build_ui()
@@ -186,12 +155,13 @@ class SessionManagerDialog(QDialog):
         self.tab_widget = QTabWidget(self)
         self.tab_widget.setObjectName("SessionTabs")
 
-        bg_widget = self.bg_widget
-        border_color = self.border_color
-        text_sec = self.text_sec
-        bg_hover = self.bg_hover
-        accent = self.accent
-        accent_hover = self.accent_hover
+        is_dark = self.settings.get("dark_mode", False)
+        bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
+        border_color = "#333333" if is_dark else "#CBD5E1"
+        text_sec = "#aaa" if is_dark else "#475569"
+        bg_hover = "#262626" if is_dark else "#F1F5F9"
+        accent = "#d1d5db" if is_dark else "#0078D4"
+        accent_hover = "#ffffff" if is_dark else "#106EBE"
 
         self.edit_btn = QPushButton("Edit", self)
         self.edit_btn.setCheckable(True)
@@ -339,11 +309,12 @@ class SessionManagerDialog(QDialog):
             mtime = os.path.getmtime(filepath)
             rel_time = self._get_relative_time(mtime)
 
-            bg_widget = self.bg_widget
-            border_color = self.border_color
-            bg_hover = self.bg_hover
-            text_primary = self.text_primary
-            text_sec = self.text_sec
+            is_dark = self.settings.get("dark_mode", False)
+            bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
+            border_color = "#333333" if is_dark else "#F3F3F3"
+            bg_hover = "#262626" if is_dark else "#E9E9E9"
+            text_primary = "#e0e0e0" if is_dark else "#1A1A1A"
+            text_sec = "#aaa" if is_dark else "#616161"
 
             row_frame = QFrame()
             row_frame.setStyleSheet(f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_color}; }} QFrame:hover {{ background-color: {bg_hover}; }}")
@@ -506,67 +477,37 @@ class SessionManagerDialog(QDialog):
 
             is_edit_active = self.edit_btn.isChecked()
 
-            if self.theme_style == "classic-dark":
+            is_dark = self.settings.get("dark_mode", False)
+            if is_dark:
                 green_bg = "#262626"
                 green_border = "#444444"
                 green_hover = "#333333"
-                green_hover_border = "#4ade80"
 
                 red_bg = "#262626"
                 red_border = "#444444"
                 red_hover = "#333333"
-                red_hover_border = "#f87171"
 
                 normal_bg = "#1e1e1e"
                 normal_border = "#333333"
                 normal_hover = "#262626"
                 normal_border_hover = "#e0e0e0"
-
-                rest_color = "#d1d5db"
-                trash_color = "#d1d5db"
-                rename_color = "#d1d5db"
-            elif self.theme_style == "modern-dark":
-                green_bg = "#1A2E26"
-                green_border = "#2E4A3F"
-                green_hover = "#233C32"
-                green_hover_border = "#10B981"
-
-                red_bg = "#2D1C1C"
-                red_border = "#4A2E2E"
-                red_hover = "#3F2323"
-                red_hover_border = "#EF4444"
-
-                normal_bg = "#16161A"
-                normal_border = "#232329"
-                normal_hover = "#232329"
-                normal_border_hover = "#EDEDED"
-
-                rest_color = "#EDEDED"
-                trash_color = "#EDEDED"
-                rename_color = "#EDEDED"
-            else: # light
+            else:
                 green_bg = "#F0FDF4"
                 green_border = "#DCFCE7"
                 green_hover = "#DCFCE7"
-                green_hover_border = "#86EFAC"
 
                 red_bg = "#FFF5F5"
                 red_border = "#FEE2E2"
                 red_hover = "#FEE2E2"
-                red_hover_border = "#FCA5A5"
 
                 normal_bg = "#FFFFFF"
                 normal_border = "#CBD5E1"
                 normal_hover = "#F1F5F9"
                 normal_border_hover = "#94A3B8"
 
-                rest_color = "#0F7B0F"
-                trash_color = "#FF0000"
-                rename_color = "#0078D4"
-
             if is_trash:
-                rest_icon = get_svg_icon(RESTORE_SVG, QSize(16, 16), rest_color)
-                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), trash_color)
+                rest_icon = get_svg_icon(RESTORE_SVG, QSize(16, 16), "#0F7B0F" if not is_dark else "#d1d5db")
+                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), "#FF0000" if not is_dark else "#d1d5db")
 
                 restore_btn = QPushButton(row_frame)
                 restore_btn.setIcon(rest_icon)
@@ -584,7 +525,7 @@ class SessionManagerDialog(QDialog):
                     }}
                     QPushButton:hover {{
                         background-color: {green_hover};
-                        border-color: {green_hover_border};
+                        border-color: #86EFAC;
                     }}
                 """)
                 restore_btn.clicked.connect(lambda checked, p=filepath: _restore_session_file(p))
@@ -608,7 +549,7 @@ class SessionManagerDialog(QDialog):
                     }}
                     QPushButton:hover {{
                         background-color: {red_hover};
-                        border-color: {red_hover_border};
+                        border-color: #FCA5A5;
                     }}
                 """)
                 delete_btn.clicked.connect(lambda checked, p=filepath: _delete_session_file(p))
@@ -617,8 +558,8 @@ class SessionManagerDialog(QDialog):
                 restore_btn.setVisible(is_edit_active)
                 delete_btn.setVisible(is_edit_active)
             else:
-                ren_icon = get_svg_icon(RENAME_SVG, QSize(16, 16), rename_color)
-                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), trash_color)
+                ren_icon = get_svg_icon(RENAME_SVG, QSize(16, 16), "#0078D4" if not is_dark else "#d1d5db")
+                del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), "#FF0000" if not is_dark else "#d1d5db")
 
                 res_btn = QPushButton("▶ Resume", row_frame)
                 res_btn.setObjectName("AccentButton")
@@ -670,7 +611,7 @@ class SessionManagerDialog(QDialog):
                     }}
                     QPushButton:hover {{
                         background-color: {red_hover};
-                        border-color: {red_hover_border};
+                        border-color: #FCA5A5;
                     }}
                 """)
                 delete_btn.clicked.connect(lambda checked, p=filepath: _delete_session_file(p))
@@ -721,11 +662,12 @@ class SessionManagerDialog(QDialog):
             self.invoices_layout.addStretch()
             return
 
-        bg_widget = self.bg_widget
-        border_color = self.border_color
-        bg_hover = self.bg_hover
-        text_primary = self.text_primary
-        text_sec = self.text_sec
+        is_dark = self.settings.get("dark_mode", False)
+        bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
+        border_color = "#333333" if is_dark else "#F3F3F3"
+        bg_hover = "#262626" if is_dark else "#E9E9E9"
+        text_primary = "#e0e0e0" if is_dark else "#1A1A1A"
+        text_sec = "#aaa" if is_dark else "#616161"
 
         from theme import get_svg_icon
         from assets import TRASH_SVG
@@ -771,7 +713,7 @@ class SessionManagerDialog(QDialog):
             else:
                 status_btn.setToolTip("Click to toggle Paid/Unpaid status")
 
-            if self.theme_style == "classic-dark":
+            if is_dark:
                 if status == "paid":
                     status_color_bg = "#333333"
                     status_color_fg = "#ffffff"
@@ -781,17 +723,7 @@ class SessionManagerDialog(QDialog):
                 else:
                     status_color_bg = "#222222"
                     status_color_fg = "#888888"
-            elif self.theme_style == "modern-dark":
-                if status == "paid":
-                    status_color_bg = "#1A2E26"
-                    status_color_fg = "#10B981"
-                elif status == "draft":
-                    status_color_bg = "#2e1065"
-                    status_color_fg = "#c084fc"
-                else:
-                    status_color_bg = "#232329"
-                    status_color_fg = "#A3A3A3"
-            else: # light
+            else:
                 if status == "paid":
                     status_color_bg = "#DCFCE7"
                     status_color_fg = "#16A34A"
@@ -832,47 +764,17 @@ class SessionManagerDialog(QDialog):
             row_layout.addWidget(view_btn)
 
             from assets import RENAME_SVG
-            if self.theme_style == "classic-dark":
-                normal_bg = "#1e1e1e"
-                normal_border = "#333333"
-                normal_hover = "#262626"
-                normal_border_hover = "#e0e0e0"
-                rename_color = "#d1d5db"
-                trash_color = "#c27a6e"
-                red_bg = "#8a4a3d"
-                red_border = "#a1594b"
-                red_hover = "#a1594b"
-                red_hover_border = "#FCA5A5"
-            elif self.theme_style == "modern-dark":
-                normal_bg = "#16161A"
-                normal_border = "#232329"
-                normal_hover = "#232329"
-                normal_border_hover = "#EDEDED"
-                rename_color = "#EDEDED"
-                trash_color = "#EF4444"
-                red_bg = "#2D1C1C"
-                red_border = "#4A2E2E"
-                red_hover = "#3F2323"
-                red_hover_border = "#EF4444"
-            else: # light
-                normal_bg = "#FFFFFF"
-                normal_border = "#CBD5E1"
-                normal_hover = "#F1F5F9"
-                normal_border_hover = "#94A3B8"
-                rename_color = "#0078D4"
-                trash_color = "#FF0000"
-                red_bg = "#FFF5F5"
-                red_border = "#FEE2E2"
-                red_hover = "#FEE2E2"
-                red_hover_border = "#FCA5A5"
-
-            ren_icon = get_svg_icon(RENAME_SVG, QSize(16, 16), rename_color)
+            ren_icon = get_svg_icon(RENAME_SVG, QSize(16, 16), "#0078D4" if not is_dark else "#d1d5db")
             rename_invoice_btn = QPushButton(row_frame)
             rename_invoice_btn.setIcon(ren_icon)
             rename_invoice_btn.setIconSize(QSize(16, 16))
             rename_invoice_btn.setToolTip("Rename Invoice")
             rename_invoice_btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
+            normal_bg = "#1e1e1e" if is_dark else "#FFFFFF"
+            normal_border = "#333333" if is_dark else "#CBD5E1"
+            normal_hover = "#262626" if is_dark else "#F1F5F9"
+            normal_border_hover = "#e0e0e0" if is_dark else "#94A3B8"
             rename_invoice_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {normal_bg};
@@ -892,13 +794,16 @@ class SessionManagerDialog(QDialog):
             rename_invoice_btn.clicked.connect(make_rename_invoice_connector(inv_no))
             row_layout.addWidget(rename_invoice_btn)
 
-            del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), trash_color)
+            del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), "#FF0000" if not is_dark else "#c27a6e")
             delete_btn = QPushButton(row_frame)
             delete_btn.setIcon(del_icon)
             delete_btn.setIconSize(QSize(18, 18))
             delete_btn.setToolTip("Delete Invoice Record")
             delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
+            red_bg = "#8a4a3d" if is_dark else "#FFF5F5"
+            red_border = "#a1594b" if is_dark else "#FEE2E2"
+            red_hover = "#a1594b" if is_dark else "#FEE2E2"
             delete_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {red_bg};
@@ -910,7 +815,7 @@ class SessionManagerDialog(QDialog):
                 }}
                 QPushButton:hover {{
                     background-color: {red_hover};
-                    border-color: {red_hover_border};
+                    border-color: #FCA5A5;
                 }}
             """)
             def make_delete_connector(inv_num):

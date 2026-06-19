@@ -20,13 +20,10 @@ class TrueHourDashboard(QDialog):
         self.setWindowTitle("TrueHour — Analytics Dashboard")
 
         # Set styling similar to main window
-        theme_style = getattr(self.main_app, "theme_style", "light")
-        if isinstance(theme_style, bool):
-            theme_style = "modern-dark" if theme_style else "light"
-        is_dark = (theme_style in ["modern-dark", "classic-dark"])
+        is_dark = getattr(self.main_app, "dark_mode", False)
         from theme import get_dark_palette, get_light_palette
         self.setStyleSheet(self.main_app.styleSheet())
-        self.setPalette(get_dark_palette(theme_style) if is_dark else get_light_palette())
+        self.setPalette(get_dark_palette() if is_dark else get_light_palette())
 
         self.init_ui()
 
@@ -38,40 +35,14 @@ class TrueHourDashboard(QDialog):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Resolve theme tokens
-        self.theme_style = getattr(self.main_app, "theme_style", "light")
-        if isinstance(self.theme_style, bool):
-            self.theme_style = "modern-dark" if self.theme_style else "light"
-        self.is_dark = (self.theme_style in ["modern-dark", "classic-dark"])
-
-        if self.theme_style == "classic-dark":
-            self.bg_window = "#141414"
-            self.bg_widget = "#1e1e1e"
-            self.border_color = "#333333"
-            self.text_primary = "#e0e0e0"
-            self.text_secondary = "#aaa"
-            self.accent = "#d1d5db"
-        elif self.theme_style == "modern-dark":
-            self.bg_window = "#0F0F11"
-            self.bg_widget = "#16161A"
-            self.border_color = "#232329"
-            self.text_primary = "#EDEDED"
-            self.text_secondary = "#A3A3A3"
-            self.accent = "#2563EB"
-        else: # light
-            self.bg_window = "#F8FAFC"
-            self.bg_widget = "#FFFFFF"
-            self.border_color = "#E2E8F0"
-            self.text_primary = "#0F172A"
-            self.text_secondary = "#475569"
-            self.accent = "#0078D4"
-
-        bg_widget = self.bg_widget
-        border_color = self.border_color
-        bg_window = self.bg_window
-        text_primary = self.text_primary
-        text_secondary = self.text_secondary
-        accent = self.accent
+        # 1. Header Bar
+        is_dark = getattr(self.main_app, "dark_mode", False)
+        bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
+        border_color = "#333333" if is_dark else "#E2E8F0"
+        bg_window = "#141414" if is_dark else "#F8FAFC"
+        text_primary = "#e0e0e0" if is_dark else "#0F172A"
+        text_secondary = "#aaa" if is_dark else "#475569"
+        accent = "#d1d5db" if is_dark else "#0078D4"
 
         hdr = QFrame(self)
         hdr.setFixedHeight(46)
@@ -149,16 +120,17 @@ class TrueHourDashboard(QDialog):
         self.on_tab_changed(0)
 
     def create_kpi_card(self, title, value_text, icon_text=None, value_color="#0F172A"):
-        bg_widget = self.bg_widget
-        border_color = self.border_color
+        is_dark = getattr(self.main_app, "dark_mode", False)
+        bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
+        border_color = "#333333" if is_dark else "#E2E8F0"
 
         # Map light text colors to premium dark mode colors
         if value_color == "#0F172A" or value_color is None:
-            val_color = self.text_primary
+            val_color = "#e0e0e0" if is_dark else "#0F172A"
         elif value_color == "#0078D4":
-            val_color = self.accent
+            val_color = "#d1d5db" if is_dark else "#0078D4"
         elif value_color == "#16A34A":
-            val_color = "#a8c5b8" if self.is_dark else "#16A34A"
+            val_color = "#a8c5b8" if is_dark else "#16A34A"
         else:
             val_color = value_color
 
@@ -197,7 +169,8 @@ class TrueHourDashboard(QDialog):
         return card, val_lbl
 
     def build_live_tab(self):
-        text_sec = self.text_secondary
+        is_dark = getattr(self.main_app, "dark_mode", False)
+        text_sec = "#aaa" if is_dark else "#475569"
 
         self.live_layout = QVBoxLayout(self.live_tab)
         self.live_layout.setContentsMargins(16, 16, 16, 16)
@@ -300,7 +273,8 @@ class TrueHourDashboard(QDialog):
         self.live_layout.addWidget(self.live_content)
 
     def build_history_tab(self):
-        text_sec = self.text_secondary
+        is_dark = getattr(self.main_app, "dark_mode", False)
+        text_sec = "#aaa" if is_dark else "#475569"
 
         self.history_layout = QVBoxLayout(self.history_tab)
         self.history_layout.setContentsMargins(16, 16, 16, 16)
@@ -432,10 +406,11 @@ class TrueHourDashboard(QDialog):
         self.history_layout.addWidget(self.heatmap_card)
 
     def build_goals_tab(self):
-        bg_widget = self.bg_widget
-        border_color = self.border_color
-        text_primary = self.text_primary
-        text_sec = self.text_secondary
+        is_dark = getattr(self.main_app, "dark_mode", False)
+        bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
+        border_color = "#333333" if is_dark else "#E2E8F0"
+        text_primary = "#e0e0e0" if is_dark else "#0F172A"
+        text_sec = "#aaa" if is_dark else "#475569"
 
         self.goals_layout = QVBoxLayout(self.goals_tab)
         self.goals_layout.setContentsMargins(30, 40, 30, 40)
@@ -581,7 +556,8 @@ class TrueHourDashboard(QDialog):
             swatch.setStyleSheet(f"background-color: {self.get_project_color(pb['project'])}; border-radius: 4px; border: none; margin-top: 1px;")
             row_layout.addWidget(swatch, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-            text_primary = self.text_primary
+            is_dark = getattr(self.main_app, "dark_mode", False)
+            text_primary = "#e0e0e0" if is_dark else "#1A1A1A"
 
             lbl = QLabel(pb["project"], row_f)
             lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_primary}; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
@@ -686,7 +662,8 @@ class TrueHourDashboard(QDialog):
             swatch.setFixedSize(8, 8)
             swatch.setStyleSheet(f"background-color: {self.get_project_color(pb['project'])}; border-radius: 4px; border: none; margin-top: 1px;")
 
-            text_primary = self.text_primary
+            is_dark = getattr(self.main_app, "dark_mode", False)
+            text_primary = "#e0e0e0" if is_dark else "#1A1A1A"
 
             goal_hours = weekly_goals.get(pb["project"], 0.0)
             if goal_hours > 0:
@@ -725,7 +702,7 @@ class TrueHourDashboard(QDialog):
                 # Bottom progress bar row
                 pbar = QFrame(row_f)
                 pbar.setFixedHeight(4)
-                pbar.setStyleSheet(f"background-color: {self.border_color}; border-radius: 2px; border: none;")
+                pbar.setStyleSheet(f"background-color: {'#333333' if is_dark else '#E2E8F0'}; border-radius: 2px; border: none;")
                 pbar_layout = QHBoxLayout(pbar)
                 pbar_layout.setContentsMargins(0, 0, 0, 0)
                 pbar_layout.setSpacing(0)

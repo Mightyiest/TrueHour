@@ -749,17 +749,7 @@ def get_cached_template(template_path: str, default_content: str) -> str:
     if template_path in _TEMPLATE_CACHE:
         return _TEMPLATE_CACHE[template_path]
 
-    needs_write = not os.path.exists(template_path)
-    if not needs_write:
-        try:
-            with open(template_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            if "classic-dark" not in content:
-                needs_write = True
-        except Exception:
-            needs_write = True
-
-    if needs_write:
+    if not os.path.exists(template_path):
         os.makedirs(os.path.dirname(template_path), exist_ok=True)
         try:
             with open(template_path, "w", encoding="utf-8") as f:
@@ -801,36 +791,19 @@ default_receipt_template = """<!DOCTYPE html>
             --success-bg: rgba(16, 185, 129, 0.05);
         }
 
-        body.dark, body.dark.modern-dark {
-            --bg-body: #0F0F11;
-            --bg-card: #16161A;
-            --border: #232329;
-            --text-main: #EDEDED;
-            --text-muted: #A3A3A3;
-            --text-light: #555555;
-            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-
-            --accent: #2563EB;
-            --accent-hover: #3B82F6;
-            --accent-gradient-start: #2563EB;
-            --accent-gradient-end: #2563EB;
-            --success: #10B981;
-            --success-bg: rgba(16, 185, 129, 0.05);
-        }
-
-        body.dark.classic-dark {
+        body.dark {
             --bg-body: #141414;
             --bg-card: #1e1e1e;
             --border: #333333;
             --text-main: #e0e0e0;
             --text-muted: #aaa;
-            --text-light: #555555;
-            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --text-light: #888;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 
-            --accent: #d1d5db;
+            --accent: #e0e0e0;
             --accent-hover: #ffffff;
-            --accent-gradient-start: #262626;
-            --accent-gradient-end: #262626;
+            --accent-gradient-start: #e0e0e0;
+            --accent-gradient-end: #e0e0e0;
             --success: #10B981;
             --success-bg: rgba(16, 185, 129, 0.05);
         }
@@ -1325,9 +1298,8 @@ def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
     template_html = get_cached_template(template_path, default_receipt_template)
 
     html = template_html
-    theme_style = settings_data.get("theme_style", "modern-dark" if settings_data.get("dark_mode", False) else "light")
     if settings_data.get("dark_mode", False):
-        html = html.replace("<body>", f'<body class="dark {theme_style}">')
+        html = html.replace("<body>", '<body class="dark">')
     html = html.replace("{{LOGO_HTML}}", logo_html)
     html = html.replace("{{BUSINESS_NAME}}", _esc(settings_data.get("business_name", "TrueHour Business")))
     html = html.replace("{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", "")))
@@ -1541,38 +1513,20 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             --success-bg: rgba(16, 185, 129, 0.05);
         }
 
-        body.dark, body.dark.modern-dark {
-            --bg-body: #0F0F11;
-            --bg-card: #16161A;
-            --border: #232329;
-            --text-main: #EDEDED;
-            --text-muted: #A3A3A3;
-            --text-light: #555555;
-            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
-
-            --accent: #2563EB;
-            --accent-hover: #3B82F6;
-            --accent-gradient-start: #2563EB;
-            --accent-gradient-end: #2563EB;
-            --success: #10B981;
-            --success-bg: rgba(16, 185, 129, 0.05);
-        }
-
-        body.dark.classic-dark {
+        body.dark {
             --bg-body: #141414;
             --bg-card: #1e1e1e;
             --border: #333333;
             --text-main: #e0e0e0;
             --text-muted: #aaa;
-            --text-light: #555555;
-            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+            --text-light: #888;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 
-            --accent: #d1d5db;
+            --accent: #e0e0e0;
             --accent-hover: #ffffff;
-            --accent-gradient-start: #262626;
-            --accent-gradient-end: #262626;
+            --accent-gradient-start: #e0e0e0;
+            --accent-gradient-end: #e0e0e0;
             --success: #10B981;
             --success-bg: rgba(16, 185, 129, 0.05);
         }
@@ -2360,9 +2314,8 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
 
     # Replace all placeholders in HTML template
     html = template_html
-    theme_style = settings_data.get("theme_style", "modern-dark" if settings_data.get("dark_mode", False) else "light")
     if settings_data.get("dark_mode", False):
-        html = html.replace("<body>", f'<body class="dark {theme_style}">')
+        html = html.replace("<body>", '<body class="dark">')
     html = html.replace("{{LOGO_HTML}}", logo_html)
     html = html.replace("{{BUSINESS_NAME}}", _esc(settings_data.get("business_name", "TrueHour Invoice")))
     html = html.replace("{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", "")))
@@ -2538,38 +2491,20 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             --success: #059669;
         }
 
-        body.dark, body.dark.modern-dark {
-            --bg-body: #0F0F11;
-            --bg-card: #16161A;
-            --border: #232329;
-            --text-main: #EDEDED;
-            --text-muted: #A3A3A3;
-            --text-light: #555555;
-            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
-
-            --accent: #2563EB;
-            --accent-hover: #3B82F6;
-            --accent-gradient-start: #2563EB;
-            --accent-gradient-end: #2563EB;
-            --success: #10B981;
-            --warning: #F59E0B;
-        }
-
-        body.dark.classic-dark {
+        body.dark {
             --bg-body: #141414;
             --bg-card: #1e1e1e;
             --border: #333333;
             --text-main: #e0e0e0;
             --text-muted: #aaa;
-            --text-light: #555555;
-            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+            --text-light: #888;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 
-            --accent: #d1d5db;
+            --accent: #e0e0e0;
             --accent-hover: #ffffff;
-            --accent-gradient-start: #262626;
-            --accent-gradient-end: #262626;
+            --accent-gradient-start: #e0e0e0;
+            --accent-gradient-end: #e0e0e0;
             --success: #10B981;
             --warning: #F59E0B;
         }
@@ -3099,13 +3034,11 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     import json
     settings_path = os.path.join(get_app_data_dir(), "settings.json")
     dark_mode = False
-    theme_style = "light"
     if os.path.exists(settings_path):
         try:
             with open(settings_path, "r", encoding="utf-8") as f:
                 settings_data = json.load(f)
                 dark_mode = settings_data.get("dark_mode", False)
-                theme_style = settings_data.get("theme_style", "modern-dark" if dark_mode else "light")
         except Exception:
             pass
 
@@ -3387,5 +3320,5 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     html = html.replace("{{TIMELINE_ITEMS}}", timeline_items)
 
     if dark_mode:
-        html = html.replace('<body class="theme-indigo">', f'<body class="theme-indigo dark {theme_style}">')
+        html = html.replace('<body class="theme-indigo">', '<body class="theme-indigo dark">')
     return html
