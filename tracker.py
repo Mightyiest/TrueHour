@@ -314,7 +314,7 @@ def reload_auto_excluded():
     Changes take effect on the next app switch in _poll_loop.
     The currently tracked app is never interrupted.
     """
-    global _AUTO_EXCLUDED_EXES
+    global _AUTO_EXCLUDED_EXES, _auto_excluded_loaded
 
     new_set = set()
     if os.path.exists(AUTO_EXCLUDE_FILE):
@@ -339,12 +339,24 @@ def reload_auto_excluded():
     # Swap atomically using module-level lock
     with _AUTO_EXCLUDED_LOCK:
         _AUTO_EXCLUDED_EXES = new_set
+        _auto_excluded_loaded = True
 
     return True  # Success
 
 
+_auto_excluded_loaded = False
+
 def _is_auto_excluded(exe_path):
     """Return True if this exe should be completely ignored by the tracker."""
+    global _auto_excluded_loaded
+    if not _auto_excluded_loaded:
+        try:
+            create_auto_excluded_if_missing()
+            _load_auto_excluded()
+        except Exception as e:
+            logger.warning(f"Failed lazy load auto excluded: {e}")
+        _auto_excluded_loaded = True
+
     if exe_path:
         exe_name = os.path.basename(exe_path).lower()
         if exe_name in ("truehour.exe", "truehour"):
@@ -354,10 +366,7 @@ def _is_auto_excluded(exe_path):
     return False
 
 
-# Run on module load — order matters: generate first, then load
-create_auto_excluded_if_missing()
-_load_auto_excluded()
-
+# Deferred from module load to lazy execution inside _is_auto_excluded
 SETTINGS_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "settings.json"))
 TAGS_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "tags.json"))
 
@@ -425,29 +434,30 @@ class TagManager:
                 self._save_tags(force=True)
 
     def get_tag(self, app_name: str, exe_path: str = "") -> str:
-        """Get tag for app. If not mapped, runs offline heuristics + asynchronous online fallback."""
+        """Get tag for app. If not mapped, runs offline heuristics + asynchronous online fallback in background."""
         key = app_name.lower().strip()
 
         with self.lock:
             if key in self.mappings:
                 return self.mappings[key]
-
-        # If not mapped, perform offline matching
-        matched_tag = self._match_offline(app_name, exe_path)
-        if matched_tag:
-            with self.lock:
-                self.mappings[key] = matched_tag
-                self._save_tags(force=True)
-            return matched_tag
-
-        # If offline fails, start a background online fetch
-        # Set to "Unassigned" temporarily, then update asynchronously
-        with self.lock:
+            
+            # Temporary placeholder to prevent spawning multiple threads
             self.mappings[key] = "Unassigned"
-            self._save_tags(force=True)
+            self.dirty = True
 
-        # Start background thread to query DDG API
-        threading.Thread(target=self._fetch_and_update_tag_online, args=(app_name, exe_path), daemon=True).start()
+        def run_matching_bg():
+            matched_tag = self._match_offline(app_name, exe_path)
+            if matched_tag:
+                with self.lock:
+                    self.mappings[key] = matched_tag
+                    self.dirty = True
+                self.save_if_dirty()
+                logger.info(f"Offline categorization succeeded for '{app_name}' -> '{matched_tag}'")
+                return
+
+            self._fetch_and_update_tag_online(app_name, exe_path)
+
+        threading.Thread(target=run_matching_bg, daemon=True).start()
         return "Unassigned"
 
     def set_tag(self, app_name: str, tag: str):
@@ -609,7 +619,7 @@ class TagManager:
                             key = app_name.lower().strip()
                             with self.lock:
                                 self.mappings[key] = matched_tag
-                                self._save_tags()
+                                self._save_tags(force=True)
                             logger.info(f"Online categorization succeeded for '{app_name}' -> '{matched_tag}'")
         except ssl.SSLCertVerificationError as e:
             logger.warning(f"SSL certificate verification failed for DuckDuckGo API: {e}")

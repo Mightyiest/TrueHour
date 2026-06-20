@@ -31,8 +31,12 @@ if not logger.handlers:
 _name_cache = {}
 OVERRIDES_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "name_overrides.txt"))
 _NAME_OVERRIDES = {}
+_name_overrides_loaded = False
 
-def _load_name_overrides():
+def _load_name_overrides(force=True):
+    global _name_overrides_loaded
+    if _name_overrides_loaded and not force:
+        return
     _NAME_OVERRIDES.clear()
     _name_cache.clear()
     if not os.path.exists(OVERRIDES_FILE):
@@ -55,11 +59,11 @@ def _load_name_overrides():
                         _NAME_OVERRIDES[k.strip().lower()] = v.strip()
         except (OSError, IOError) as e:
             logger.warning(f"Failed to read name overrides file: {e}")
-
-_load_name_overrides()
+    _name_overrides_loaded = True
 
 def get_foreground_app_info():
     """Return (friendly_name, exe_path) for the current foreground window."""
+    _load_name_overrides(force=False)
     if SYSTEM != "Windows":
         # macOS Implementation using native AppKit
         try:
@@ -117,6 +121,7 @@ def get_foreground_app_info():
         return "[Idle]", ""
 
 def resolve_name(exe_path, base_name):
+    _load_name_overrides(force=False)
     if exe_path in _name_cache: return _name_cache[exe_path]
     friendly = None
     key = base_name.lower()

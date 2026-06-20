@@ -252,6 +252,10 @@ class TrueHourApp(QMainWindow):
         # Icon cache and parameters
         self._last_app_state_hash = None
         self._icon_cache = {}
+        self._icons_to_load = []
+        self._icon_load_timer = QTimer(self)
+        self._icon_load_timer.setInterval(30)
+        self._icon_load_timer.timeout.connect(self._process_icon_load_queue)
 
         self.signals = TrackerSignals()
         self.signals.update_signal.connect(self._schedule_refresh)
@@ -312,8 +316,14 @@ class TrueHourApp(QMainWindow):
 
         # Postpone heavy database aggregation until after UI is fully responsive
         try:
+            import threading
             from core.reporting.aggregator import rebuild_all_summaries
-            QTimer.singleShot(2500, rebuild_all_summaries)
+            def run_rebuild():
+                try:
+                    rebuild_all_summaries()
+                except Exception as ex:
+                    print(f"[TrueHour] Background summary rebuild failed: {ex}")
+            QTimer.singleShot(2500, lambda: threading.Thread(target=run_rebuild, daemon=True).start())
             QTimer.singleShot(3500, self._recalculate_weekly_base_focus_seconds)
         except Exception as e:
             print(f"[TrueHour] Failed to schedule summary rebuild: {e}")
@@ -333,8 +343,14 @@ class TrueHourApp(QMainWindow):
 
         # Schedule database optimization 3 seconds after startup to clean up database file
         try:
+            import threading
             from database.schema import optimize_db
-            QTimer.singleShot(3000, optimize_db)
+            def run_optimize():
+                try:
+                    optimize_db()
+                except Exception as ex:
+                    print(f"[TrueHour] Background database optimization failed: {ex}")
+            QTimer.singleShot(3000, lambda: threading.Thread(target=run_optimize, daemon=True).start())
         except Exception as e:
             print(f"[TrueHour] Failed to schedule database optimization: {e}")
 
@@ -1134,17 +1150,17 @@ class TrueHourApp(QMainWindow):
                 self.scroll_layout.addWidget(row)
                 new_widgets[app_name] = row
 
-                # Synchronous robust native system icon loading
+                # Deferred non-blocking native system icon loading
                 if exe_path:
                     if exe_path in self._icon_cache:
                         if not getattr(row, '_icon_loaded', False):
                             row.set_icon(self._icon_cache[exe_path])
                             row._icon_loaded = True
                     else:
-                        pixmap = get_native_icon_pixmap(exe_path, size=16)
-                        self._icon_cache[exe_path] = pixmap
-                        row.set_icon(pixmap)
-                        row._icon_loaded = True
+                        row.set_icon(None)
+                        row._icon_loaded = False
+                        if exe_path not in self._icons_to_load:
+                            self._icons_to_load.append(exe_path)
 
             # Clean up removed apps
             to_remove = [name for name in self._row_widgets if name not in active_apps]
@@ -1160,13 +1176,34 @@ class TrueHourApp(QMainWindow):
             # Add stretch at the end to push content to top
             self.scroll_layout.addStretch()
 
+            if self._icons_to_load and not self._icon_load_timer.isActive():
+                self._icon_load_timer.start()
+
             counted = self.tracker.get_counted_seconds()
             elapsed = self.tracker.get_elapsed()
             self.clock_label.setText(format_duration_hms(counted))
             self.total_label.setText(format_duration(elapsed))
-
         except Exception as e:
             logger.debug(f"Exception during app list refresh: {e}")
+
+    def _process_icon_load_queue(self):
+        if not self._icons_to_load:
+            self._icon_load_timer.stop()
+            return
+        
+        exe_path = self._icons_to_load.pop(0)
+        try:
+            pixmap = get_native_icon_pixmap(exe_path, size=16)
+        except Exception:
+            pixmap = None
+            
+        self._icon_cache[exe_path] = pixmap
+
+        # Update the UI rows having this exe_path
+        for widget in self._row_widgets.values():
+            if getattr(widget, 'exe_path', None) == exe_path:
+                widget.set_icon(pixmap)
+                widget._icon_loaded = True
 
     def _clear_list_layout(self):
         """Clear all widgets from the scroll layout while preserving the bottom stretch."""
