@@ -958,6 +958,232 @@
             margin-bottom: 0;
         }
 
+        /* Downloads Section Styles */
+        .downloads-container {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 32px;
+            text-align: left;
+        }
+
+        @media (max-width: 768px) {
+            .downloads-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .download-primary-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .download-primary-card:hover {
+            border-color: var(--text-secondary);
+        }
+
+        .download-badge-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .download-badge {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .download-badge.stable {
+            color: #10b981;
+            border-color: rgba(16, 185, 129, 0.2);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .download-badge.beta {
+            color: #f59e0b;
+            border-color: rgba(245, 158, 11, 0.2);
+            background: rgba(245, 158, 11, 0.05);
+        }
+
+        .download-version-title {
+            font-family: var(--font-display);
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 8px 0 4px 0;
+        }
+
+        .download-date {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .download-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .btn-download {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 14px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-download-primary {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border: 1px solid var(--text-primary);
+        }
+
+        .btn-download-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-download-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-download-secondary:hover {
+            background: var(--bg-secondary);
+            border-color: var(--text-secondary);
+            transform: translateY(-1px);
+        }
+
+        .download-highlights-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .download-highlights-title {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .download-highlights-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .download-highlights-list li {
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .download-highlights-list li::before {
+            content: "✓";
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .download-history-sidebar {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            height: fit-content;
+        }
+
+        .download-history-title {
+            font-family: var(--font-display);
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        .download-history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .download-history-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .download-history-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .history-version-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .history-version-link {
+            font-family: var(--font-display);
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .history-version-link:hover {
+            color: var(--accent);
+            text-decoration: underline;
+        }
+
+        .history-version-link svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .history-date {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .history-changelog-summary {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+            padding-left: 2px;
+        }
+
         /* Mockup Desktop App Window styles */
         .app-window {
             width: 100%;
@@ -1675,6 +1901,7 @@
             <a href="#security">Security</a>
             <a href="#setup" onclick="switchTab('setup')">Setup</a>
             <a href="#setup" onclick="switchTab('changelog')">Changelog</a>
+            <a href="#setup" onclick="switchTab('downloads')">Downloads</a>
             <a href="#faq">FAQ</a>
             <a href="#license">License</a>
             <button id="themeToggleBtn" class="btn btn-secondary" aria-label="Toggle dark mode" style="padding: 8px 12px; margin-right: 4px;">
@@ -1703,7 +1930,7 @@
             <p class="hero-tagline">A highly precise, offline-first Windows time tracker backed by monotonic verification, cryptographic block mapping, and custom billing automation.</p>
             <div class="hero-cta">
                 <a href="https://github.com/Mightyiest/TrueHour" class="btn btn-primary" target="_blank" rel="noopener">Run from Source</a>
-                <a href="#setup" class="btn btn-secondary" onclick="switchTab('setup')">Get Standalone Binary</a>
+                <a href="#setup" class="btn btn-secondary" onclick="switchTab('downloads')">Get Standalone Binary</a>
             </div>
         </section>
 
@@ -1849,7 +2076,7 @@
                             </div>
                         </div>
                         <div class="app-statusbar-item">
-                            <span>v3.3.1 - Build 2026.06.18</span>
+                            <span>v3.3.2 - Build 2026.06.22</span>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px; height:11px;"><path d="M23 12a11 11 0 1 1-22 0 11 11 0 0 1 22 0Z"></path><path d="M12 2v20M2 12h20"></path></svg>
                         </div>
                     </div>
@@ -2082,6 +2309,7 @@
                 <button class="tab-btn active" id="btnTabApi" onclick="switchTab('api')">Security API</button>
                 <button class="tab-btn" id="btnTabSetup" onclick="switchTab('setup')">Developer Setup</button>
                 <button class="tab-btn" id="btnTabChangelog" onclick="switchTab('changelog')">Changelog</button>
+                <button class="tab-btn" id="btnTabDownloads" onclick="switchTab('downloads')">Downloads</button>
             </div>
             <div class="tab-content">
                 <div class="tab-pane active" id="paneApi">
@@ -2202,6 +2430,19 @@ chmod +x build.sh
                     <div class="changelog-list">
                         <div class="changelog-item">
                             <div class="changelog-version">
+                                <span>v3.3.2</span>
+                                <span class="changelog-tag stable">Stable</span>
+                                <span class="changelog-date">2026.06.22</span>
+                            </div>
+                            <ul class="changelog-changes">
+                                <li><strong>Three-Theme UI & Stylesheet Caching</strong>: Upgraded the interface to support three selectable themes ("Light", "Modern Dark", "Classic Dark") via a dropdown selector in the Settings dialog, with caching of QSS stylesheets and optimized theme application.</li>
+                                <li><strong>Encrypted Profile Backups</strong>: Added password-protected encrypted backup support for settings and banking details, utilizing PBKDF2HMAC (100,000 iterations) for secure password key derivation while maintaining compatibility for legacy backups.</li>
+                                <li><strong>Asynchronous Startup Optimization</strong>: Deferred heavy startup tasks, including database initialization and auto-exclusions loading, and added non-blocking incremental icon loading to eliminate UI freezes on application launch.</li>
+                                <li><strong>Unit Test Coverage & Refactoring</strong>: Converted cryptography tests to standard `unittest.TestCase` and added tests specifically verifying PBKDF2 and SHA-256 legacy fallback validation.</li>
+                            </ul>
+                        </div>
+                        <div class="changelog-item">
+                            <div class="changelog-version">
                                 <span>v3.3.1</span>
                                 <span class="changelog-tag stable">Stable</span>
                                 <span class="changelog-date">2026.06.18</span>
@@ -2246,6 +2487,97 @@ chmod +x build.sh
                                 <li><strong>App List Layout & Elision Fix</strong>: Re-engineered the application usage rows with a custom ElidedLabel that automatically truncates long process titles using ellipsis (...).</li>
                                 <li><strong>Dynamic Build Naming</strong>: Upgraded the pre-release build script to dynamically parse the version string directly from `version.py` at compile-time and name the output executable to match.</li>
                             </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane" id="paneDownloads">
+                    <div class="downloads-container">
+                        <div class="download-primary-card">
+                            <div>
+                                <div class="download-badge-row">
+                                    <span class="download-badge stable">Stable Release</span>
+                                    <span class="download-date">June 22, 2026</span>
+                                </div>
+                                <h3 class="download-version-title">TrueHour v3.3.2</h3>
+                            </div>
+                            
+                            <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0;">
+                                Our latest stable release featuring a new Three-Theme selector (Light, Modern Dark, Classic Dark), secure password-encrypted profile backups utilizing PBKDF2HMAC, asynchronous startup optimizations to eliminate launch freezes, and expanded unit test coverage.
+                            </p>
+
+                            <div class="download-highlights-box">
+                                <h4 class="download-highlights-title">Key v3.3.2 Highlights</h4>
+                                <ul class="download-highlights-list">
+                                    <li><span><strong>Three-Theme UI & Stylesheet Caching</strong>: Custom dropdown theme selector with cached stylesheets.</span></li>
+                                    <li><span><strong>Encrypted Profile Backups</strong>: High-security PBKDF2HMAC password-protected backups.</span></li>
+                                    <li><span><strong>Asynchronous Startup Optimization</strong>: Deferred initialization and non-blocking icon loads.</span></li>
+                                </ul>
+                            </div>
+
+                            <div class="download-actions-grid">
+                                <a href="https://github.com/Mightyiest/TrueHour/releases/download/v3.3.2/TrueHours_3.3.2.exe" class="btn-download btn-download-primary" target="_blank" rel="noopener">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px; height:16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                    <span>Download for Windows (.exe)</span>
+                                </a>
+                                <a href="https://github.com/Mightyiest/TrueHour/releases/tag/v3.3.2" class="btn-download btn-download-secondary" target="_blank" rel="noopener">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px; height:16px;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                                    <span>GitHub Release Page</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="download-history-sidebar">
+                            <h3 class="download-history-title">Version History</h3>
+                            <div class="download-history-list">
+                                <div class="download-history-item">
+                                    <div class="history-version-row">
+                                        <a href="https://github.com/Mightyiest/TrueHour/releases/tag/v3.3.1" class="history-version-link" target="_blank" rel="noopener">
+                                            <span>v3.3.1</span>
+                                            <span class="download-badge stable" style="padding: 1px 4px; font-size: 8px;">Stable</span>
+                                        </a>
+                                        <span class="history-date">2026.06.18</span>
+                                    </div>
+                                    <div class="history-changelog-summary">
+                                        App-specific distraction auto-pause, app list context menus, settings checklists, and dynamic build naming script.
+                                    </div>
+                                </div>
+                                <div class="download-history-item">
+                                    <div class="history-version-row">
+                                        <a href="https://github.com/Mightyiest/TrueHour/releases/tag/v3.3.0" class="history-version-link" target="_blank" rel="noopener">
+                                            <span>v3.3.0</span>
+                                            <span class="download-badge stable" style="padding: 1px 4px; font-size: 8px;">Stable</span>
+                                        </a>
+                                        <span class="history-date">2026.06.16</span>
+                                    </div>
+                                    <div class="history-changelog-summary">
+                                        Priority Counted Time view (large focus clock), retroactive idle deduction, and native process-level self-exclusion.
+                                    </div>
+                                </div>
+                                <div class="download-history-item">
+                                    <div class="history-version-row">
+                                        <a href="https://github.com/Mightyiest/TrueHour/releases/tag/v3.2.0-beta.1" class="history-version-link" target="_blank" rel="noopener">
+                                            <span>v3.2.0-beta</span>
+                                            <span class="download-badge beta" style="padding: 1px 4px; font-size: 8px;">Beta</span>
+                                        </a>
+                                        <span class="history-date">2026.06.04</span>
+                                    </div>
+                                    <div class="history-changelog-summary">
+                                        Animated update channel notifications and background channel-aware update checks (Alpha/Beta/RC/Stable).
+                                    </div>
+                                </div>
+                                <div class="download-history-item">
+                                    <div class="history-version-row">
+                                        <a href="https://github.com/Mightyiest/TrueHour/releases/tag/v3.1.1-beta.2" class="history-version-link" target="_blank" rel="noopener">
+                                            <span>v3.1.1-beta.2</span>
+                                            <span class="download-badge beta" style="padding: 1px 4px; font-size: 8px;">Beta</span>
+                                        </a>
+                                        <span class="history-date">2026.06.03</span>
+                                    </div>
+                                    <div class="history-changelog-summary">
+                                        ElidedLabel auto-ellipsis for long window titles, and automated version parsing build script.
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2380,6 +2712,7 @@ chmod +x build.sh
                             <li><a href="#security">Security</a></li>
                             <li><a href="#setup" onclick="switchTab('setup')">Setup Guides</a></li>
                             <li><a href="#setup" onclick="switchTab('changelog')">Changelog</a></li>
+                            <li><a href="#setup" onclick="switchTab('downloads')">Downloads</a></li>
                             <li><a href="#faq">FAQ</a></li>
                         </ul>
                     </div>
@@ -2411,7 +2744,7 @@ chmod +x build.sh
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 True Hours · v3.3.1 (Build 2026.06.18). All rights reserved. Maintained locally for complete user privacy.</p>
+                <p>&copy; 2026 True Hours · v3.3.2 (Build 2026.06.22). All rights reserved. Maintained locally for complete user privacy.</p>
                 <p>Built with <a href="https://www.python.org/" target="_blank" rel="noopener">Python</a> &amp; <a href="https://www.riverbankcomputing.com/software/pyqt/" target="_blank" rel="noopener">PyQt6</a>.</p>
             </div>
         </div>
@@ -3515,6 +3848,9 @@ chmod +x build.sh
             } else if (tabName === 'changelog') {
                 document.getElementById('btnTabChangelog').classList.add('active');
                 document.getElementById('paneChangelog').classList.add('active');
+            } else if (tabName === 'downloads') {
+                document.getElementById('btnTabDownloads').classList.add('active');
+                document.getElementById('paneDownloads').classList.add('active');
             }
         }
 
@@ -3526,6 +3862,8 @@ chmod +x build.sh
                 switchTab('api');
             } else if (hash === '#changelog') {
                 switchTab('changelog');
+            } else if (hash === '#downloads') {
+                switchTab('downloads');
             }
         }
 
