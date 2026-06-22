@@ -159,26 +159,14 @@ class EmailChipWidget(QWidget):
     def update_theme(self):
         if not hasattr(self, "_input"):
             return
+        is_dark = False
         win = self.window()
-        theme_style = "light"
         if win:
-            theme_style = getattr(win, "theme_style", "modern-dark" if (win.palette().color(win.backgroundRole()).value() < 128) else "light")
-        
-        if theme_style == "classic-dark":
-            bg_widget = "#1e1e1e"
-            border_color = "#333333"
-            text_color = "#e0e0e0"
-            accent = "#d1d5db"
-        elif theme_style == "modern-dark":
-            bg_widget = "#16161A"
-            border_color = "#232329"
-            text_color = "#EDEDED"
-            accent = "#2563EB"
-        else: # light
-            bg_widget = "#FFFFFF"
-            border_color = "#E2E8F0"
-            text_color = "#0F172A"
-            accent = "#0078D4"
+            is_dark = win.palette().color(win.backgroundRole()).value() < 128
+        bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
+        border_color = "#333333" if is_dark else "#E2E8F0"
+        text_color = "#e0e0e0" if is_dark else "#0F172A"
+        accent = "#d1d5db" if is_dark else "#0078D4"
 
         self._input.setStyleSheet(f"""
             QLineEdit {{
@@ -224,26 +212,14 @@ class EmailChipWidget(QWidget):
 
     def _add_chip_widget(self, email):
         """Create a visual chip pill for an email."""
+        is_dark = False
         win = self.window()
-        theme_style = "light"
         if win:
-            theme_style = getattr(win, "theme_style", "modern-dark" if (win.palette().color(win.backgroundRole()).value() < 128) else "light")
-        
-        if theme_style == "classic-dark":
-            chip_bg = "#262626"
-            chip_border = "#333333"
-            chip_text = "#d1d5db"
-            chip_close = "#888"
-        elif theme_style == "modern-dark":
-            chip_bg = "#232329"
-            chip_border = "#2a2a35"
-            chip_text = "#EDEDED"
-            chip_close = "#a3a3a3"
-        else: # light
-            chip_bg = "#EEF2FF"
-            chip_border = "#C7D2FE"
-            chip_text = "#3730A3"
-            chip_close = "#6366F1"
+            is_dark = win.palette().color(win.backgroundRole()).value() < 128
+        chip_bg = "#262626" if is_dark else "#EEF2FF"
+        chip_border = "#333333" if is_dark else "#C7D2FE"
+        chip_text = "#d1d5db" if is_dark else "#3730A3"
+        chip_close = "#888" if is_dark else "#6366F1"
 
         chip = QFrame(self._chip_container)
         chip.setStyleSheet(f"""
@@ -414,28 +390,25 @@ class InvoicePrivacyOptionsDialog(QDialog):
         self.setFixedSize(380, 240)
 
         # Robust theme detection
-        self.theme_style = "light"
-        if parent:
-            if hasattr(parent, "theme_style"):
-                self.theme_style = parent.theme_style
-            elif hasattr(parent, "settings") and isinstance(parent.settings, dict):
-                self.theme_style = parent.settings.get("theme_style", "modern-dark" if parent.settings.get("dark_mode", False) else "light")
-            elif hasattr(parent, "dark_mode"):
-                self.theme_style = "modern-dark" if parent.dark_mode else "light"
-        
+        self.is_dark = False
         if is_dark is not None:
-            if isinstance(is_dark, str):
-                self.theme_style = is_dark
-            else:
-                self.theme_style = "modern-dark" if is_dark else "light"
-
-        self.is_dark = (self.theme_style in ["modern-dark", "classic-dark"])
+            self.is_dark = is_dark
+        elif parent:
+            if hasattr(parent, "settings") and isinstance(parent.settings, dict):
+                self.is_dark = parent.settings.get("dark_mode", False)
+            elif hasattr(parent, "dark_mode"):
+                self.is_dark = parent.dark_mode
+            elif hasattr(parent, "is_dark"):
+                self.is_dark = parent.is_dark
+            elif hasattr(parent, "window") and parent.window():
+                p_win = parent.window()
+                self.is_dark = p_win.palette().color(p_win.backgroundRole()).value() < 128
 
         # Apply dialog-level Fluent Design styling
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(self.theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style))
+        qss = get_qss_style(self.is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.is_dark))
         self.setStyleSheet(qss)
-        self.setPalette(get_dark_palette(self.theme_style) if self.is_dark else get_light_palette())
+        self.setPalette(get_dark_palette() if self.is_dark else get_light_palette())
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -501,19 +474,15 @@ class InvoicePrivacyOptionsDialog(QDialog):
         if not hasattr(self, "title"):
             return
 
-        if self.theme_style == "classic-dark":
+        is_dark = self.is_dark
+
+        if is_dark:
             title_color = "#e0e0e0"
             desc_color = "#aaa"
             box_bg = "#262626"
             box_border = "#333333"
             cb_color = "#e0e0e0"
-        elif self.theme_style == "modern-dark":
-            title_color = "#EDEDED"
-            desc_color = "#A3A3A3"
-            box_bg = "#16161A"
-            box_border = "#232329"
-            cb_color = "#EDEDED"
-        else: # light
+        else:
             title_color = "#1A1A1A"
             desc_color = "#64748B"
             box_bg = "#F8FAFC"
@@ -706,16 +675,13 @@ class AppUsageRow(QFrame):
     def _apply_row_style(self):
         if not hasattr(self, "name_lbl"):
             return
+        is_dark = False
         win = self.window()
-        theme_style = "light"
         if win:
-            theme_style = getattr(win, "theme_style", "modern-dark" if (win.palette().color(win.backgroundRole()).value() < 128) else "light")
-            
-        if theme_style == "classic-dark":
-            text_color = "#e0e0e0" if self.included else "#64748B"
-        elif theme_style == "modern-dark":
-            text_color = "#EDEDED" if self.included else "#555555"
-        else: # light
+            is_dark = win.palette().color(win.backgroundRole()).value() < 128
+        if is_dark:
+            text_color = "#F3F4F6" if self.included else "#64748B"
+        else:
             text_color = "#1A1A1A" if self.included else "#ABABAB"
 
         self.name_lbl.setStyleSheet(f"color: {text_color}; font-family: 'Segoe UI'; font-size: 13px;")

@@ -4,7 +4,7 @@ Provides a premium, dependency-free visual experience with animations and hover 
 """
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import Qt, QRectF, QPointF
-from PyQt6.QtGui import QColor, QPainter, QBrush, QPen, QPainterPath, QLinearGradient, QFont, QPalette
+from PyQt6.QtGui import QColor, QPainter, QBrush, QPen, QPainterPath, QLinearGradient, QFont
 import math
 
 class DonutChartWidget(QWidget):
@@ -123,10 +123,7 @@ class DonutChartWidget(QWidget):
         win = self.window()
         if win:
             is_dark = win.palette().color(win.backgroundRole()).value() < 128
-        theme_style = getattr(win, "theme_style", "modern-dark" if is_dark else "light")
-        palette = self.palette() if not win else win.palette()
-        
-        painter.setPen(palette.color(QPalette.ColorRole.Text))
+        painter.setPen(QColor("#F3F4F6") if is_dark else QColor("#0F172A"))
         painter.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
 
         # Format total time
@@ -141,8 +138,7 @@ class DonutChartWidget(QWidget):
         painter.drawText(QRectF(cx - r_inner, cy - 18, 2.0 * r_inner, 20),
                          Qt.AlignmentFlag.AlignCenter, time_str)
 
-        text_sec_hex = "#A3A3A3" if theme_style == "modern-dark" else ("#9CA3AF" if is_dark else "#64748B")
-        painter.setPen(QColor(text_sec_hex))
+        painter.setPen(QColor("#9CA3AF") if is_dark else QColor("#64748B"))
         painter.setFont(QFont("Segoe UI", 9, QFont.Weight.Medium))
         painter.drawText(QRectF(cx - r_inner, cy + 4, 2.0 * r_inner, 15),
                          Qt.AlignmentFlag.AlignCenter, "Tracked")
@@ -299,8 +295,6 @@ class BarChartWidget(QWidget):
         win = self.window()
         if win:
             is_dark = win.palette().color(win.backgroundRole()).value() < 128
-        theme_style = getattr(win, "theme_style", "modern-dark" if is_dark else "light")
-        palette = self.palette() if not win else win.palette()
         grid_lines = 4
         painter.setFont(QFont("Segoe UI", 8))
         for i in range(grid_lines + 1):
@@ -309,16 +303,14 @@ class BarChartWidget(QWidget):
 
             # Gridline
             if i > 0:
-                border_hex = "#232329" if theme_style == "modern-dark" else ("#333333" if is_dark else "#E2E8F0")
-                pen = QPen(QColor(border_hex))
+                pen = QPen(QColor("#333333") if is_dark else QColor("#E2E8F0"))
                 pen.setStyle(Qt.PenStyle.DashLine)
                 pen.setWidth(1)
                 painter.setPen(pen)
                 painter.drawLine(QPointF(padding_left, gy), QPointF(w - padding_right, gy))
 
             # Y Axis Labels
-            text_sec_hex = "#A3A3A3" if theme_style == "modern-dark" else ("#9CA3AF" if is_dark else "#64748B")
-            painter.setPen(QColor(text_sec_hex))
+            painter.setPen(QColor("#9CA3AF") if is_dark else QColor("#64748B"))
             if y_max >= 1:
                 label = f"{int(val)}h"
             else:
@@ -345,24 +337,17 @@ class BarChartWidget(QWidget):
             if val > 0:
                 # Set gradient fill color
                 gradient = QLinearGradient(QPointF(bx, by), QPointF(bx, by + bar_h))
-                if theme_style == "modern-dark":
-                    if idx == self.hovered_index:
-                        gradient.setColorAt(0.0, QColor("#3B82F6"))  # Hover top (brighter blue)
-                        gradient.setColorAt(1.0, QColor("#2563EB"))  # Hover bottom (accent blue)
-                    else:
-                        gradient.setColorAt(0.0, QColor("#2563EB"))  # Normal top (accent blue)
-                        gradient.setColorAt(1.0, QColor("#1D4ED8"))  # Normal bottom (darker blue)
-                elif theme_style == "classic-dark":
-                    if idx == self.hovered_index:
+                if idx == self.hovered_index:
+                    if is_dark:
                         gradient.setColorAt(0.0, QColor("#ffffff"))  # Hover top (white)
                         gradient.setColorAt(1.0, QColor("#e0e0e0"))  # Hover bottom (light gray)
                     else:
-                        gradient.setColorAt(0.0, QColor("#d1d5db"))  # Normal top (light gray)
-                        gradient.setColorAt(1.0, QColor("#888888"))  # Normal bottom (medium gray)
-                else: # light
-                    if idx == self.hovered_index:
                         gradient.setColorAt(0.0, QColor("#1E3A8A"))  # Darker Blue
                         gradient.setColorAt(1.0, QColor("#3B82F6"))  # Brighter Blue
+                else:
+                    if is_dark:
+                        gradient.setColorAt(0.0, QColor("#d1d5db"))  # Normal top (light gray)
+                        gradient.setColorAt(1.0, QColor("#888888"))  # Normal bottom (medium gray)
                     else:
                         gradient.setColorAt(0.0, QColor("#0078D4"))  # Fluent Primary Accent
                         gradient.setColorAt(1.0, QColor("#60A5FA"))  # Fluent Secondary Accent
@@ -378,16 +363,14 @@ class BarChartWidget(QWidget):
                 painter.drawPath(path)
 
             # Draw X Axis labels
-            text_sec_hex = "#A3A3A3" if theme_style == "modern-dark" else ("#9CA3AF" if is_dark else "#64748B")
-            painter.setPen(QColor(text_sec_hex))
+            painter.setPen(QColor("#9CA3AF") if is_dark else QColor("#64748B"))
             painter.setFont(QFont("Segoe UI", 8))
             x_lbl_rect = QRectF(padding_left + (idx * bar_outer_width), h - padding_bottom + 4,
                                 bar_outer_width, 20)
             painter.drawText(x_lbl_rect, Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignTop, d["label"])
 
         # 3. Draw Bottom Axis Line
-        border_hex = "#232329" if theme_style == "modern-dark" else ("#333333" if is_dark else "#CBD5E1")
-        pen_axis = QPen(QColor(border_hex))
+        pen_axis = QPen(QColor("#333333") if is_dark else QColor("#CBD5E1"))
         pen_axis.setWidth(1)
         painter.setPen(pen_axis)
         painter.drawLine(QPointF(padding_left, h - padding_bottom), QPointF(w - padding_right, h - padding_bottom))
@@ -514,21 +497,13 @@ class ContributionMapWidget(QWidget):
         win = self.window()
         if win:
             is_dark = win.palette().color(win.backgroundRole()).value() < 128
-        theme_style = getattr(win, "theme_style", "modern-dark" if is_dark else "light")
 
         # Set up color tokens
-        if theme_style == "classic-dark":
-            accent_color = QColor("#d1d5db")
-            bg_level0 = QColor("#21262D")
-            card_bg = QColor("#1e1e1e")
-        elif theme_style == "modern-dark":
-            accent_color = QColor("#2563EB")
-            bg_level0 = QColor("#16161A")
-            card_bg = QColor("#0F0F11")
-        else: # light
-            accent_color = QColor("#0078D4")
-            bg_level0 = QColor("#EBEDF0")
-            card_bg = QColor("#FFFFFF")
+        accent_color = QColor("#d1d5db") if is_dark else QColor("#0078D4")
+        bg_level0 = QColor("#21262D") if is_dark else QColor("#EBEDF0")
+
+        # Pre-blend accent against card background for crisp cell rendering
+        card_bg = QColor("#1e1e1e") if is_dark else QColor("#FFFFFF")
         def blend(accent, alpha, bg):
             t = alpha / 255.0
             r = int(accent.red() * t + bg.red() * (1 - t))
@@ -609,8 +584,7 @@ class ContributionMapWidget(QWidget):
                 last_col = col
 
         painter.setFont(QFont("Segoe UI", 8))
-        text_sec_hex = "#A3A3A3" if theme_style == "modern-dark" else ("#9CA3AF" if is_dark else "#64748B")
-        painter.setPen(QColor(text_sec_hex))
+        painter.setPen(QColor("#9CA3AF") if is_dark else QColor("#64748B"))
         for col, month_name in months_labels:
             mx = left_padding + col * (cell_size + cell_spacing)
             painter.drawText(QRectF(mx, top_padding - 16, 40, 12), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, month_name)
