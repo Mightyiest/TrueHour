@@ -172,6 +172,5 @@ def optimize_db():
     finally:
         conn.close()
 
-# Initialize when imported
-init_db()
+# Initialize when imported (deferred to explicit call at startup)
 
