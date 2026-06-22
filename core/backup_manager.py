@@ -6,7 +6,7 @@ import tempfile
 import logging
 from datetime import datetime
 from config import get_app_data_root
-from crypto import _get_secure_key, _get_password_key, _encrypt_string, _decrypt_string
+from crypto import _get_secure_key, _get_password_key, _get_password_key_legacy, _encrypt_string, _decrypt_string
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,8 @@ def backup_settings(dest_zip_path: str, profile_name: str, password: str = None,
 
         # Prepare metadata
         meta = {
-            "version": 1,
+            "version": 2,
+            "key_derivation": "pbkdf2",
             "encrypted": password is not None,
             "created_at": datetime.now().isoformat(),
             "source_machine": os.environ.get("COMPUTERNAME", "") or os.environ.get("HOSTNAME", "unknown")
@@ -131,6 +132,7 @@ def import_settings(src_zip_path: str, target_profile_name: str, password: str =
         temp_meta_path = os.path.join(tmpdir, "__backup_meta__.json")
         is_encrypted = False
         verification_token = ""
+        key_derivation = "legacy"
         
         if os.path.exists(temp_meta_path):
             try:
@@ -138,6 +140,7 @@ def import_settings(src_zip_path: str, target_profile_name: str, password: str =
                     meta_data = json.load(f)
                 is_encrypted = meta_data.get("encrypted", False)
                 verification_token = meta_data.get("verification_enc", "")
+                key_derivation = meta_data.get("key_derivation", "legacy")
             except Exception:
                 pass
 
@@ -152,7 +155,7 @@ def import_settings(src_zip_path: str, target_profile_name: str, password: str =
                     return "password_required"
             
             if is_encrypted:
-                pwd_key = _get_password_key(password)
+                pwd_key = _get_password_key(password) if key_derivation == "pbkdf2" else _get_password_key_legacy(password)
                 decrypted_verify = _decrypt_string(verification_token, pwd_key)
                 if decrypted_verify != "truehour_backup_verify":
                     return "wrong_password"
@@ -172,7 +175,7 @@ def import_settings(src_zip_path: str, target_profile_name: str, password: str =
 
         if is_encrypted:
             # We verified the password above. Now decrypt and re-encrypt for target machine.
-            pwd_key = _get_password_key(password)
+            pwd_key = _get_password_key(password) if key_derivation == "pbkdf2" else _get_password_key_legacy(password)
             for fld in enc_fields:
                 decrypted_val = _decrypt_string(settings_data.get(fld, ""), pwd_key)
                 settings_data[fld] = _encrypt_string(decrypted_val, target_local_key)
