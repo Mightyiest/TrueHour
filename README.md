@@ -1,4 +1,4 @@
-# True Hours v3.3.1
+# True Hours v3.3.2
 
 > **A lightweight, privacy-first desktop time tracker with a modern Fluent Design UI, supporting Windows & macOS.**
 
@@ -246,6 +246,12 @@ A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!
 
 ## 📅 Changelog
 
+### v3.3.2 (2026.06.22)
+- **Three-Theme UI & Stylesheet Caching**: Upgraded the interface to support three selectable themes ("Light", "Modern Dark", "Classic Dark") via a dropdown selector in the Settings dialog, with caching of QSS stylesheets and optimized theme application.
+- **Encrypted Profile Backups**: Added password-protected encrypted backup support for settings and banking details, utilizing PBKDF2HMAC (100,000 iterations) for secure password key derivation while maintaining compatibility for legacy backups.
+- **Asynchronous Startup Optimization**: Deferred heavy startup tasks, including database initialization and auto-exclusions loading, and added non-blocking incremental icon loading to eliminate UI freezes on application launch.
+- **Unit Test Coverage & Refactoring**: Converted cryptography tests to standard `unittest.TestCase` and added tests specifically verifying PBKDF2 and SHA-256 legacy fallback validation.
+
 ### v3.3.1 (2026.06.18)
 - **App-Specific Distraction Auto-Pause**: Automatically pauses tracking when switching to a designated distracting application (e.g. Chrome, games, Spotify) and auto-resumes when returning to a productive task.
 - **App List Context Menu**: Right-click any application in the live tracking list to quickly mark or unmark it as distracting.
@@ -256,26 +262,6 @@ A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!
 - **Priority Counted Time View**: Swapped the primary display elements: the big main UI clock now displays the productive **Counted Work Time** (`00:00:00`), while the bottom footer displays the overall **Total Session Time** (`Xh XXm XXs`).
 - **Retroactive Idle Deduction**: Integrated smart idle auto-pause math. The moment the idle threshold (e.g. 2 minutes) is reached, the inactive period is retroactively deducted from both the active foreground application's tracked time and the overall session duration.
 - **Process-Level Self-Exclusion**: Implemented native self-exclusion. TrueHour now detects its own Process ID (PID) on both Windows and macOS and automatically marks itself as ignored, allowing you to open the tracker to check stats without interrupting your active tracking.
-
-### v3.2.0-beta (2026.06.04)
-- **Update Channel & Notification Label**: Replaced the static footer version label with a fade-in/fade-out animated update label that alerts users when a newer release is available and prompts them to download it from GitHub.
-- **Channel-Aware Update Checking**: Built an asynchronous background updater that supports semantic versioning (SemVer) and release channel ranking (Alpha, Beta, RC, Stable). Automatically compares candidate release channels to ensure appropriate pre-release/stable upgrade paths.
-
-### v3.1.1-beta.2 (2026.06.03)
-- **App List Layout & Elision Fix**: Re-engineered the application usage rows with a custom `ElidedLabel` that automatically truncates long process titles using ellipsis (`...`), preventing layout stretching, hiding of the time and tag columns, or horizontal scrolling.
-- **Dynamic Build Naming**: Upgraded the pre-release build script to dynamically parse the version string directly from `version.py` at compile-time and name the output executable to match (e.g. `TrueHours_3.1.1-beta.2.exe`).
-- **Footer Bug Report Button**: Added a cute grayscale beetle bug button next to the version label in the footer that lets users easily choose between submitting issues via GitHub or a Google feedback form.
-
-### v3.1.0 (2026.06.02)
-- **Multi-Profile Settings & Database Isolation**: Added native support for creating, selecting, renaming, and deleting multiple distinct user profiles (e.g. `Mightyiest`, `Neil`) with isolated settings, app categories, and SQLite databases.
-- **Compressed `.truehour` ZIP Backups & Restores**: Implemented robust full-profile backup and import logic, zipping settings, databases, session logs, QR codes, and custom logos into a portable `.truehour` format with overwrite safety checks.
-- **Dynamic Path Resolution (`DynamicPath`)**: Introduced real-time path binding via a custom dynamic PathLike wrapper, resolving all settings, time integrity hash-chains, and custom name overrides in real-time on profile switch.
-- **Complete Windows File Lock Resolution**: Moved permanent logging streams (`truehour.log`, `TrueHour_active.log`) and single-instance locks (`truehour.lock`) to the global root AppData directory, enabling seamless runtime profile folder renaming and deletion.
-- **Compact Invoicing & 1-Page A4 Compliance**: Re-engineered invoice margins, container paddings, table cells, and row layouts to achieve a ~38% screen-height reduction, guaranteeing a single-page print budget.
-- **Side-by-Side Responsive Payment Details**: Dynamic inline flex-row wrapper wraps bank details and direct QR codes side-by-side, collapsing perfectly when settings change.
-- **Granular Security & Local Machine-Bound Encryption**: Introduced secure XOR-Base64 encryption for sensitive banking information, bound to local machine hardware signatures and local installations via SHA-256 seed hashing.
-- **Privacy-First Invoicing Toggle**: Native desktop settings checkbox toggle instantly hides/reveals bank transfer details on generated HTML layouts.
-- **Exact Color Adjustments & Enlarged High-Resolution QR Codes**: Configured print-color-adjust rules to force gradient and badge replication on saved PDF pages, and scaled QR codes to a high-contrast `140px` size for premium scanning fidelity.
 
 ---
 
