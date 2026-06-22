@@ -16,7 +16,15 @@ def get_cached_report(report_type: str, start_date: str, end_date: str, export_f
     key = compute_cache_key(report_type, start_date, end_date, export_format)
     cache_file = os.path.join(get_cache_dir(), f"{key}.{export_format}")
     if os.path.exists(cache_file):
-        return cache_file
+        import time
+        # Expire cache entries older than 24 hours
+        if time.time() - os.path.getmtime(cache_file) < 86400:
+            return cache_file
+        else:
+            try:
+                os.remove(cache_file)
+            except Exception:
+                pass
     return None
 
 def save_to_cache(report_type: str, start_date: str, end_date: str, export_format: str, filepath: str):

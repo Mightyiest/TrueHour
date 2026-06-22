@@ -15,7 +15,7 @@ def get_sessions_for_date(date_str: str):
     # First, collect all finalized session keys to ignore orphaned/discarded autosaves
     finalized_keys = set()
     if os.path.exists(sessions_folder):
-        for filepath in glob.glob(os.path.join(sessions_folder, "*.json")):
+        for filepath in glob.glob(os.path.join(sessions_folder, f"*{date_str}*.json")):
             try:
                 with open(filepath, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -35,7 +35,7 @@ def get_sessions_for_date(date_str: str):
 
     # Scan autosave folder, including autosaves of finalized sessions (to keep most complete data) and unfinalized recovery sessions
     if os.path.exists(autosave_folder):
-        for filepath in glob.glob(os.path.join(autosave_folder, "*.json")):
+        for filepath in glob.glob(os.path.join(autosave_folder, f"*{date_str}*.json")):
             try:
                 with open(filepath, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -122,9 +122,8 @@ def rebuild_all_summaries(force=False):
         row = cursor.fetchone()
 
         # Detect MagicMock (unittest environment)
-        from unittest.mock import MagicMock
-        is_mock = isinstance(row, MagicMock) or (hasattr(row, "_mock_return_value") if row else False)
-
+        is_mock = "mock" in type(row).__name__.lower() or hasattr(row, "_mock_return_value")
+ 
         if row is not None and not is_mock:
             count = row[0]
             if count > 0 and not force:

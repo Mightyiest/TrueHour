@@ -255,25 +255,58 @@ def create_minimalist_icon(icon_type, color_hex, size=16) -> QIcon:
     painter.end()
     return QIcon(pixmap)
 
-# ── Unified Styled Window Palette (QSS) ──────────────────────────────
-def get_qss_style(is_dark: bool) -> str:
-    # Color tokens based on theme
-    bg_window = "#141414" if is_dark else "#F8FAFC"
-    bg_widget = "#1e1e1e" if is_dark else "#FFFFFF"
-    text_primary = "#e0e0e0" if is_dark else "#0F172A"
-    text_secondary = "#aaa" if is_dark else "#475569"
-    border_color = "#333333" if is_dark else "#E2E8F0"
-    accent = "#d1d5db" if is_dark else "#0078D4"
-    accent_hover = "#ffffff" if is_dark else "#106EBE"
-    bg_hover = "#262626" if is_dark else "#F1F5F9"
-    
-    # Accent Button (Start / Resume) styles mirroring the interactive previewer
-    accent_btn_bg = "#262626" if is_dark else "#1e293b"
-    accent_btn_text = "#ffffff"
-    accent_btn_hover = "#383838" if is_dark else "#334155"
-    accent_btn_disabled_bg = "#16161a" if is_dark else "#e2e8f0"
+_QSS_STYLE_CACHE = {}
 
-    return f"""
+# ── Unified Styled Window Palette (QSS) ──────────────────────────────
+def get_qss_style(theme_style) -> str:
+    if isinstance(theme_style, bool):
+        style_name = "modern-dark" if theme_style else "light"
+    else:
+        style_name = theme_style
+
+    if style_name in _QSS_STYLE_CACHE:
+        return _QSS_STYLE_CACHE[style_name]
+
+    accent_btn_text = "#ffffff"
+
+    if style_name == "classic-dark":
+        bg_window = "#141414"
+        bg_widget = "#1e1e1e"
+        text_primary = "#e0e0e0"
+        text_secondary = "#aaa"
+        border_color = "#333333"
+        accent = "#d1d5db"
+        accent_hover = "#ffffff"
+        bg_hover = "#262626"
+        accent_btn_bg = "#262626"
+        accent_btn_hover = "#383838"
+        accent_btn_disabled_bg = "#16161a"
+    elif style_name == "modern-dark":
+        bg_window = "#0F0F11"
+        bg_widget = "#16161A"
+        text_primary = "#EDEDED"
+        text_secondary = "#A3A3A3"
+        border_color = "#232329"
+        accent = "#2563EB"
+        accent_hover = "#3B82F6"
+        bg_hover = "#232329"
+        accent_btn_bg = "#2563EB"
+        accent_btn_hover = "#3B82F6"
+        accent_btn_disabled_bg = "#16161A"
+    else: # light
+        bg_window = "#F8FAFC"
+        bg_widget = "#FFFFFF"
+        text_primary = "#0F172A"
+        text_secondary = "#475569"
+        border_color = "#E2E8F0"
+        accent = "#0078D4"
+        accent_hover = "#106EBE"
+        bg_hover = "#F1F5F9"
+        accent_btn_bg = "#1e293b"
+        accent_btn_hover = "#334155"
+        accent_btn_disabled_bg = "#e2e8f0"
+
+    qss_content = f"""
 QWidget {{
     color: {text_primary};
     background-color: transparent;
@@ -569,3 +602,5 @@ QMessageBox QPushButton {{
     padding: 4px 12px;
 }}
 """
+    _QSS_STYLE_CACHE[style_name] = qss_content
+    return qss_content

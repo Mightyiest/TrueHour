@@ -2172,11 +2172,11 @@ chmod +x run.sh
                                 <pre class="code-block" id="installCode2"># Install compilation tools
 pip install pyinstaller
  
-# Run automated assembly script
-build.bat
+# Run automated assembly script (with telemetry ON)
+build_official.bat
  
 # Resulting binary is generated in root:
-# .\TrueHour.exe</pre>
+# .\TrueHours.exe</pre>
                             </div>
 
                             <h4 style="font-size: 13px; font-weight: 700; margin: 16px 0 6px 0; color: var(--text-secondary);">macOS (.app Bundle)</h4>
@@ -2188,12 +2188,12 @@ build.bat
                                 <pre class="code-block" id="installCodeBuildMac"># Install compilation tools
 pip install pyinstaller
  
-# Grant executable permission and run build script
+# Grant executable permission and run build script (with telemetry ON)
 chmod +x build.sh
 ./build.sh
  
 # Standalone double-clickable app bundle is generated in root:
-# ./TrueHour.app</pre>
+# ./TrueHours.app</pre>
                             </div>
                         </div>
                     </div>
@@ -2280,9 +2280,22 @@ chmod +x build.sh
                         <div class="faq-content">
                             We implement a multi-layered local security strategy to safeguard sensitive details:
                             <ul>
-                                <li><strong>At-Rest Encryption:</strong> Your bank holder, routing numbers, account numbers, and SWIFT codes are encrypted before being written to disk in <code>settings.json</code>.</li>
+                                <li><strong>At-Rest Encryption:</strong> Your bank holder, routing numbers, account numbers, and SWIFT codes are encrypted before being written to disk in <code>app_settings.json</code>.</li>
                                 <li><strong>Machine-Bound Key:</strong> Encryption keys are dynamically derived from a combination of your local user ID and hardware environment variables (like <code>COMPUTERNAME</code>). This SHA-256 key binding makes the configuration file unreadable if transferred to a different computer.</li>
                                 <li><strong>Local Cipher:</strong> Uses XOR base64-encoded ciphers locally, guaranteeing that no plaintext banking data is left readable in standard text editors.</li>
+                            </ul>
+                        </div>
+                    </details>
+                </div>
+                <div class="faq-card">
+                    <details>
+                        <summary>What happens if I copy settings or restore a backup on another computer?</summary>
+                        <div class="faq-content">
+                            TrueHour protects your data portability depending on how you migrate settings:
+                            <ul>
+                                <li><strong>Direct Settings Copy:</strong> Copying raw configuration files directly to another PC will load general preferences, but banking fields will silently clear since the original machine key will not match the new device.</li>
+                                <li><strong>Standard Backup:</strong> Creating a standard backup strips banking credentials completely, ensuring no sensitive data is exported. Other settings (categories, logs) import seamlessly.</li>
+                                <li><strong>Encrypted Backup:</strong> Choosing the encrypted backup option prompts you to set a password. This encrypts banking data using a portable key, allowing secure transfer and restoration on any other computer running TrueHour.</li>
                             </ul>
                         </div>
                     </details>

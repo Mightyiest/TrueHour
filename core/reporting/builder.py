@@ -106,7 +106,7 @@ def generate_report(job_id: str):
         success = exporter.export(report_data, output_path)
     elif export_format == "txt":
         try:
-            total_hours = round(report_data.get("total_seconds", 0) / 3600.0, 2)
+            txt_total_hours = round(report_data.get("total_seconds", 0) / 3600.0, 2)
             longest_hours = round(report_data.get("longest_session_secs", 0) / 3600.0, 2)
 
             lines = [
@@ -115,7 +115,7 @@ def generate_report(job_id: str):
                 "==================================================",
                 f"Report Type:          {report_data.get('report_type', '')}",
                 f"Date Range:           {report_data.get('start_date', '')} to {report_data.get('end_date', '')}",
-                f"Total Tracked Time:   {total_hours} hours",
+                f"Total Tracked Time:   {txt_total_hours} hours",
                 f"Average Daily Time:   {round(report_data.get('average_hours', 0.0), 2)} hours",
                 f"Longest Session:      {longest_hours} hours",
                 "==================================================",

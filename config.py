@@ -19,9 +19,11 @@ class DynamicPath(os.PathLike):
         return repr(self._resolver())
 
     def __eq__(self, other) -> bool:
-        if isinstance(other, DynamicPath):
-            return str(self) == str(other)
-        return str(self) == other
+        if isinstance(other, os.PathLike):
+            return str(self) == os.fspath(other)
+        if isinstance(other, str):
+            return str(self) == other
+        return False
 
     def __hash__(self) -> int:
         return hash(str(self))
@@ -181,7 +183,60 @@ def send_to_trash(path: str) -> bool:
         except Exception as e:
             print(f"[TrueHour] macOS Trash failed: {e}")
 
-    # Cross-platform fallback (permanent deletion)
+    # Cross-platform fallback
+    elif sys.platform.startswith("linux"):
+        # Try GNOME/Ubuntu standard 'gio trash'
+        try:
+            abs_path = os.path.abspath(path)
+            res = subprocess.run(["gio", "trash", abs_path], capture_output=True, text=True)
+            if res.returncode == 0:
+                return True
+        except Exception:
+            pass
+
+        # Try 'trash-put' from trash-cli
+        try:
+            abs_path = os.path.abspath(path)
+            res = subprocess.run(["trash-put", abs_path], capture_output=True, text=True)
+            if res.returncode == 0:
+                return True
+        except Exception:
+            pass
+
+        # Pure Python manual fallback: move to ~/.local/share/Trash/files/
+        try:
+            from datetime import datetime
+            home = os.path.expanduser("~")
+            trash_files_dir = os.path.join(home, ".local", "share", "Trash", "files")
+            trash_info_dir = os.path.join(home, ".local", "share", "Trash", "info")
+            os.makedirs(trash_files_dir, exist_ok=True)
+            os.makedirs(trash_info_dir, exist_ok=True)
+
+            base_name = os.path.basename(path)
+            dest_path = os.path.join(trash_files_dir, base_name)
+            
+            # Avoid name collisions in trash
+            counter = 1
+            name_part, ext_part = os.path.splitext(base_name)
+            while os.path.exists(dest_path):
+                dest_path = os.path.join(trash_files_dir, f"{name_part}_{counter}{ext_part}")
+                counter += 1
+
+            shutil.move(path, dest_path)
+
+            # Write .trashinfo metadata
+            info_name = os.path.basename(dest_path) + ".trashinfo"
+            info_path = os.path.join(trash_info_dir, info_name)
+            deletion_date = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+            from urllib.parse import quote
+            escaped_path = quote(os.path.abspath(path))
+            with open(info_path, "w", encoding="utf-8") as infof:
+                infof.write(f"[Trash Info]\nPath={escaped_path}\nDeletionDate={deletion_date}\n")
+            return True
+        except Exception as e:
+            print(f"[TrueHour] Linux manual trash fallback failed: {e}")
+
+    # Ultimate fallback (permanent deletion)
     try:
         if os.path.exists(path):
             os.remove(path)

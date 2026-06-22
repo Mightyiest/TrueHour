@@ -541,18 +541,22 @@ class TimeTamperDetector:
 
 
     _instance = None
+    _instance_lock = threading.Lock()
 
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
-            cls._instance = cls()
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = cls()
         return cls._instance
 
     @classmethod
     def reset_instance(cls):
-        if cls._instance:
-            cls._instance.end_session()
-        cls._instance = cls()
+        with cls._instance_lock:
+            if cls._instance:
+                cls._instance.end_session()
+            cls._instance = cls()
 
 # Backwards compatible aliases for existing code
 get_detector = TimeTamperDetector.get_instance
