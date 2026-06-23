@@ -4,7 +4,6 @@
     <meta charset="utf-8">
     <title>Invoice - {{BUSINESS_NAME}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Google Fonts: Outfit for dynamic modern headings, Inter for clean body typography -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -17,7 +16,7 @@
             --text-light: #717171;
             --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
             --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
-            
+
             --accent: #1e3050;
             --accent-hover: #0f1d35;
             --accent-gradient-start: #1e3050;
@@ -26,20 +25,38 @@
             --success-bg: rgba(16, 185, 129, 0.05);
         }
 
-        body.dark {
-            --bg-body: #0a0a0a;
-            --bg-card: #141414;
-            --border: #262626;
-            --text-main: #ededed;
-            --text-muted: #a3a3a3;
-            --text-light: #737373;
+        body.dark, body.dark.modern-dark {
+            --bg-body: #0F0F11;
+            --bg-card: #16161A;
+            --border: #232329;
+            --text-main: #EDEDED;
+            --text-muted: #A3A3A3;
+            --text-light: #555555;
             --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
             --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
-            
-            --accent: #ededed;
+
+            --accent: #2563EB;
+            --accent-hover: #3B82F6;
+            --accent-gradient-start: #2563EB;
+            --accent-gradient-end: #2563EB;
+            --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.05);
+        }
+
+        body.dark.classic-dark {
+            --bg-body: #141414;
+            --bg-card: #1e1e1e;
+            --border: #333333;
+            --text-main: #e0e0e0;
+            --text-muted: #aaa;
+            --text-light: #555555;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+
+            --accent: #d1d5db;
             --accent-hover: #ffffff;
-            --accent-gradient-start: #ededed;
-            --accent-gradient-end: #ededed;
+            --accent-gradient-start: #262626;
+            --accent-gradient-end: #262626;
             --success: #10B981;
             --success-bg: rgba(16, 185, 129, 0.05);
         }
@@ -81,32 +98,31 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-            background-color: var(--bg-body); 
-            color: var(--text-main); 
-            line-height: 1.5; 
-            padding: 20px 16px; 
-            display: flex; 
-            flex-direction: column; 
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
             align-items: center;
             transition: background 0.3s ease;
         }
 
-        /* Glassmorphic Print Actions Bar */
-        .print-actions-bar { 
-            width: 100%; 
-            max-width: 850px; 
-            background: rgba(255, 255, 255, 0.75); 
-            backdrop-filter: blur(16px); 
+        .print-actions-bar {
+            width: 100%;
+            max-width: 850px;
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(226, 232, 240, 0.8); 
-            border-radius: 10px; 
-            padding: 8px 16px; 
-            margin-bottom: 12px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 10px;
+            padding: 8px 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             box-shadow: var(--card-shadow);
         }
         .action-left-info {
@@ -123,7 +139,6 @@
             gap: 6px;
         }
 
-        /* Theme Selector Buttons */
         .theme-selector {
             display: flex;
             align-items: center;
@@ -162,7 +177,6 @@
         .theme-pill-btn[data-theme="teal"] { background: linear-gradient(135deg, #14B8A6, #0D9488); }
         .theme-pill-btn[data-theme="slate"] { background: linear-gradient(135deg, #475569, #334155); }
 
-        /* Modernized Buttons */
         .action-buttons-group {
             display: flex;
             gap: 10px;
@@ -200,244 +214,238 @@
             color: #ffffff;
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
         }
-        .print-btn { 
+        .print-btn {
             background: var(--accent-gradient-start);
             background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%);
-            color: white; 
-            border: none; 
-            padding: 8px 16px; 
-            border-radius: 8px; 
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
             font-family: 'Outfit', sans-serif;
             font-size: 13.5px;
-            font-weight: 600; 
-            cursor: pointer; 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 3px 10px rgba(79, 70, 229, 0.12);
         }
-        .print-btn:hover { 
+        .print-btn:hover {
             transform: translateY(-1px);
             box-shadow: 0 5px 15px rgba(79, 70, 229, 0.2);
         }
 
-        /* Invoice Container Overhaul */
-        .invoice-container { 
+        .invoice-container {
             position: relative;
-            width: 100%; 
-            max-width: 850px; 
-            background-color: var(--bg-card); 
-            border: 1px solid var(--border); 
-            border-radius: 16px; 
-            padding: 32px 40px; 
-            box-shadow: var(--card-shadow); 
+            width: 100%;
+            max-width: 850px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px 40px;
+            box-shadow: var(--card-shadow);
             transition: all 0.3s ease;
         }
-        
-        /* Header Block */
-        .invoice-header-row { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: flex-start; 
-            border-bottom: 2px solid var(--bg-body); 
-            padding-bottom: 20px; 
-            margin-bottom: 24px; 
+
+        .invoice-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid var(--bg-body);
+            padding-bottom: 20px;
+            margin-bottom: 24px;
         }
-        .invoice-logo { 
-            max-width: 180px; 
-            max-height: 52px; 
-            object-fit: contain; 
-            margin-bottom: 8px; 
-            display: block; 
+        .invoice-logo {
+            max-width: 180px;
+            max-height: 52px;
+            object-fit: contain;
+            margin-bottom: 8px;
+            display: block;
         }
-        .profile-title { 
+        .profile-title {
             font-family: 'Outfit', sans-serif;
-            font-size: 18px; 
-            font-weight: 700; 
-            color: var(--text-main); 
-            letter-spacing: -0.02em; 
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
         }
-        .profile-details { 
-            font-size: 12px; 
-            color: var(--text-muted); 
-            margin-top: 4px; 
-            line-height: 1.4; 
+        .profile-details {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.4;
         }
-        
+
         .meta-column { text-align: right; }
-        .invoice-badge { 
+        .invoice-badge {
             font-family: 'Outfit', sans-serif;
-            font-size: 24px; 
-            font-weight: 800; 
+            font-size: 24px;
+            font-weight: 800;
             background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            letter-spacing: -0.03em; 
-            margin-bottom: 8px; 
+            letter-spacing: -0.03em;
+            margin-bottom: 8px;
         }
-        .meta-item { 
-            font-size: 12px; 
-            color: var(--text-muted); 
-            margin-bottom: 4px; 
+        .meta-item {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
         }
         .meta-item strong {
             color: var(--text-main);
             font-weight: 600;
         }
 
-        /* Client Details */
         .billed-to-container { margin-bottom: 20px; }
-        .section-label { 
+        .section-label {
             font-family: 'Outfit', sans-serif;
-            font-size: 10px; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            color: var(--accent); 
-            letter-spacing: 0.1em; 
-            margin-bottom: 8px; 
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--accent);
+            letter-spacing: 0.1em;
+            margin-bottom: 8px;
         }
-        .client-name { 
+        .client-name {
             font-family: 'Outfit', sans-serif;
-            font-size: 15px; 
-            font-weight: 700; 
-            color: var(--text-main); 
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-main);
         }
-        .client-address { 
-            font-size: 12.5px; 
-            color: var(--text-muted); 
-            margin-top: 4px; 
-            line-height: 1.45; 
+        .client-address {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.45;
         }
-        .client-email { 
-            font-size: 12.5px; 
-            color: var(--text-muted); 
-            margin-top: 3px; 
-            line-height: 1.45; 
+        .client-email {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            margin-top: 3px;
+            line-height: 1.45;
         }
 
-        /* Dashboard Overview Grid */
-        .dashboard-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 12px; 
-            margin-bottom: 24px; 
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
         }
-        .kpi-card { 
-            background-color: var(--bg-body); 
-            border: 1px solid transparent; 
+        .kpi-card {
+            background-color: var(--bg-body);
+            border: 1px solid transparent;
             border-left: 4px solid var(--accent);
-            border-radius: 10px; 
-            padding: 12px 16px; 
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            border-radius: 10px;
+            padding: 12px 16px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .kpi-card:hover { 
-            background-color: var(--bg-card); 
-            border-color: var(--border); 
+        .kpi-card:hover {
+            background-color: var(--bg-card);
+            border-color: var(--border);
             border-left-color: var(--accent);
             transform: translateY(-1px);
             box-shadow: var(--hover-shadow);
         }
-        .kpi-label { 
-            font-size: 10.5px; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            letter-spacing: 0.08em; 
-            color: var(--text-muted); 
-            margin-bottom: 4px; 
+        .kpi-label {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 4px;
         }
-        .kpi-val { 
+        .kpi-val {
             font-family: 'Outfit', sans-serif;
-            font-size: 22px; 
-            font-weight: 800; 
-            color: var(--text-main); 
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-main);
         }
-        .amount-val { 
-            color: var(--success); 
+        .amount-val {
+            color: var(--success);
         }
 
-        /* Tables Styling */
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-bottom: 28px; 
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 28px;
         }
-        th { 
+        th {
             font-family: 'Outfit', sans-serif;
-            font-size: 10.5px; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            letter-spacing: 0.1em; 
-            color: var(--text-muted); 
-            text-align: left; 
-            padding: 8px 14px; 
-            border-bottom: 2px solid var(--border); 
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            text-align: left;
+            padding: 8px 14px;
+            border-bottom: 2px solid var(--border);
         }
-        td { 
-            font-size: 12.5px; 
-            color: var(--text-main); 
-            padding: 10px 14px; 
-            border-bottom: 1px solid var(--border); 
+        td {
+            font-size: 12.5px;
+            color: var(--text-main);
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
             transition: background-color 0.2s ease;
         }
         tr:hover td {
             background-color: var(--bg-body);
         }
-        .tag-pill { 
-            display: inline-block; 
-            padding: 3px 8px; 
-            font-size: 10.5px; 
-            font-weight: 600; 
-            border-radius: 6px; 
-            background-color: var(--bg-body); 
-            color: var(--text-muted); 
+        .tag-pill {
+            display: inline-block;
+            padding: 3px 8px;
+            font-size: 10.5px;
+            font-weight: 600;
+            border-radius: 6px;
+            background-color: var(--bg-body);
+            color: var(--text-muted);
         }
-        .subtotal-row td { 
-            border-bottom: none; 
-            padding-top: 14px; 
+        .subtotal-row td {
+            border-bottom: none;
+            padding-top: 14px;
         }
         .subtotal-row:hover td {
             background-color: transparent;
         }
-        .subtotal-label { 
+        .subtotal-label {
             font-family: 'Outfit', sans-serif;
-            font-size: 14px; 
-            font-weight: 700; 
-            text-align: right; 
-            color: var(--text-muted); 
+            font-size: 14px;
+            font-weight: 700;
+            text-align: right;
+            color: var(--text-muted);
         }
-        .subtotal-value { 
+        .subtotal-value {
             font-family: 'Outfit', sans-serif;
-            font-size: 17px; 
-            font-weight: 800; 
-            color: var(--success); 
-            text-align: right; 
-            padding-right: 14px; 
+            font-size: 17px;
+            font-weight: 800;
+            color: var(--success);
+            text-align: right;
+            padding-right: 14px;
         }
 
-        /* Payment Hub & Layout */
-        .payment-box { 
-            background-color: var(--bg-body); 
-            border: 1px solid var(--border); 
-            border-radius: 12px; 
-            padding: 16px 20px; 
-            page-break-inside: avoid; 
-            break-inside: avoid; 
+        .payment-box {
+            background-color: var(--bg-body);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
-        .payment-box-title { 
+        .payment-box-title {
             font-family: 'Outfit', sans-serif;
-            font-size: 12px; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            color: var(--text-main); 
-            margin-bottom: 8px; 
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-main);
+            margin-bottom: 8px;
             letter-spacing: 0.05em;
         }
-        .payment-content { 
-            font-size: 12.5px; 
-            color: var(--text-muted); 
-            line-height: 1.5; 
-            white-space: pre-wrap; 
+        .payment-content {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            white-space: pre-wrap;
         }
         .payment-flex-row {
             display: flex;
@@ -451,34 +459,33 @@
             box-sizing: border-box;
         }
 
-        /* QR Codes & Direct Payments */
-        .qr-codes-container { 
-            display: flex; 
+        .qr-codes-container {
+            display: flex;
             flex-direction: row;
             flex-wrap: wrap;
-            gap: 16px; 
+            gap: 12px;
             align-items: flex-start;
             justify-content: flex-start;
-            page-break-inside: avoid; 
-            break-inside: avoid; 
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
-        .qr-code-item { 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            background: var(--bg-card); 
-            border: 1px solid var(--border); 
-            border-radius: 8px; 
-            padding: 6px; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03); 
-            page-break-inside: avoid; 
-            break-inside: avoid; 
+        .qr-code-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
-        .qr-code-image { 
-            width: 140px; 
-            height: 140px; 
-            object-fit: contain; 
-            border-radius: 4px; 
+        .qr-code-image {
+            width: 140px;
+            height: 140px;
+            object-fit: contain;
+            border-radius: 4px;
         }
         .qr-label {
             font-size: 9px;
@@ -489,7 +496,6 @@
             letter-spacing: 0.05em;
         }
 
-        /* Trust Banner */
         .trust-banner {
             display: flex;
             align-items: center;
@@ -507,41 +513,39 @@
             margin-top: 8px;
         }
 
-        /* Footer */
-        .invoice-footer { 
-            margin-top: 24px; 
-            text-align: center; 
-            padding: 14px; 
+        .invoice-footer {
+            margin-top: 24px;
+            text-align: center;
+            padding: 14px;
         }
-        .footer-link { 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-            color: var(--text-muted); 
-            text-decoration: none; 
+        .footer-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
             font-family: 'Outfit', sans-serif;
-            font-size: 12.5px; 
-            font-weight: 600; 
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
-            padding: 8px 16px; 
-            border-radius: 8px; 
-            background-color: var(--bg-body); 
+            font-size: 12.5px;
+            font-weight: 600;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 8px 16px;
+            border-radius: 8px;
+            background-color: var(--bg-body);
             border: 1px solid var(--border);
         }
 
 
-        /* Responsive Print Adjustments */
         @page {
             size: auto;
-            margin: 0; 
+            margin: 0;
         }
 
-        @media print { 
+        @media print {
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            body { background-color: #ffffff; color: #1a1a1a; padding: 8mm 12mm; margin: 0; font-size: 11px; } 
+            body { background-color: #ffffff; color: #1a1a1a; padding: 8mm 12mm; margin: 0; font-size: 11px; }
             body.dark { background-color: var(--bg-card); color: var(--text-main); }
-            .print-actions-bar { display: none; } 
-            .invoice-container { background-color: transparent !important; border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; } 
+            .print-actions-bar { display: none; }
+            .invoice-container { background-color: transparent !important; border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; }
             .invoice-header-row { padding-bottom: 14px; margin-bottom: 14px; }
             .invoice-badge { font-size: 20px; margin-bottom: 4px; }
             .invoice-logo { max-height: 40px; margin-bottom: 4px; }
@@ -570,7 +574,6 @@
                 </svg>
                 <span>Invoice Generated</span>
             </div>
-            
             <!-- Light/Dark Mode Switcher -->
             <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
                 <svg id="theme-icon-dark" class="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
@@ -590,7 +593,7 @@
                 <span id="theme-text">Dark Mode</span>
             </button>
         </div>
-        
+
         <div class="action-buttons-group">
             <button id="save-app-btn" class="save-app-btn" onclick="saveToApp()" style="display: none;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -610,7 +613,7 @@
             </button>
         </div>
     </div>
-    
+
     <div class="invoice-container">
         {{PAYMENT_CONFIRMATION_STAMP}}
         <div class="invoice-header-row">
@@ -629,14 +632,14 @@
                 <div class="meta-item"><strong>Sessions:</strong> {{SESSIONS_COMPILED}}</div>
             </div>
         </div>
-        
+
         <div class="billed-to-container">
             <div class="section-label">Billed To</div>
             <div class="client-name">{{CLIENT_NAME}}</div>
             <div class="client-address">{{CLIENT_ADDRESS}}</div>
             {{CLIENT_EMAILS_HTML}}
         </div>
-        
+
         <div class="dashboard-grid">
             <div class="kpi-card">
                 <div class="kpi-label">Total Work Hours</div>
@@ -647,7 +650,7 @@
                 <div class="kpi-val amount-val">{{TOTAL_AMOUNT_DUE}}</div>
             </div>
         </div>
-        
+
         <div class="section-label">Itemized Work Breakdown</div>
         <table>
             <thead>
@@ -667,7 +670,7 @@
                 </tr>
             </tbody>
         </table>
-        
+
         <div class="payment-box">
             <div class="payment-box-title">Payment Terms & Instructions</div>
             <div class="payment-content">{{PAYMENT_INSTRUCTIONS}}</div>
@@ -676,7 +679,7 @@
                 {{QR_HTML}}
             </div>
         </div>
-        
+
         <div class="invoice-footer">
             <a href="https://mightyiest.github.io/TrueHour/" target="_blank" class="footer-link">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -694,7 +697,7 @@
             const themeText = document.getElementById('theme-text');
             const iconLight = document.getElementById('theme-icon-light');
             const iconDark = document.getElementById('theme-icon-dark');
-            
+
             if (isDark) {
                 themeText.textContent = 'Light Mode';
                 iconLight.style.display = 'none';
@@ -708,7 +711,7 @@
                 localStorage.setItem('truehour-theme', isDark ? 'dark' : 'light');
             } catch(e) {}
         }
-        
+
         function isPreviewMode() {
             return window.location.protocol === 'http:' || window.location.protocol === 'https:';
         }

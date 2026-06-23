@@ -91,10 +91,15 @@ def get_light_palette() -> QPalette:
 
     return palette
 
-def get_dark_palette() -> QPalette:
+def get_dark_palette(theme_style: str = "modern-dark") -> QPalette:
+    if theme_style == "classic-dark":
+        return get_classic_dark_palette()
+    return get_modern_dark_palette()
+
+def get_classic_dark_palette() -> QPalette:
     palette = QPalette()
 
-    # Active Colors (Frankfurter Minimalistic Dark Theme)
+    # Active Colors (Classic Minimalistic Dark Theme)
     palette.setColor(QPalette.ColorRole.Window, QColor("#141414"))
     palette.setColor(QPalette.ColorRole.WindowText, QColor("#e0e0e0"))
     palette.setColor(QPalette.ColorRole.Base, QColor("#1e1e1e"))
@@ -141,12 +146,70 @@ def get_dark_palette() -> QPalette:
 
     return palette
 
+def get_modern_dark_palette() -> QPalette:
+    palette = QPalette()
+
+    # Active Colors (Modern Premium Dark Theme)
+    palette.setColor(QPalette.ColorRole.Window, QColor("#0F0F11"))
+    palette.setColor(QPalette.ColorRole.WindowText, QColor("#EDEDED"))
+    palette.setColor(QPalette.ColorRole.Base, QColor("#16161A"))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#0F0F11"))
+    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor("#16161A"))
+    palette.setColor(QPalette.ColorRole.ToolTipText, QColor("#EDEDED"))
+    palette.setColor(QPalette.ColorRole.Text, QColor("#EDEDED"))
+    palette.setColor(QPalette.ColorRole.Button, QColor("#16161A"))
+    palette.setColor(QPalette.ColorRole.ButtonText, QColor("#EDEDED"))
+    palette.setColor(QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
+    palette.setColor(QPalette.ColorRole.Link, QColor("#2563EB"))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor("#232329"))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+
+    # Inactive Colors (match Active)
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, QColor("#0F0F11"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.WindowText, QColor("#EDEDED"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Base, QColor("#16161A"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.AlternateBase, QColor("#0F0F11"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipBase, QColor("#16161A"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipText, QColor("#EDEDED"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Text, QColor("#EDEDED"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Button, QColor("#16161A"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ButtonText, QColor("#EDEDED"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Link, QColor("#2563EB"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Highlight, QColor("#232329"))
+    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+
+    # Disabled Colors (grayed out modern dark theme)
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, QColor("#0F0F11"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#555555"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Base, QColor("#0F0F11"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.AlternateBase, QColor("#0F0F11"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipBase, QColor("#16161A"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipText, QColor("#555555"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor("#555555"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Button, QColor("#0F0F11"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#555555"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Link, QColor("#2563EB"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Highlight, QColor("#232329"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.HighlightedText, QColor("#555555"))
+
+    return palette
+
 _GENERATED_CHECKMARKS = set()
 
 # ── Dynamic Checkmark Icon Generator ─────────────────────────────────
-def ensure_checkmark_icon(is_dark: bool = False) -> str:
+def ensure_checkmark_icon(theme_style_or_is_dark=False) -> str:
     from config import get_app_data_dir
-    filename = "checkmark_dark.png" if is_dark else "checkmark_light.png"
+    
+    if isinstance(theme_style_or_is_dark, bool):
+        use_dark_checkmark = theme_style_or_is_dark
+    else:
+        # For strings, only classic-dark needs a dark checkmark (accent is light gray).
+        # modern-dark and light have dark/blue accents so they need a white checkmark.
+        use_dark_checkmark = (theme_style_or_is_dark == "classic-dark")
+        
+    filename = "checkmark_dark.png" if use_dark_checkmark else "checkmark_light.png"
     checkmark_path = os.path.join(get_app_data_dir(), filename).replace("\\", "/")
 
     if filename in _GENERATED_CHECKMARKS and os.path.exists(checkmark_path):
@@ -163,7 +226,7 @@ def ensure_checkmark_icon(is_dark: bool = False) -> str:
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        fill_color = QColor(20, 20, 20) if is_dark else QColor(255, 255, 255)
+        fill_color = QColor(20, 20, 20) if use_dark_checkmark else QColor(255, 255, 255)
         pen = QPen(fill_color, 2)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
@@ -178,7 +241,7 @@ def ensure_checkmark_icon(is_dark: bool = False) -> str:
     except Exception:
         try:
             import base64
-            if is_dark:
+            if use_dark_checkmark:
                 # Dark checkmark fallback
                 png_base64 = b"iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAADpJREFUOBFjYBgFMMCEw/wnHGaE4D//kXWgm2DCwADCYEDQAWBsICwAGBsYiwfG4oHRcMAoGAWDEAMAANbQDBW/k19vAAAAAElFTkSuQmCC"
             else:

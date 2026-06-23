@@ -26,14 +26,17 @@ class DistractionAppsDialog(QDialog):
         self.resize(360, 480)
         self.setMinimumSize(300, 400)
 
-        self.is_dark = False
+        self.theme_style = "light"
         if parent:
-            self.is_dark = parent.settings.get("dark_mode", False)
+            self.theme_style = parent.settings.get("theme_style", "modern-dark" if parent.settings.get("dark_mode", False) else "light")
+        if isinstance(self.theme_style, bool):
+            self.theme_style = "modern-dark" if self.theme_style else "light"
+        self.is_dark = (self.theme_style in ["modern-dark", "classic-dark"])
 
         from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(self.is_dark).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.is_dark))
+        qss = get_qss_style(self.theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style))
         self.setStyleSheet(qss)
-        self.setPalette(get_dark_palette() if self.is_dark else get_light_palette())
+        self.setPalette(get_dark_palette(self.theme_style) if self.is_dark else get_light_palette())
 
         self.init_ui()
 
@@ -252,7 +255,7 @@ class SettingsDialog(QDialog):
     about_requested = pyqtSignal()
     reload_exclusions_requested = pyqtSignal()
     settings_saved = pyqtSignal(dict)
-    theme_toggled = pyqtSignal(bool)
+    theme_toggled = pyqtSignal(str)
     profile_changed = pyqtSignal(str)
     profile_renamed = pyqtSignal(str, str)
     profile_deleted = pyqtSignal(str)
@@ -982,7 +985,14 @@ class SettingsDialog(QDialog):
                 self.settings["mask_client_emails"]
             )
             self.settings["developer_mode"] = self.cb_dev.isChecked()
-            self.settings["dark_mode"] = self.cb_dark.isChecked()
+            theme_text = self.theme_combo.currentText()
+            if theme_text == "Light":
+                self.settings["theme_style"] = "light"
+            elif theme_text == "Classic Dark":
+                self.settings["theme_style"] = "classic-dark"
+            else:
+                self.settings["theme_style"] = "modern-dark"
+            self.settings["dark_mode"] = (self.settings["theme_style"] in ["modern-dark", "classic-dark"])
             self.settings["enable_distraction_auto_pause"] = self.cb_distract.isChecked()
             self.settings["distraction_apps"] = list(self._distraction_apps_local)
 
