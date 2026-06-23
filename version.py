@@ -1,5 +1,5 @@
 """
-TrueHour — Version Information.
+TrueHour - Version Information.
 Single source of truth for version and build metadata.
 """
 
@@ -19,7 +19,7 @@ class VersionInfo:
 
     @property
     def full(self) -> str:
-        return f"v{self.version} · Build {self.build_date}"
+        return f"v{self.version} \u00b7 Build {self.build_date}"
 
 INFO = VersionInfo(version=__version__, build_date="2026.06.22", build_number=32)
 VERSION_SHORT = INFO.short
