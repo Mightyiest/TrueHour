@@ -686,13 +686,29 @@ class TrueHourApp(QMainWindow):
         # Update UI immediately — instant visual feedback before any blocking work
         self.start_btn.setEnabled(True)
         self.pause_btn.setEnabled(False)
-        self._update_pause_btn_ui()
+        self.pause_btn.setText(" Pause")
+        self.pause_btn.setStyleSheet("")
+        is_dark = getattr(self, "dark_mode", False)
+        icon_color = "#d1d5db" if is_dark else "#475569"
+        self.pause_btn.setIcon(get_svg_icon(PAUSE_SVG, QSize(12, 12), icon_color))
         self.stop_btn.setEnabled(False)
         self.active_label.setText("Session ended")
         self.clock_label.setText("00:00:00")
         self.total_label.setText("0h 00m 00s")
         self.earnings_label.setText("")
         self.setWindowTitle("TrueHour")
+
+        # Clear application usage list immediately
+        self._clear_list_layout()
+        self._check_vars.clear()
+        self._photo_refs.clear()
+        self._row_widgets.clear()
+        self._last_app_state_hash = None
+        self.placeholder_lbl = QLabel("Waiting for app activity...", self)
+        self.placeholder_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.placeholder_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; color: #ABABAB; margin: 20px;")
+        self.scroll_layout.insertWidget(0, self.placeholder_lbl)
+        self._showing_placeholder = True
 
         self.tray_pause_action.setEnabled(False)
         self.tray_pause_action.setText("Pause Tracking")

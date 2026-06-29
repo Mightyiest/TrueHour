@@ -801,6 +801,8 @@ class AppTracker:
         if self.paused and self._pause_start:
             self._total_paused_time += (time.time() - self._pause_start)
             self._pause_start = None
+        self.paused = False
+
 
         if self._thread:
             self._thread.join(timeout=0.1)  # Non-blocking: thread exits via running flag
