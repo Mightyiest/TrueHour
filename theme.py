@@ -353,8 +353,8 @@ def get_qss_style(theme_style) -> str:
         accent = "#2563EB"
         accent_hover = "#3B82F6"
         bg_hover = "#232329"
-        accent_btn_bg = "#2563EB"
-        accent_btn_hover = "#3B82F6"
+        accent_btn_bg = "#262626"
+        accent_btn_hover = "#3f3f46"
         accent_btn_disabled_bg = "#16161A"
     else: # light
         bg_window = "#F8FAFC"

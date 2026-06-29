@@ -203,13 +203,13 @@ class HeaderBar(QFrame):
             self.theme_btn.setIcon(get_svg_icon(SOLID_MOON_SVG, QSize(16, 16), color_hex="#2563EB"))
             self.theme_btn.setToolTip("Switch to Modern Dark Mode")
 
-        self.live_report_btn.setIcon(create_minimalist_icon("chart", accent_color))
+        self.live_report_btn.setIcon(create_minimalist_icon("chart", neutral_color))
         self.sessions_btn.setIcon(create_minimalist_icon("folder", neutral_color))
         self.settings_btn.setIcon(create_minimalist_icon("settings", neutral_color))
 
         self.live_report_btn.setStyleSheet(f"""
             QPushButton {{
-                color: {accent_color};
+                color: {neutral_color};
                 font-size: 12px;
                 font-weight: bold;
                 font-family: 'Segoe UI';
