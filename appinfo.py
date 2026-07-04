@@ -11,8 +11,6 @@ if SYSTEM == "Windows":
     import win32api
     import win32con
     import win32process
-import psutil
-from PIL import Image
 import os
 import logging
 from functools import lru_cache
@@ -106,6 +104,7 @@ def get_foreground_app_info():
             return "TrueHour", "truehour.exe"
 
         try:
+            import psutil
             proc = psutil.Process(pid)
             exe_path = proc.exe()
             base = proc.name()
@@ -184,6 +183,7 @@ def get_icon_image(exe_path: str, size: int = 16):
     return _extract_icon(exe_path, size)
 
 def _extract_icon(exe_path, size=16):
+    from PIL import Image
     if SYSTEM != "Windows":
         # macOS Icon Extraction using native Cocoa / AppKit
         try:

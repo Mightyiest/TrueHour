@@ -1,9 +1,6 @@
 import os
 import hashlib
 import base64
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import hashes
 
 def _get_secure_key(seed: str) -> str:
     """Derives a machine-bound encryption key using the local COMPUTERNAME or HOSTNAME."""
@@ -17,6 +14,8 @@ def _get_password_key(password: str) -> str:
     """Derives a portable encryption key derived purely from a user-provided password using PBKDF2HMAC (CodeQL compliant)."""
     if not password:
         return "default_password_seed"
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    from cryptography.hazmat.primitives import hashes
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
@@ -35,6 +34,8 @@ def _get_password_key_legacy(data: str) -> str:
 
 def _derive_fernet_key(key_seed: str) -> bytes:
     """Derives a 32-byte key suitable for Fernet from the hex key_seed."""
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    from cryptography.hazmat.primitives import hashes
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
@@ -48,6 +49,7 @@ def _encrypt_string(plain_text: str, key: str) -> str:
     if not plain_text:
         return ""
     try:
+        from cryptography.fernet import Fernet
         fernet_key = _derive_fernet_key(key)
         f = Fernet(fernet_key)
         enc_bytes = f.encrypt(plain_text.encode("utf-8"))
@@ -61,6 +63,7 @@ def _decrypt_string(cipher_text: str, key: str) -> str:
         return ""
     if cipher_text.startswith("v2:"):
         try:
+            from cryptography.fernet import Fernet
             fernet_key = _derive_fernet_key(key)
             f = Fernet(fernet_key)
             dec_bytes = f.decrypt(cipher_text[3:].encode("utf-8"))

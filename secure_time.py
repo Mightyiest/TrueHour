@@ -9,10 +9,8 @@ import hashlib
 import json
 import os
 import threading
-import ssl
 import logging
 from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 from config import get_app_data_dir, DynamicPath
 
 # Configure logging for security events
@@ -214,6 +212,8 @@ class TimeTamperDetector:
         Returns None if all sources fail.
         """
         import urllib.request
+        import ssl
+        from email.utils import parsedate_to_datetime
 
         # Create SSL context with certificate verification enabled
         ssl_context = ssl.create_default_context()

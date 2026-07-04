@@ -1,8 +1,8 @@
 #!/bin/bash
-# TrueHours macOS Standalone Packaging Script
+# TrueHours macOS Standalone Packaging Script (One Directory)
 cd "$(dirname "$0")"
 
-echo "Building TrueHours Standalone App Bundle for macOS..."
+echo "Building TrueHours Standalone App Bundle for macOS (One Directory)..."
 
 # Detect standard python interpreter
 PYTHON_CMD="python3"
@@ -23,7 +23,7 @@ echo "TELEMETRY_ENABLED = True" > telemetry_config.py
 
 # Build command using PyInstaller
 echo "Running PyInstaller..."
-$PYTHON_CMD -O -m PyInstaller --noconsole --onefile --windowed --name="TrueHours" --add-data "templates:templates" --exclude-module pytest --exclude-module unittest --exclude-module tkinter --exclude-module pydoc --exclude-module doctest --exclude-module test --exclude-module setuptools --exclude-module pip --exclude-module distutils app.py
+$PYTHON_CMD -O -m PyInstaller --noconsole --onedir --windowed --name="TrueHours" --add-data "templates:templates" --exclude-module pytest --exclude-module unittest --exclude-module tkinter --exclude-module pydoc --exclude-module doctest --exclude-module test --exclude-module setuptools --exclude-module pip --exclude-module distutils app.py
 
 if [ $? -eq 0 ]; then
     echo "Moving executable bundle to root..."

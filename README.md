@@ -246,6 +246,13 @@ A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!
 
 ## 📅 Changelog
 
+### v3.3.3-beta.2 (2026.07.04)
+- **Lazy-Loaded Module Imports**: Relocated heavy package imports (such as cryptography, Pillow, and psutil) from module-level declarations to dynamic on-demand imports. This optimizes memory allocation and accelerates application initialization.
+- **Asynchronous Web Server Deferral**: Delayed the instantiation and startup of the goals WebServerManager by 4 seconds using a single-shot timer. This prevents blocking during the main window rendering phase and prevents premature loading of http.server standard libraries.
+- **PyInstaller Exclusions**: Added explicit exclusions to PyInstaller configuration files for unused testing and developer packages (pytest, unittest, tkinter, pydoc, setuptools, pip, distutils), decreasing portable binary file sizes.
+- **Executable PATH Checks in Build Scripts**: Integrated where checks for the pyinstaller executable in build scripts to prevent command-not-found printouts and gracefully fallback to python -O -m PyInstaller bytecode-optimized compilation.
+- **One-Directory Distribution Option**: Introduced build scripts specifically targeting `--onedir` output to eliminate Windows extraction overheads for users seeking instant startup behavior.
+
 ### v3.3.2 (2026.06.22)
 - **Three-Theme UI & Stylesheet Caching**: Upgraded the interface to support three selectable themes ("Light", "Modern Dark", "Classic Dark") via a dropdown selector in the Settings dialog, with caching of QSS stylesheets and optimized theme application.
 - **Encrypted Profile Backups**: Added password-protected encrypted backup support for settings and banking details, utilizing PBKDF2HMAC (100,000 iterations) for secure password key derivation while maintaining compatibility for legacy backups.

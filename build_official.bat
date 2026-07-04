@@ -5,11 +5,13 @@ echo Building TrueHours_%VERSION% (Official Release with Telemetry ON)...
 :: Inject build-time configuration to enable telemetry
 echo TELEMETRY_ENABLED = True > telemetry_config.py
 
-:: Try running pyinstaller directly first, fallback to python -m PyInstaller
-pyinstaller --onefile --windowed --name "TrueHours_%VERSION%" --icon=icon.ico --add-data "icon.ico;." --add-data "templates;templates" app.py
-if %ERRORLEVEL% neq 0 (
-    echo Direct pyinstaller command failed. Trying python -m PyInstaller fallback...
-    python -m PyInstaller --onefile --windowed --name "TrueHours_%VERSION%" --icon=icon.ico --add-data "icon.ico;." --add-data "templates;templates" app.py
+:: Check if pyinstaller is available in PATH to avoid shell error printout
+where pyinstaller >nul 2>nul
+if %ERRORLEVEL% equ 0 (
+    pyinstaller --onefile --windowed --name "TrueHours_%VERSION%" --icon=icon.ico --add-data "icon.ico;." --add-data "templates;templates" --exclude-module pytest --exclude-module unittest --exclude-module tkinter --exclude-module pydoc --exclude-module doctest --exclude-module test --exclude-module setuptools --exclude-module pip --exclude-module distutils app.py
+) else (
+    echo pyinstaller command not found in PATH. Using python -O -m PyInstaller fallback...
+    python -O -m PyInstaller --onefile --windowed --name "TrueHours_%VERSION%" --icon=icon.ico --add-data "icon.ico;." --add-data "templates;templates" --exclude-module pytest --exclude-module unittest --exclude-module tkinter --exclude-module pydoc --exclude-module doctest --exclude-module test --exclude-module setuptools --exclude-module pip --exclude-module distutils app.py
 )
 
 if %ERRORLEVEL% equ 0 (

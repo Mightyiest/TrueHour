@@ -48,6 +48,7 @@ tests/test_export_diagnostic.py
 /skill
 build_telemetry.bat
 build_unofficial.bat
+build_unofficial_onedir.bat
 telemetry_config.py
 
 

@@ -30,7 +30,7 @@ from report import (
 )
 from version import VERSION_FULL, INFO
 from assets import GITHUB_SVG, SUN_SVG, MOON_SVG, SOLID_MOON_SVG, PLAY_SVG, PAUSE_SVG, BUG_SVG, SHIELD_SVG
-from debug_terminal import LogBufferCollector, DebugTerminalWindow
+from debug_terminal import LogBufferCollector
 from widgets.custom_widgets import SegmentedAllocationBar, AppUsageRow
 from widgets.loading_dialog import LoadingDialog
 from widgets.update_label import FadingVersionLabel
@@ -328,18 +328,20 @@ class TrueHourApp(QMainWindow):
         except Exception as e:
             print(f"[TrueHour] Failed to schedule summary rebuild: {e}")
 
-        # Start local web server for Focus Goals dashboard
-        try:
-            from core.reporting.web_server import WebServerManager
-            self.web_server_mgr = WebServerManager(self._get_web_goals_state, self)
-            self.web_server_mgr.signals.goals_updated.connect(self._on_web_goals_updated)
-            self.web_server_mgr.signals.alerts_toggled.connect(self._on_web_alerts_toggled)
-            self.web_server_mgr.signals.theme_toggled.connect(self._on_web_theme_toggled)
-            self.web_server_mgr.signals.test_notification_requested.connect(self._trigger_test_notification)
-            self.web_server_mgr.signals.reset_requested.connect(self._on_web_goals_reset)
-            self.web_server_mgr.start()
-        except Exception as e:
-            print(f"[TrueHour] Failed to initialize web server: {e}")
+        # Start local web server for Focus Goals dashboard (delayed to avoid startup blocking/loading)
+        def _deferred_start_web_server():
+            try:
+                from core.reporting.web_server import WebServerManager
+                self.web_server_mgr = WebServerManager(self._get_web_goals_state, self)
+                self.web_server_mgr.signals.goals_updated.connect(self._on_web_goals_updated)
+                self.web_server_mgr.signals.alerts_toggled.connect(self._on_web_alerts_toggled)
+                self.web_server_mgr.signals.theme_toggled.connect(self._on_web_theme_toggled)
+                self.web_server_mgr.signals.test_notification_requested.connect(self._trigger_test_notification)
+                self.web_server_mgr.signals.reset_requested.connect(self._on_web_goals_reset)
+                self.web_server_mgr.start()
+            except Exception as ex:
+                print(f"[TrueHour] Failed to initialize web server: {ex}")
+        QTimer.singleShot(4000, _deferred_start_web_server)
 
         # Schedule database optimization 3 seconds after startup to clean up database file
         try:
