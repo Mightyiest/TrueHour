@@ -4,12 +4,14 @@ import socket
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from PyQt6.QtCore import QObject, pyqtSignal
 
+
 class WebServerSignals(QObject):
     goals_updated = pyqtSignal(dict)
     alerts_toggled = pyqtSignal(bool)
     theme_toggled = pyqtSignal(bool)
     test_notification_requested = pyqtSignal()
     reset_requested = pyqtSignal()
+
 
 class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -36,19 +38,25 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
                 import sys
 
                 # Check for user-customized template next to executable/script
-                if getattr(sys, 'frozen', False):
+                if getattr(sys, "frozen", False):
                     root_dir = os.path.dirname(sys.executable)
                 else:
-                    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                    root_dir = os.path.dirname(
+                        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    )
 
-                user_template_path = os.path.join(root_dir, "templates", "goals_dashboard.html")
+                user_template_path = os.path.join(
+                    root_dir, "templates", "goals_dashboard.html"
+                )
 
                 if os.path.exists(user_template_path):
                     template_path = user_template_path
-                elif getattr(sys, 'frozen', False):
+                elif getattr(sys, "frozen", False):
                     # Fallback to PyInstaller's bundled temp directory
-                    mei_dir = getattr(sys, '_MEIPASS', '')
-                    template_path = os.path.join(mei_dir, "templates", "goals_dashboard.html")
+                    mei_dir = getattr(sys, "_MEIPASS", "")
+                    template_path = os.path.join(
+                        mei_dir, "templates", "goals_dashboard.html"
+                    )
                 else:
                     template_path = user_template_path
 
@@ -58,7 +66,9 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
                 # Dynamic injection of port and configuration state to avoid initial fetch delay
                 data = self.server.get_state_callback()
                 json_state = json.dumps(data)
-                content = content.replace("/*{{INITIAL_STATE}}*/", f"window.INITIAL_STATE = {json_state};")
+                content = content.replace(
+                    "/*{{INITIAL_STATE}}*/", f"window.INITIAL_STATE = {json_state};"
+                )
 
                 self._set_headers(content_type="text/html", status=200)
                 self.wfile.write(content.encode("utf-8"))
@@ -105,11 +115,15 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
                     data_to_emit["weekly_goals"] = sanitized
             if "weekly_earnings_goal" in payload:
                 try:
-                    data_to_emit["weekly_earnings_goal"] = float(payload["weekly_earnings_goal"])
+                    data_to_emit["weekly_earnings_goal"] = float(
+                        payload["weekly_earnings_goal"]
+                    )
                 except (ValueError, TypeError):
                     data_to_emit["weekly_earnings_goal"] = 0.0
             if "earnings_goal_period" in payload:
-                data_to_emit["earnings_goal_period"] = str(payload["earnings_goal_period"])
+                data_to_emit["earnings_goal_period"] = str(
+                    payload["earnings_goal_period"]
+                )
 
             if data_to_emit:
                 self.server.signals.goals_updated.emit(data_to_emit)
@@ -117,7 +131,13 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
             else:
                 self._set_headers(status=400)
-                self.wfile.write(json.dumps({"error": "No valid weekly_goals or weekly_earnings_goal provided"}).encode("utf-8"))
+                self.wfile.write(
+                    json.dumps(
+                        {
+                            "error": "No valid weekly_goals or weekly_earnings_goal provided"
+                        }
+                    ).encode("utf-8")
+                )
 
         elif self.path == "/api/settings":
             if "enable_goal_tray_alerts" in payload:
@@ -142,11 +162,15 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
             self._set_headers(status=404)
             self.wfile.write(b"Not Found")
 
+
 class GoalsWebServer(HTTPServer):
-    def __init__(self, server_address, RequestHandlerClass, get_state_callback, signals):
+    def __init__(
+        self, server_address, RequestHandlerClass, get_state_callback, signals
+    ):
         super().__init__(server_address, RequestHandlerClass)
         self.get_state_callback = get_state_callback
         self.signals = signals
+
 
 def find_free_port():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -154,6 +178,7 @@ def find_free_port():
     port = s.getsockname()[1]
     s.close()
     return port
+
 
 class WebServerManager(QObject):
     def __init__(self, get_state_callback, parent=None):
@@ -169,7 +194,12 @@ class WebServerManager(QObject):
         if self.running:
             return
 
-        self.server = GoalsWebServer(("127.0.0.1", self.port), GoalsHTTPRequestHandler, self.get_state_callback, self.signals)
+        self.server = GoalsWebServer(
+            ("127.0.0.1", self.port),
+            GoalsHTTPRequestHandler,
+            self.get_state_callback,
+            self.signals,
+        )
         self.thread = threading.Thread(target=self._run_server, daemon=True)
         self.running = True
         self.thread.start()

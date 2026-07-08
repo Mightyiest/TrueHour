@@ -2,6 +2,7 @@
 TrueHour — Debug Terminal Module
 Manages thread-safe stdout/stderr, active file logging, and UDP loopback streaming to a standalone debug console.
 """
+
 import sys
 import os
 import html
@@ -11,15 +12,26 @@ import threading
 from datetime import datetime
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPlainTextEdit, QLineEdit,
-    QPushButton, QCheckBox, QFileDialog, QMessageBox, QApplication
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPlainTextEdit,
+    QLineEdit,
+    QPushButton,
+    QCheckBox,
+    QFileDialog,
+    QMessageBox,
+    QApplication,
 )
+
 
 class LogSignalEmitter(QObject):
     log_written = pyqtSignal(str)
 
+
 class LogBufferCollector:
     """Thread-safe collector that intercepts sys.stdout/stderr, writes to active log, and broadcasts over UDP."""
+
     def __init__(self, max_lines=1000):
         self.buffer = deque(maxlen=max_lines)
         self.emitter = LogSignalEmitter()
@@ -36,6 +48,7 @@ class LogBufferCollector:
         try:
             from config import get_app_data_root
             import os
+
             log_file = os.path.join(get_app_data_root(), "TrueHour_active.log")
             if os.path.exists(log_file):
                 os.remove(log_file)
@@ -55,6 +68,7 @@ class LogBufferCollector:
             try:
                 from config import get_app_data_root
                 import os
+
                 log_file = os.path.join(get_app_data_root(), "TrueHour_active.log")
                 with open(log_file, "a", encoding="utf-8") as f:
                     f.write(text)
@@ -79,8 +93,10 @@ class LogBufferCollector:
             sys.stderr = self._stderr
             self._is_redirected = False
 
+
 class StreamRedirector:
     """Helper stream object to replace sys.stdout and sys.stderr with safety checks for PyInstaller frozen mode."""
+
     def __init__(self, collector, is_stderr=False):
         self.collector = collector
         self.is_stderr = is_stderr
@@ -109,8 +125,10 @@ class StreamRedirector:
         except Exception:
             pass
 
+
 class DebugTerminalWindow(QDialog):
     """Modern Windows-11 style dialog to display active logs with filtering, colorizing and auto-scroll."""
+
     def __init__(self, collector=None, parent=None):
         super().__init__(parent)
         self.collector = collector
@@ -189,6 +207,7 @@ class DebugTerminalWindow(QDialog):
 
         from config import get_app_data_dir
         import os
+
         chk_path = os.path.join(get_app_data_dir(), "checkmark.png").replace("\\", "/")
         if os.path.exists(chk_path):
             self.setStyleSheet(self.styleSheet().replace("CHECKMARK_PATH", chk_path))
@@ -246,6 +265,7 @@ class DebugTerminalWindow(QDialog):
         try:
             from config import get_app_data_root
             import os
+
             log_file = os.path.join(get_app_data_root(), "TrueHour_active.log")
             if os.path.exists(log_file):
                 with open(log_file, "r", encoding="utf-8") as f:
@@ -261,7 +281,9 @@ class DebugTerminalWindow(QDialog):
                 scrollbar = self.log_display.verticalScrollBar()
                 scrollbar.setValue(scrollbar.maximum())
         except Exception as e:
-            self.log_display.appendHtml(f'<span style="color:#EF4444;">Failed to load log history: {e}</span>')
+            self.log_display.appendHtml(
+                f'<span style="color:#EF4444;">Failed to load log history: {e}</span>'
+            )
 
     def start_udp_listener(self):
         self.udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -269,7 +291,11 @@ class DebugTerminalWindow(QDialog):
             self.udp_sock.bind(("127.0.0.1", 50099))
         except Exception:
             # Address already in use: another console is running, so exit gracefully
-            QMessageBox.warning(self, "Console Already Open", "TrueHour Debug Console is already running.")
+            QMessageBox.warning(
+                self,
+                "Console Already Open",
+                "TrueHour Debug Console is already running.",
+            )
             sys.exit(0)
 
         self.listener_active = True
@@ -326,14 +352,19 @@ class DebugTerminalWindow(QDialog):
             scrollbar.setValue(scrollbar.maximum())
 
     def colorize_text(self, text):
-        escaped = html.escape(text).replace('\n', '<br>')
+        escaped = html.escape(text).replace("\n", "<br>")
         lower_text = text.lower()
 
         # Telemetry Action coloring (premium bright cyan)
         if "[action]" in lower_text:
             return f'<span style="color:#06B6D4; font-weight: bold;">{escaped}</span>'
 
-        if "error" in lower_text or "critical" in lower_text or "exception" in lower_text or "traceback" in lower_text:
+        if (
+            "error" in lower_text
+            or "critical" in lower_text
+            or "exception" in lower_text
+            or "traceback" in lower_text
+        ):
             return f'<span style="color:#EF4444; font-weight: 500;">{escaped}</span>'
         elif "warning" in lower_text or "warn" in lower_text:
             return f'<span style="color:#F59E0B; font-weight: 500;">{escaped}</span>'
@@ -354,6 +385,7 @@ class DebugTerminalWindow(QDialog):
         try:
             from config import get_app_data_root
             import os
+
             log_file = os.path.join(get_app_data_root(), "TrueHour_active.log")
             if os.path.exists(log_file):
                 with open(log_file, "w", encoding="utf-8") as f:
@@ -367,7 +399,7 @@ class DebugTerminalWindow(QDialog):
             self,
             "Export Debug Logs",
             os.path.join(os.path.expanduser("~"), "focuslog_debug.log"),
-            "Log Files (*.log);;Text Files (*.txt)"
+            "Log Files (*.log);;Text Files (*.txt)",
         )
         if path:
             try:
@@ -378,6 +410,7 @@ class DebugTerminalWindow(QDialog):
                 else:
                     from config import get_app_data_root
                     import shutil
+
                     log_file = os.path.join(get_app_data_root(), "TrueHour_active.log")
                     if os.path.exists(log_file):
                         shutil.copy(log_file, path)
@@ -386,7 +419,9 @@ class DebugTerminalWindow(QDialog):
                             f.write(self.log_display.toPlainText())
                 QMessageBox.information(self, "Success", "Logs exported successfully.")
             except Exception as e:
-                QMessageBox.critical(self, "Export Failed", f"Could not export logs:\n{e}")
+                QMessageBox.critical(
+                    self, "Export Failed", f"Could not export logs:\n{e}"
+                )
 
     def closeEvent(self, event):
         if self.collector:
@@ -400,6 +435,7 @@ class DebugTerminalWindow(QDialog):
                 except Exception:
                     pass
             event.accept()
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

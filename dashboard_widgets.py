@@ -2,10 +2,21 @@
 TrueHour — Custom Interactive QPainter Chart Widgets.
 Provides a premium, dependency-free visual experience with animations and hover states.
 """
+
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import Qt, QRectF, QPointF
-from PyQt6.QtGui import QColor, QPainter, QBrush, QPen, QPainterPath, QLinearGradient, QFont, QPalette
+from PyQt6.QtGui import (
+    QColor,
+    QPainter,
+    QBrush,
+    QPen,
+    QPainterPath,
+    QLinearGradient,
+    QFont,
+    QPalette,
+)
 import math
+
 
 class DonutChartWidget(QWidget):
     def __init__(self, parent=None):
@@ -34,7 +45,7 @@ class DonutChartWidget(QWidget):
 
         dx = self.mouse_pos.x() - cx
         dy = self.mouse_pos.y() - cy
-        dist = math.sqrt(dx*dx + dy*dy)
+        dist = math.sqrt(dx * dx + dy * dy)
 
         if r_inner <= dist <= r_outer and self.total_seconds > 0:
             # Calculate angle in degrees from 0 to 360 starting from top (-90 degrees in standard math)
@@ -79,8 +90,12 @@ class DonutChartWidget(QWidget):
         r_inner = r_outer * 0.6
         thickness = r_outer - r_inner
 
-        rect = QRectF(cx - r_outer + thickness/2.0, cy - r_outer + thickness/2.0,
-                      2.0 * r_outer - thickness, 2.0 * r_outer - thickness)
+        rect = QRectF(
+            cx - r_outer + thickness / 2.0,
+            cy - r_outer + thickness / 2.0,
+            2.0 * r_outer - thickness,
+            2.0 * r_outer - thickness,
+        )
 
         if not self.segments or self.total_seconds == 0:
             # Draw placeholder gray donut
@@ -92,11 +107,16 @@ class DonutChartWidget(QWidget):
             # Center label
             painter.setPen(QColor("#94A3B8"))
             painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-            painter.drawText(QRectF(cx - 70, cy - 20, 140, 40),
-                             Qt.AlignmentFlag.AlignCenter, "No Data")
+            painter.drawText(
+                QRectF(cx - 70, cy - 20, 140, 40),
+                Qt.AlignmentFlag.AlignCenter,
+                "No Data",
+            )
             return
 
-        current_angle = 90.0  # Start at 12 o'clock (PyQt draws positive angles counter-clockwise)
+        current_angle = (
+            90.0  # Start at 12 o'clock (PyQt draws positive angles counter-clockwise)
+        )
 
         # 1. Draw segments
         for idx, s in enumerate(self.segments):
@@ -125,7 +145,7 @@ class DonutChartWidget(QWidget):
             is_dark = win.palette().color(win.backgroundRole()).value() < 128
         theme_style = getattr(win, "theme_style", "modern-dark" if is_dark else "light")
         palette = self.palette() if not win else win.palette()
-        
+
         painter.setPen(palette.color(QPalette.ColorRole.Text))
         painter.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
 
@@ -138,14 +158,24 @@ class DonutChartWidget(QWidget):
         else:
             time_str = f"{rem_m}m" if rem_m > 0 else f"{self.total_seconds}s"
 
-        painter.drawText(QRectF(cx - r_inner, cy - 18, 2.0 * r_inner, 20),
-                         Qt.AlignmentFlag.AlignCenter, time_str)
+        painter.drawText(
+            QRectF(cx - r_inner, cy - 18, 2.0 * r_inner, 20),
+            Qt.AlignmentFlag.AlignCenter,
+            time_str,
+        )
 
-        text_sec_hex = "#A3A3A3" if theme_style == "modern-dark" else ("#9CA3AF" if is_dark else "#64748B")
+        text_sec_hex = (
+            "#A3A3A3"
+            if theme_style == "modern-dark"
+            else ("#9CA3AF" if is_dark else "#64748B")
+        )
         painter.setPen(QColor(text_sec_hex))
         painter.setFont(QFont("Segoe UI", 9, QFont.Weight.Medium))
-        painter.drawText(QRectF(cx - r_inner, cy + 4, 2.0 * r_inner, 15),
-                         Qt.AlignmentFlag.AlignCenter, "Tracked")
+        painter.drawText(
+            QRectF(cx - r_inner, cy + 4, 2.0 * r_inner, 15),
+            Qt.AlignmentFlag.AlignCenter,
+            "Tracked",
+        )
 
         # 3. Draw premium floating tooltip when hovered
         if self.hovered_index != -1 and 0 <= self.hovered_index < len(self.segments):
@@ -166,7 +196,7 @@ class DonutChartWidget(QWidget):
             # Custom drawn tooltip box
             painter.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
             fm = painter.fontMetrics()
-            lines = tooltip_txt.split('\n')
+            lines = tooltip_txt.split("\n")
             tw = max(fm.horizontalAdvance(line) for line in lines) + 20
             th = len(lines) * fm.height() + 12
 
@@ -194,8 +224,14 @@ class DonutChartWidget(QWidget):
             # Draw text
             painter.setPen(QColor("#FFFFFF"))
             for i, line in enumerate(lines):
-                text_rect = QRectF(tx + 10, ty + 6 + (i * fm.height()), tw - 20, fm.height())
-                painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, line)
+                text_rect = QRectF(
+                    tx + 10, ty + 6 + (i * fm.height()), tw - 20, fm.height()
+                )
+                painter.drawText(
+                    text_rect,
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                    line,
+                )
 
 
 class BarChartWidget(QWidget):
@@ -242,7 +278,11 @@ class BarChartWidget(QWidget):
         for idx, d in enumerate(self.data):
             val = d["value"]
             bar_h = (val / max_val) * chart_h
-            bx = padding_left + (idx * bar_outer_width) + (bar_outer_width - bar_width) / 2.0
+            bx = (
+                padding_left
+                + (idx * bar_outer_width)
+                + (bar_outer_width - bar_width) / 2.0
+            )
             by = h - padding_bottom - bar_h
 
             # Build bounding box for mouse collision detection
@@ -281,7 +321,9 @@ class BarChartWidget(QWidget):
             # Draw placeholder message
             painter.setPen(QColor("#94A3B8"))
             painter.setFont(QFont("Segoe UI", 10))
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No tracked hours history.")
+            painter.drawText(
+                self.rect(), Qt.AlignmentFlag.AlignCenter, "No tracked hours history."
+            )
             return
 
         # Y axis max limit
@@ -300,7 +342,7 @@ class BarChartWidget(QWidget):
         if win:
             is_dark = win.palette().color(win.backgroundRole()).value() < 128
         theme_style = getattr(win, "theme_style", "modern-dark" if is_dark else "light")
-        palette = self.palette() if not win else win.palette()
+        self.palette() if not win else win.palette()
         grid_lines = 4
         painter.setFont(QFont("Segoe UI", 8))
         for i in range(grid_lines + 1):
@@ -309,22 +351,35 @@ class BarChartWidget(QWidget):
 
             # Gridline
             if i > 0:
-                border_hex = "#232329" if theme_style == "modern-dark" else ("#333333" if is_dark else "#E2E8F0")
+                border_hex = (
+                    "#232329"
+                    if theme_style == "modern-dark"
+                    else ("#333333" if is_dark else "#E2E8F0")
+                )
                 pen = QPen(QColor(border_hex))
                 pen.setStyle(Qt.PenStyle.DashLine)
                 pen.setWidth(1)
                 painter.setPen(pen)
-                painter.drawLine(QPointF(padding_left, gy), QPointF(w - padding_right, gy))
+                painter.drawLine(
+                    QPointF(padding_left, gy), QPointF(w - padding_right, gy)
+                )
 
             # Y Axis Labels
-            text_sec_hex = "#A3A3A3" if theme_style == "modern-dark" else ("#9CA3AF" if is_dark else "#64748B")
+            text_sec_hex = (
+                "#A3A3A3"
+                if theme_style == "modern-dark"
+                else ("#9CA3AF" if is_dark else "#64748B")
+            )
             painter.setPen(QColor(text_sec_hex))
             if y_max >= 1:
                 label = f"{int(val)}h"
             else:
                 label = f"{val:.1f}h"
-            painter.drawText(QRectF(5, gy - 7, padding_left - 10, 14),
-                             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, label)
+            painter.drawText(
+                QRectF(5, gy - 7, padding_left - 10, 14),
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                label,
+            )
 
         # 2. Draw bars
         num_bars = len(self.data)
@@ -337,7 +392,11 @@ class BarChartWidget(QWidget):
         for idx, d in enumerate(self.data):
             val = d["value"]
             bar_h = (val / y_max) * chart_h
-            bx = padding_left + (idx * bar_outer_width) + (bar_outer_width - bar_width) / 2.0
+            bx = (
+                padding_left
+                + (idx * bar_outer_width)
+                + (bar_outer_width - bar_width) / 2.0
+            )
             by = h - padding_bottom - bar_h
 
             bar_rect = QRectF(bx, by, bar_width, bar_h)
@@ -347,25 +406,43 @@ class BarChartWidget(QWidget):
                 gradient = QLinearGradient(QPointF(bx, by), QPointF(bx, by + bar_h))
                 if theme_style == "modern-dark":
                     if idx == self.hovered_index:
-                        gradient.setColorAt(0.0, QColor("#3B82F6"))  # Hover top (brighter blue)
-                        gradient.setColorAt(1.0, QColor("#2563EB"))  # Hover bottom (accent blue)
+                        gradient.setColorAt(
+                            0.0, QColor("#3B82F6")
+                        )  # Hover top (brighter blue)
+                        gradient.setColorAt(
+                            1.0, QColor("#2563EB")
+                        )  # Hover bottom (accent blue)
                     else:
-                        gradient.setColorAt(0.0, QColor("#2563EB"))  # Normal top (accent blue)
-                        gradient.setColorAt(1.0, QColor("#1D4ED8"))  # Normal bottom (darker blue)
+                        gradient.setColorAt(
+                            0.0, QColor("#2563EB")
+                        )  # Normal top (accent blue)
+                        gradient.setColorAt(
+                            1.0, QColor("#1D4ED8")
+                        )  # Normal bottom (darker blue)
                 elif theme_style == "classic-dark":
                     if idx == self.hovered_index:
                         gradient.setColorAt(0.0, QColor("#ffffff"))  # Hover top (white)
-                        gradient.setColorAt(1.0, QColor("#e0e0e0"))  # Hover bottom (light gray)
+                        gradient.setColorAt(
+                            1.0, QColor("#e0e0e0")
+                        )  # Hover bottom (light gray)
                     else:
-                        gradient.setColorAt(0.0, QColor("#d1d5db"))  # Normal top (light gray)
-                        gradient.setColorAt(1.0, QColor("#888888"))  # Normal bottom (medium gray)
-                else: # light
+                        gradient.setColorAt(
+                            0.0, QColor("#d1d5db")
+                        )  # Normal top (light gray)
+                        gradient.setColorAt(
+                            1.0, QColor("#888888")
+                        )  # Normal bottom (medium gray)
+                else:  # light
                     if idx == self.hovered_index:
                         gradient.setColorAt(0.0, QColor("#1E3A8A"))  # Darker Blue
                         gradient.setColorAt(1.0, QColor("#3B82F6"))  # Brighter Blue
                     else:
-                        gradient.setColorAt(0.0, QColor("#0078D4"))  # Fluent Primary Accent
-                        gradient.setColorAt(1.0, QColor("#60A5FA"))  # Fluent Secondary Accent
+                        gradient.setColorAt(
+                            0.0, QColor("#0078D4")
+                        )  # Fluent Primary Accent
+                        gradient.setColorAt(
+                            1.0, QColor("#60A5FA")
+                        )  # Fluent Secondary Accent
 
                 painter.setBrush(QBrush(gradient))
                 painter.setPen(Qt.PenStyle.NoPen)
@@ -378,19 +455,38 @@ class BarChartWidget(QWidget):
                 painter.drawPath(path)
 
             # Draw X Axis labels
-            text_sec_hex = "#A3A3A3" if theme_style == "modern-dark" else ("#9CA3AF" if is_dark else "#64748B")
+            text_sec_hex = (
+                "#A3A3A3"
+                if theme_style == "modern-dark"
+                else ("#9CA3AF" if is_dark else "#64748B")
+            )
             painter.setPen(QColor(text_sec_hex))
             painter.setFont(QFont("Segoe UI", 8))
-            x_lbl_rect = QRectF(padding_left + (idx * bar_outer_width), h - padding_bottom + 4,
-                                bar_outer_width, 20)
-            painter.drawText(x_lbl_rect, Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignTop, d["label"])
+            x_lbl_rect = QRectF(
+                padding_left + (idx * bar_outer_width),
+                h - padding_bottom + 4,
+                bar_outer_width,
+                20,
+            )
+            painter.drawText(
+                x_lbl_rect,
+                Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignTop,
+                d["label"],
+            )
 
         # 3. Draw Bottom Axis Line
-        border_hex = "#232329" if theme_style == "modern-dark" else ("#333333" if is_dark else "#CBD5E1")
+        border_hex = (
+            "#232329"
+            if theme_style == "modern-dark"
+            else ("#333333" if is_dark else "#CBD5E1")
+        )
         pen_axis = QPen(QColor(border_hex))
         pen_axis.setWidth(1)
         painter.setPen(pen_axis)
-        painter.drawLine(QPointF(padding_left, h - padding_bottom), QPointF(w - padding_right, h - padding_bottom))
+        painter.drawLine(
+            QPointF(padding_left, h - padding_bottom),
+            QPointF(w - padding_right, h - padding_bottom),
+        )
 
         # 4. Floating tooltip when hovered
         if self.hovered_index != -1 and 0 <= self.hovered_index < len(self.data):
@@ -411,7 +507,7 @@ class BarChartWidget(QWidget):
 
             painter.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
             fm = painter.fontMetrics()
-            lines = tooltip_txt.split('\n')
+            lines = tooltip_txt.split("\n")
             tw = max(fm.horizontalAdvance(line) for line in lines) + 20
             th = len(lines) * fm.height() + 12
 
@@ -437,8 +533,14 @@ class BarChartWidget(QWidget):
             # Text
             painter.setPen(QColor("#FFFFFF"))
             for i, line in enumerate(lines):
-                text_rect = QRectF(tx + 10, ty + 6 + (i * fm.height()), tw - 20, fm.height())
-                painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, line)
+                text_rect = QRectF(
+                    tx + 10, ty + 6 + (i * fm.height()), tw - 20, fm.height()
+                )
+                painter.drawText(
+                    text_rect,
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                    line,
+                )
 
 
 class ContributionMapWidget(QWidget):
@@ -459,6 +561,7 @@ class ContributionMapWidget(QWidget):
 
     def mouseMoveEvent(self, event):
         import datetime
+
         self.mouse_pos = event.position()
         mx = self.mouse_pos.x()
         my = self.mouse_pos.y()
@@ -504,11 +607,12 @@ class ContributionMapWidget(QWidget):
 
     def paintEvent(self, event):
         import datetime
+
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         w = self.width()
-        h = self.height()
+        self.height()
 
         is_dark = False
         win = self.window()
@@ -525,10 +629,11 @@ class ContributionMapWidget(QWidget):
             accent_color = QColor("#2563EB")
             bg_level0 = QColor("#16161A")
             card_bg = QColor("#0F0F11")
-        else: # light
+        else:  # light
             accent_color = QColor("#0078D4")
             bg_level0 = QColor("#EBEDF0")
             card_bg = QColor("#FFFFFF")
+
         def blend(accent, alpha, bg):
             t = alpha / 255.0
             r = int(accent.red() * t + bg.red() * (1 - t))
@@ -580,7 +685,9 @@ class ContributionMapWidget(QWidget):
                 color = level4_color
 
             if d_str == self.hovered_date:
-                painter.setPen(QPen(QColor("#FFFFFF") if is_dark else QColor("#0F172A"), 1.2))
+                painter.setPen(
+                    QPen(QColor("#FFFFFF") if is_dark else QColor("#0F172A"), 1.2)
+                )
             else:
                 painter.setPen(Qt.PenStyle.NoPen)
 
@@ -609,27 +716,51 @@ class ContributionMapWidget(QWidget):
                 last_col = col
 
         painter.setFont(QFont("Segoe UI", 8))
-        text_sec_hex = "#A3A3A3" if theme_style == "modern-dark" else ("#9CA3AF" if is_dark else "#64748B")
+        text_sec_hex = (
+            "#A3A3A3"
+            if theme_style == "modern-dark"
+            else ("#9CA3AF" if is_dark else "#64748B")
+        )
         painter.setPen(QColor(text_sec_hex))
         for col, month_name in months_labels:
             mx = left_padding + col * (cell_size + cell_spacing)
-            painter.drawText(QRectF(mx, top_padding - 16, 40, 12), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, month_name)
+            painter.drawText(
+                QRectF(mx, top_padding - 16, 40, 12),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                month_name,
+            )
 
         # Draw weekday labels on the left: "Mon", "Wed", "Fri"
         y_mon = top_padding + 1 * (cell_size + cell_spacing) + (cell_size / 2.0) - 6.0
-        painter.drawText(QRectF(5, y_mon, 25, 12), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, "Mon")
+        painter.drawText(
+            QRectF(5, y_mon, 25, 12),
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            "Mon",
+        )
 
         y_wed = top_padding + 3 * (cell_size + cell_spacing) + (cell_size / 2.0) - 6.0
-        painter.drawText(QRectF(5, y_wed, 25, 12), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, "Wed")
+        painter.drawText(
+            QRectF(5, y_wed, 25, 12),
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            "Wed",
+        )
 
         y_fri = top_padding + 5 * (cell_size + cell_spacing) + (cell_size / 2.0) - 6.0
-        painter.drawText(QRectF(5, y_fri, 25, 12), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, "Fri")
+        painter.drawText(
+            QRectF(5, y_fri, 25, 12),
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            "Fri",
+        )
 
         # Draw legend in the bottom right
         legend_y = top_padding + 7 * (cell_size + cell_spacing) + 6
         legend_start_x = left_padding + 53 * (cell_size + cell_spacing) - 130
 
-        painter.drawText(QRectF(legend_start_x - 30, legend_y - 2, 25, 12), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, "Less")
+        painter.drawText(
+            QRectF(legend_start_x - 30, legend_y - 2, 25, 12),
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            "Less",
+        )
 
         for level in range(5):
             lx = legend_start_x + level * (8 + 2)
@@ -651,7 +782,11 @@ class ContributionMapWidget(QWidget):
             painter.setBrush(QBrush(l_color))
             painter.drawRoundedRect(l_rect, 1.5, 1.5)
 
-        painter.drawText(QRectF(legend_start_x + 50, legend_y - 2, 30, 12), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, "More")
+        painter.drawText(
+            QRectF(legend_start_x + 50, legend_y - 2, 30, 12),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            "More",
+        )
 
         # Draw floating tooltip when hovered
         if self.hovered_date and self.hovered_cell:
@@ -660,7 +795,9 @@ class ContributionMapWidget(QWidget):
             m_val = (secs % 3600) // 60
 
             try:
-                date_obj = datetime.datetime.strptime(self.hovered_date, "%Y-%m-%d").date()
+                date_obj = datetime.datetime.strptime(
+                    self.hovered_date, "%Y-%m-%d"
+                ).date()
                 date_str = date_obj.strftime("%b %d, %Y")
             except Exception:
                 date_str = self.hovered_date
@@ -698,4 +835,3 @@ class ContributionMapWidget(QWidget):
 
             painter.setPen(QColor("#FFFFFF"))
             painter.drawText(tooltip_rect, Qt.AlignmentFlag.AlignCenter, tooltip_txt)
-

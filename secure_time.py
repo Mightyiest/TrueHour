@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 if not logger.handlers:
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    ))
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
     logger.addHandler(handler)
 
 # Network time API endpoints (fallback chain)
@@ -31,8 +31,12 @@ NTP_SOURCES = [
     "https://timeapi.io/api/time/current/zone?timeZone=UTC",
 ]
 
-SECURITY_LOG_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "security_log.json"))
-TIME_CHAIN_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "time_chain.json"))
+SECURITY_LOG_FILE = DynamicPath(
+    lambda: os.path.join(get_app_data_dir(), "security_log.json")
+)
+TIME_CHAIN_FILE = DynamicPath(
+    lambda: os.path.join(get_app_data_dir(), "time_chain.json")
+)
 
 DRIFT_THRESHOLD = 5.0
 
@@ -42,7 +46,7 @@ def get_last_line(filepath):
     if not os.path.exists(filepath):
         return None
     try:
-        with open(filepath, 'rb') as f:
+        with open(filepath, "rb") as f:
             f.seek(0, os.SEEK_END)
             position = f.tell()
             if position == 0:
@@ -61,12 +65,12 @@ def get_last_line(filepath):
                     for candidate in reversed(lines):
                         candidate = candidate.strip()
                         if candidate:
-                            return candidate.decode('utf-8')
+                            return candidate.decode("utf-8")
 
                 position = seek_pos
 
             part_str = part.strip()
-            return part_str.decode('utf-8') if part_str else None
+            return part_str.decode("utf-8") if part_str else None
     except Exception:
         try:
             with open(filepath, "r", encoding="utf-8") as f:
@@ -177,7 +181,7 @@ class TimeTamperDetector:
                 "timestamp": datetime.now().isoformat(),
                 "event_type": event_type,
                 "details": details,
-                "trust_score": self.trust_score
+                "trust_score": self.trust_score,
             }
             self.tamper_events.append(event)
 
@@ -225,11 +229,11 @@ class TimeTamperDetector:
                 method = "GET" if is_json_api else "HEAD"
 
                 req = urllib.request.Request(
-                    url,
-                    headers={"User-Agent": "TrueHour/1.0"},
-                    method=method
+                    url, headers={"User-Agent": "TrueHour/1.0"}, method=method
                 )
-                with urllib.request.urlopen(req, timeout=timeout, context=ssl_context) as response:
+                with urllib.request.urlopen(
+                    req, timeout=timeout, context=ssl_context
+                ) as response:
                     # 1. Try parsing Date header first (highly robust, standard for Google, Microsoft, Cloudflare)
                     date_header = response.headers.get("Date")
                     if date_header:
@@ -244,7 +248,9 @@ class TimeTamperDetector:
                             offset = (system_dt - network_dt).total_seconds()
                             return offset
                         except Exception as parse_err:
-                            logger.warning(f"Failed to parse Date header from {url}: {parse_err}")
+                            logger.warning(
+                                f"Failed to parse Date header from {url}: {parse_err}"
+                            )
 
                     # 2. If Date header is missing or parsing failed, and we did a GET request, try parsing the body as JSON
                     if is_json_api:
@@ -320,7 +326,7 @@ class TimeTamperDetector:
                             self.trust_score = max(0, self.trust_score - 30)
                             self._log_security_event(
                                 "CLOCK_DRIFT_DETECTED",
-                                {"offset_seconds": offset, "phase": "session_start"}
+                                {"offset_seconds": offset, "phase": "session_start"},
                             )
                         else:
                             self.trust_score = min(100, self.trust_score + 10)
@@ -329,31 +335,33 @@ class TimeTamperDetector:
             thread.start()
 
             # Create chain genesis block
-            self._add_to_chain("SESSION_START", {
-                "monotonic": self.monotonic_start,
-                "system": self.system_start,
-                "timestamp": datetime.now().isoformat()
-            })
+            self._add_to_chain(
+                "SESSION_START",
+                {
+                    "monotonic": self.monotonic_start,
+                    "system": self.system_start,
+                    "timestamp": datetime.now().isoformat(),
+                },
+            )
 
     def _add_to_chain(self, event_type, data):
         """Add an entry to the cryptographic hash chain."""
-        previous_hash = self.chain_data[-1]["hash"] if self.chain_data else self.last_historic_hash
+        previous_hash = (
+            self.chain_data[-1]["hash"] if self.chain_data else self.last_historic_hash
+        )
 
         entry_data = {
             "event_type": event_type,
             "data": data,
             "previous_hash": previous_hash,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         # Create hash of this entry
         entry_json = json.dumps(entry_data, sort_keys=True)
         entry_hash = hashlib.sha256(entry_json.encode()).hexdigest()
 
-        entry = {
-            **entry_data,
-            "hash": entry_hash
-        }
+        entry = {**entry_data, "hash": entry_hash}
 
         self.chain_data.append(entry)
 
@@ -409,16 +417,20 @@ class TimeTamperDetector:
                         "app": app_name,
                         "reported_duration": duration_seconds,
                         "monotonic_elapsed": expected_monotonic_elapsed,
-                        "system_elapsed": expected_system_elapsed
-                    }
+                        "system_elapsed": expected_system_elapsed,
+                    },
                 )
             elif discrepancy > 1:
                 integrity_status = "SUSPICIOUS"
                 self.trust_score = max(0, self.trust_score - 5)
 
             # Check network time periodically
-            if self.last_network_sync is None or (time.time() - self.last_network_sync) > 900:
+            if (
+                self.last_network_sync is None
+                or (time.time() - self.last_network_sync) > 900
+            ):
                 self.last_network_sync = time.time()
+
                 # Async network check
                 def delayed_sync():
                     offset = self.get_network_time(timeout=2)
@@ -436,21 +448,24 @@ class TimeTamperDetector:
                                     {
                                         "old_offset": old_offset,
                                         "new_offset": offset,
-                                        "change_detected": abs(offset - old_offset)
-                                    }
+                                        "change_detected": abs(offset - old_offset),
+                                    },
                                 )
 
                 thread = threading.Thread(target=delayed_sync, daemon=True)
                 thread.start()
 
             # Record to hash chain
-            self._add_to_chain("TRACKING_ENTRY", {
-                "app": app_name,
-                "duration": duration_seconds,
-                "monotonic_time": current_monotonic,
-                "system_time": current_system,
-                "integrity_status": integrity_status
-            })
+            self._add_to_chain(
+                "TRACKING_ENTRY",
+                {
+                    "app": app_name,
+                    "duration": duration_seconds,
+                    "monotonic_time": current_monotonic,
+                    "system_time": current_system,
+                    "integrity_status": integrity_status,
+                },
+            )
 
             # Gradual trust recovery (1 point per 300s of valid status, capped at 100)
             if integrity_status == "VALID" and self.trust_score < 100:
@@ -464,25 +479,28 @@ class TimeTamperDetector:
                 "integrity_status": integrity_status,
                 "trust_score": self.trust_score,
                 "monotonic_elapsed": expected_monotonic_elapsed,
-                "discrepancy": discrepancy
+                "discrepancy": discrepancy,
             }
 
     def end_session(self):
         """Finalize session and save chain."""
         with self._lock:
-            self._add_to_chain("SESSION_END", {
-                "monotonic_end": time.monotonic(),
-                "system_end": time.time(),
-                "final_trust_score": self.trust_score,
-                "total_tamper_events": len(self.tamper_events)
-            })
+            self._add_to_chain(
+                "SESSION_END",
+                {
+                    "monotonic_end": time.monotonic(),
+                    "system_end": time.time(),
+                    "final_trust_score": self.trust_score,
+                    "total_tamper_events": len(self.tamper_events),
+                },
+            )
             self._save_chain()
 
             return {
                 "trust_score": self.trust_score,
                 "tamper_events": self.tamper_events,
                 "tamper_events_count": len(self.tamper_events),
-                "chain_length": len(self.chain_data)
+                "chain_length": len(self.chain_data),
             }
 
     def verify_chain_integrity(self):
@@ -499,7 +517,7 @@ class TimeTamperDetector:
                 if entry.get("previous_hash") != self.last_historic_hash:
                     return False
             else:
-                if entry.get("previous_hash") != self.chain_data[i-1]["hash"]:
+                if entry.get("previous_hash") != self.chain_data[i - 1]["hash"]:
                     return False
 
             # Verify entry hash
@@ -510,7 +528,7 @@ class TimeTamperDetector:
             if computed_hash != entry.get("hash"):
                 self._log_security_event(
                     "CHAIN_TAMPER_DETECTED",
-                    {"entry_index": i, "computed_hash": computed_hash}
+                    {"entry_index": i, "computed_hash": computed_hash},
                 )
                 return False
 
@@ -536,9 +554,8 @@ class TimeTamperDetector:
             "chain_length": len(self.chain_data),
             "chain_valid": self.verify_chain_integrity(),
             "network_syncs": 1 if self.last_network_sync else 0,
-            "events": self.tamper_events[-20:]  # Last 20 events
+            "events": self.tamper_events[-20:],  # Last 20 events
         }
-
 
     _instance = None
     _instance_lock = threading.Lock()
@@ -557,6 +574,7 @@ class TimeTamperDetector:
             if cls._instance:
                 cls._instance.end_session()
             cls._instance = cls()
+
 
 # Backwards compatible aliases for existing code
 get_detector = TimeTamperDetector.get_instance

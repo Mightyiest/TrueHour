@@ -5,6 +5,7 @@ import shutil
 import json
 from pathlib import Path
 
+
 class DynamicPath(os.PathLike):
     def __init__(self, resolver):
         self._resolver = resolver
@@ -48,6 +49,7 @@ def get_app_data_root() -> str:
     new_path.mkdir(parents=True, exist_ok=True)
     return str(new_path)
 
+
 def get_app_data_dir() -> str:
     root_dir = Path(get_app_data_root())
 
@@ -73,7 +75,11 @@ def get_app_data_dir() -> str:
         try:
             with open(profiles_file, "r", encoding="utf-8") as f:
                 loaded = json.load(f)
-                if isinstance(loaded, dict) and "active_profile" in loaded and "profiles" in loaded:
+                if (
+                    isinstance(loaded, dict)
+                    and "active_profile" in loaded
+                    and "profiles" in loaded
+                ):
                     profiles_data = loaded
         except Exception:
             pass
@@ -93,8 +99,11 @@ def get_app_data_dir() -> str:
     # If legacy files exist in TrueHour root, move them into TrueHour/profiles/Default on first launch
     if active_profile == "Default":
         legacy_files = [
-            "app_settings.json", "settings.json", "tags.json",
-            "auto_excluded_apps.txt", "truehour.db"
+            "app_settings.json",
+            "settings.json",
+            "tags.json",
+            "auto_excluded_apps.txt",
+            "truehour.db",
         ]
         legacy_dirs = ["sessions", "autosave", "qr_codes"]
 
@@ -120,6 +129,7 @@ def get_app_data_dir() -> str:
 
     return str(profile_dir)
 
+
 def open_file(path: str) -> None:
     """Open a file or folder using the default system handler in a cross-platform manner."""
     if sys.platform == "win32":
@@ -128,6 +138,7 @@ def open_file(path: str) -> None:
         subprocess.Popen(["open", path])
     else:
         subprocess.Popen(["xdg-open", path])
+
 
 def send_to_trash(path: str) -> bool:
     """Move a file to the system's recycle bin/trash in a cross-platform manner."""
@@ -177,8 +188,14 @@ def send_to_trash(path: str) -> bool:
         try:
             abs_path = os.path.abspath(path)
             # Use AppleScript to delete (move to Trash) a POSIX file
-            cmd = ['osascript', '-e', f'tell app "Finder" to delete (POSIX file "{abs_path}")']
-            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            cmd = [
+                "osascript",
+                "-e",
+                f'tell app "Finder" to delete (POSIX file "{abs_path}")',
+            ]
+            subprocess.run(
+                cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
             return True
         except Exception as e:
             print(f"[TrueHour] macOS Trash failed: {e}")
@@ -188,7 +205,9 @@ def send_to_trash(path: str) -> bool:
         # Try GNOME/Ubuntu standard 'gio trash'
         try:
             abs_path = os.path.abspath(path)
-            res = subprocess.run(["gio", "trash", abs_path], capture_output=True, text=True)
+            res = subprocess.run(
+                ["gio", "trash", abs_path], capture_output=True, text=True
+            )
             if res.returncode == 0:
                 return True
         except Exception:
@@ -197,7 +216,9 @@ def send_to_trash(path: str) -> bool:
         # Try 'trash-put' from trash-cli
         try:
             abs_path = os.path.abspath(path)
-            res = subprocess.run(["trash-put", abs_path], capture_output=True, text=True)
+            res = subprocess.run(
+                ["trash-put", abs_path], capture_output=True, text=True
+            )
             if res.returncode == 0:
                 return True
         except Exception:
@@ -206,6 +227,7 @@ def send_to_trash(path: str) -> bool:
         # Pure Python manual fallback: move to ~/.local/share/Trash/files/
         try:
             from datetime import datetime
+
             home = os.path.expanduser("~")
             trash_files_dir = os.path.join(home, ".local", "share", "Trash", "files")
             trash_info_dir = os.path.join(home, ".local", "share", "Trash", "info")
@@ -214,12 +236,14 @@ def send_to_trash(path: str) -> bool:
 
             base_name = os.path.basename(path)
             dest_path = os.path.join(trash_files_dir, base_name)
-            
+
             # Avoid name collisions in trash
             counter = 1
             name_part, ext_part = os.path.splitext(base_name)
             while os.path.exists(dest_path):
-                dest_path = os.path.join(trash_files_dir, f"{name_part}_{counter}{ext_part}")
+                dest_path = os.path.join(
+                    trash_files_dir, f"{name_part}_{counter}{ext_part}"
+                )
                 counter += 1
 
             shutil.move(path, dest_path)
@@ -229,9 +253,12 @@ def send_to_trash(path: str) -> bool:
             info_path = os.path.join(trash_info_dir, info_name)
             deletion_date = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
             from urllib.parse import quote
+
             escaped_path = quote(os.path.abspath(path))
             with open(info_path, "w", encoding="utf-8") as infof:
-                infof.write(f"[Trash Info]\nPath={escaped_path}\nDeletionDate={deletion_date}\n")
+                infof.write(
+                    f"[Trash Info]\nPath={escaped_path}\nDeletionDate={deletion_date}\n"
+                )
             return True
         except Exception as e:
             print(f"[TrueHour] Linux manual trash fallback failed: {e}")
@@ -244,5 +271,3 @@ def send_to_trash(path: str) -> bool:
     except Exception as e:
         print(f"[TrueHour] Permanent deletion fallback failed: {e}")
     return False
-
-

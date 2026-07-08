@@ -4,16 +4,25 @@ from report import build_report_data, save_to_autosave
 
 logger = logging.getLogger(__name__)
 
+
 class ReportWorker(QThread):
     """
     Background worker thread to compile session reports and handle
     autosaves without blocking the primary GUI event loop.
     """
+
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
     status_changed = pyqtSignal(int, str)
 
-    def __init__(self, tracker, hourly_rate=0.0, currency_symbol="$", stop_tracker=False, parent=None):
+    def __init__(
+        self,
+        tracker,
+        hourly_rate=0.0,
+        currency_symbol="$",
+        stop_tracker=False,
+        parent=None,
+    ):
         super().__init__(parent)
         self.tracker = tracker
         self.hourly_rate = hourly_rate
@@ -35,7 +44,7 @@ class ReportWorker(QThread):
                 self.tracker,
                 self.hourly_rate,
                 self.currency_symbol,
-                progress_cb=self.status_changed.emit
+                progress_cb=self.status_changed.emit,
             )
 
             logger.info("[ReportWorker] Safe autosave in progress...")
@@ -49,11 +58,13 @@ class ReportWorker(QThread):
             logger.error(f"[ReportWorker] Exception during generation: {e}")
             self.error.emit(str(e))
 
+
 class AsyncExportWorker(QThread):
     """
     Background worker to queue and poll the TrueHour 3.0 asynchronous SQLite pre-aggregation
     and export queue manager. Emits dynamic progress status to the LoadingDialog overlay.
     """
+
     finished = pyqtSignal(str)  # Emits the exported output path
     error = pyqtSignal(str)
     status_changed = pyqtSignal(int, str)
@@ -71,14 +82,16 @@ class AsyncExportWorker(QThread):
             from core.reporting.models import ReportStatus
             import time
 
-            logger.info(f"[AsyncExportWorker] Starting queue submission for report type: '{self.report_type}'")
+            logger.info(
+                f"[AsyncExportWorker] Starting queue submission for report type: '{self.report_type}'"
+            )
             self.status_changed.emit(5, "Submitting export job to queue...")
 
             job_id = add_report_job(
                 report_type=self.report_type,
                 start_date=self.start_date,
                 end_date=self.end_date,
-                output_path=self.output_path
+                output_path=self.output_path,
             )
 
             self.status_changed.emit(10, "Job queued. Waiting for background worker...")
@@ -103,12 +116,16 @@ class AsyncExportWorker(QThread):
                         desc = f"Exporting {self.report_type.upper()} file..."
                     self.status_changed.emit(job.progress, desc)
                 elif job.status == ReportStatus.COMPLETE:
-                    self.status_changed.emit(100, f"Exported to {self.report_type.upper()} successfully!")
+                    self.status_changed.emit(
+                        100, f"Exported to {self.report_type.upper()} successfully!"
+                    )
                     self.finished.emit(job.output_path)
                     break
                 elif job.status == ReportStatus.FAILED:
-                    raise Exception(job.error_message or "Job compilation failed inside background queue.")
+                    raise Exception(
+                        job.error_message
+                        or "Job compilation failed inside background queue."
+                    )
         except Exception as e:
             logger.error(f"[AsyncExportWorker] Job failed: {e}")
             self.error.emit(str(e))
-

@@ -3,6 +3,7 @@ import base64
 from core.reporting.exporters import BaseExporter
 from report import format_duration
 
+
 class HTMLExporter(BaseExporter):
     def export(self, report_data: dict, output_path: str) -> bool:
         try:
@@ -20,16 +21,24 @@ class HTMLExporter(BaseExporter):
                 with open(bar_path, "rb") as f:
                     bar_base64 = base64.b64encode(f.read()).decode("utf-8")
 
-            donut_img_html = f'<img class="chart-img" src="data:image/png;base64,{donut_base64}" />' if donut_base64 else '<p>No Donut Chart</p>'
-            bar_img_html = f'<img class="chart-img" src="data:image/png;base64,{bar_base64}" />' if bar_base64 else '<p>No Bar Chart</p>'
+            donut_img_html = (
+                f'<img class="chart-img" src="data:image/png;base64,{donut_base64}" />'
+                if donut_base64
+                else "<p>No Donut Chart</p>"
+            )
+            bar_img_html = (
+                f'<img class="chart-img" src="data:image/png;base64,{bar_base64}" />'
+                if bar_base64
+                else "<p>No Bar Chart</p>"
+            )
 
             project_rows = ""
             for item in report_data.get("project_breakdown", []):
                 project_rows += f"""
                 <tr>
-                    <td><span class="project-dot" style="background: {item.get('color', '#64748B')}"></span>{item.get('project', '')}</td>
-                    <td>{format_duration(item.get('seconds', 0))}</td>
-                    <td>{item.get('percent', 0)}%</td>
+                    <td><span class="project-dot" style="background: {item.get("color", "#64748B")}"></span>{item.get("project", "")}</td>
+                    <td>{format_duration(item.get("seconds", 0))}</td>
+                    <td>{item.get("percent", 0)}%</td>
                 </tr>
                 """
 
@@ -37,8 +46,8 @@ class HTMLExporter(BaseExporter):
             for item in report_data.get("daily_trend", []):
                 trend_rows += f"""
                 <tr>
-                    <td>{item.get('label', '')}</td>
-                    <td>{item.get('value', 0.0)} hrs</td>
+                    <td>{item.get("label", "")}</td>
+                    <td>{item.get("value", 0.0)} hrs</td>
                 </tr>
                 """
 
@@ -145,11 +154,11 @@ class HTMLExporter(BaseExporter):
         <div class="header">
             <div>
                 <h1>TrueHour Performance Report</h1>
-                <div style="font-size: 14px; color: var(--text-sec); margin-top: 4px;">Type: {report_data.get('report_type', '')}</div>
+                <div style="font-size: 14px; color: var(--text-sec); margin-top: 4px;">Type: {report_data.get("report_type", "")}</div>
             </div>
             <div class="meta">
-                <div><strong>Range:</strong> {report_data.get('start_date', '')} to {report_data.get('end_date', '')}</div>
-                <div><strong>Total Time:</strong> {format_duration(report_data.get('total_seconds', 0))}</div>
+                <div><strong>Range:</strong> {report_data.get("start_date", "")} to {report_data.get("end_date", "")}</div>
+                <div><strong>Total Time:</strong> {format_duration(report_data.get("total_seconds", 0))}</div>
             </div>
         </div>
 

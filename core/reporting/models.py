@@ -1,10 +1,12 @@
 from dataclasses import dataclass
 
+
 class ReportStatus:
     PENDING = "pending"
     RUNNING = "running"
     COMPLETE = "complete"
     FAILED = "failed"
+
 
 @dataclass
 class ReportJob:

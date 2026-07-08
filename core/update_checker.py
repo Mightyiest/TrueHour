@@ -32,15 +32,15 @@ logger = logging.getLogger(__name__)
 # Canonical channel ranking (higher = more stable)
 CHANNEL_RANK = {
     "alpha": 0,
-    "beta":  1,
-    "rc":    2,
+    "beta": 1,
+    "rc": 2,
     "stable": 3,
 }
 
 # Regex for versions like: 3.1.1, 3.1.1-beta.2, 3.1.1-beta2, 3.1.1-alpha.1, 3.1.1-rc.3
 _VERSION_RE = re.compile(
-    r"^v?(\d+)\.(\d+)\.(\d+)"           # major.minor.patch
-    r"(?:-(alpha|beta|rc)(?:\.?(\d+))?)?" # optional -channel.N or -channelN
+    r"^v?(\d+)\.(\d+)\.(\d+)"  # major.minor.patch
+    r"(?:-(alpha|beta|rc)(?:\.?(\d+))?)?"  # optional -channel.N or -channelN
     r"$",
     re.IGNORECASE,
 )
@@ -49,12 +49,13 @@ _VERSION_RE = re.compile(
 @dataclass(frozen=True, order=False)
 class ParsedVersion:
     """A parsed semver with pre-release channel awareness."""
+
     major: int
     minor: int
     patch: int
-    channel: str = "stable"   # alpha | beta | rc | stable
-    pre_num: int = 0          # the .N in beta.N  (0 if absent)
-    raw: str = ""             # original string for display
+    channel: str = "stable"  # alpha | beta | rc | stable
+    pre_num: int = 0  # the .N in beta.N  (0 if absent)
+    raw: str = ""  # original string for display
 
     @property
     def channel_rank(self) -> int:
@@ -104,8 +105,11 @@ def parse_version(raw: str) -> Optional[ParsedVersion]:
     channel = (m.group(4) or "stable").lower()
     pre_num = int(m.group(5)) if m.group(5) else 0
     return ParsedVersion(
-        major=major, minor=minor, patch=patch,
-        channel=channel, pre_num=pre_num,
+        major=major,
+        minor=minor,
+        patch=patch,
+        channel=channel,
+        pre_num=pre_num,
         raw=raw.strip(),
     )
 
@@ -133,6 +137,7 @@ GITHUB_API_URL = "https://api.github.com/repos/Mightyiest/TrueHour/releases"
 @dataclass
 class ReleaseInfo:
     """Lightweight container for a single GitHub release."""
+
     tag_name: str
     name: str
     html_url: str
@@ -177,14 +182,16 @@ def _fetch_latest_releases() -> list[ReleaseInfo]:
         parsed = parse_version(tag)
         if parsed is None:
             continue
-        releases.append(ReleaseInfo(
-            tag_name=tag,
-            name=item.get("name", tag),
-            html_url=item.get("html_url", ""),
-            prerelease=item.get("prerelease", False),
-            draft=False,
-            parsed=parsed,
-        ))
+        releases.append(
+            ReleaseInfo(
+                tag_name=tag,
+                name=item.get("name", tag),
+                html_url=item.get("html_url", ""),
+                prerelease=item.get("prerelease", False),
+                draft=False,
+                parsed=parsed,
+            )
+        )
 
     # Sort newest first
     releases.sort(key=lambda r: r.parsed.sort_key, reverse=True)
@@ -198,7 +205,9 @@ def find_best_upgrade(current_version_str: str) -> Optional[ReleaseInfo]:
     """
     current = parse_version(current_version_str)
     if current is None:
-        logger.warning(f"[UpdateChecker] Cannot parse current version: {current_version_str}")
+        logger.warning(
+            f"[UpdateChecker] Cannot parse current version: {current_version_str}"
+        )
         return None
 
     releases = _fetch_latest_releases()
@@ -211,11 +220,13 @@ def find_best_upgrade(current_version_str: str) -> Optional[ReleaseInfo]:
 
 # ── Qt Signal Bridge (background thread → main thread) ───────────────
 
+
 class UpdateCheckSignals(QObject):
     """Signals emitted by the background update check thread."""
-    update_found = pyqtSignal(str, str)   # (new_version_display, release_url)
+
+    update_found = pyqtSignal(str, str)  # (new_version_display, release_url)
     no_update = pyqtSignal()
-    check_failed = pyqtSignal(str)        # error message
+    check_failed = pyqtSignal(str)  # error message
 
 
 def check_for_updates_async(current_version_str: str, signals: UpdateCheckSignals):
@@ -223,11 +234,14 @@ def check_for_updates_async(current_version_str: str, signals: UpdateCheckSignal
     Run the update check in a background thread.
     Emits signals back to the main Qt thread.
     """
+
     def _worker():
         try:
             result = find_best_upgrade(current_version_str)
             if result and result.parsed:
-                logger.info(f"[UpdateChecker] Update available: {result.parsed.display} ({result.html_url})")
+                logger.info(
+                    f"[UpdateChecker] Update available: {result.parsed.display} ({result.html_url})"
+                )
                 signals.update_found.emit(result.parsed.display, result.html_url)
             else:
                 logger.info("[UpdateChecker] No update available.")

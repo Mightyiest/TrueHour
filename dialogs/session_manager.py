@@ -5,70 +5,97 @@ import glob
 import logging
 from datetime import datetime
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QTabWidget,
-    QScrollArea, QWidget, QFrame, QCheckBox, QLabel, QSizePolicy,
-    QMessageBox, QInputDialog, QLineEdit, QApplication
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QTabWidget,
+    QScrollArea,
+    QWidget,
+    QFrame,
+    QCheckBox,
+    QLabel,
+    QSizePolicy,
+    QMessageBox,
+    QInputDialog,
+    QLineEdit,
+    QApplication,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 
 from config import get_app_data_dir, open_file, send_to_trash
 
 logger = logging.getLogger(__name__)
-from report import (
-    load_session_json, merge_sessions_for_invoice, generate_invoice_html
-)
+from report import load_session_json, merge_sessions_for_invoice, generate_invoice_html
 from theme import get_svg_icon
 from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG
 from widgets.custom_widgets import InvoicePrivacyOptionsDialog
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
 
+
 class InvoiceHTTPHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
     def do_GET(self):
-        if self.path == '/':
+        if self.path == "/":
             self.send_response(200)
-            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(self.server.html_content.encode('utf-8'))
+            self.wfile.write(self.server.html_content.encode("utf-8"))
         else:
             self.send_error(404, "Not Found")
 
     def do_POST(self):
-        if self.path == '/save':
+        if self.path == "/save":
             try:
                 from database.schema import get_invoice_by_no
+
                 invoice_record = get_invoice_by_no(self.server.invoice_no)
-                exists_and_active = (invoice_record is not None) and (invoice_record.get("status") in ["unpaid", "paid"])
+                exists_and_active = (invoice_record is not None) and (
+                    invoice_record.get("status") in ["unpaid", "paid"]
+                )
                 if exists_and_active:
                     self.send_response(200)
-                    self.send_header('Content-type', 'application/json')
-                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.send_header("Content-type", "application/json")
+                    self.send_header("Access-Control-Allow-Origin", "*")
                     self.end_headers()
-                    self.wfile.write(json.dumps({"status": "already_saved"}).encode('utf-8'))
+                    self.wfile.write(
+                        json.dumps({"status": "already_saved"}).encode("utf-8")
+                    )
                 else:
                     self.server.save_callback()
                     self.send_response(200)
-                    self.send_header('Content-type', 'application/json')
-                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.send_header("Content-type", "application/json")
+                    self.send_header("Access-Control-Allow-Origin", "*")
                     self.end_headers()
-                    self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
+                    self.wfile.write(json.dumps({"status": "success"}).encode("utf-8"))
             except Exception as e:
                 self.send_response(500)
-                self.send_header('Content-type', 'application/json')
+                self.send_header("Content-type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
+                self.wfile.write(
+                    json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
+                )
         else:
             self.send_error(404, "Not Found")
 
+
 class InvoiceHTTPServer(HTTPServer):
-    def __init__(self, server_address, RequestHandlerClass, html_content, save_callback, invoice_no):
+    def __init__(
+        self,
+        server_address,
+        RequestHandlerClass,
+        html_content,
+        save_callback,
+        invoice_no,
+    ):
         super().__init__(server_address, RequestHandlerClass)
         self.html_content = html_content
         self.save_callback = save_callback
         self.invoice_no = invoice_no
+
 
 class InvoiceServerThread(threading.Thread):
     def __init__(self, html_content, save_callback, invoice_no):
@@ -77,7 +104,13 @@ class InvoiceServerThread(threading.Thread):
         self.save_callback = save_callback
         self.invoice_no = invoice_no
         self.daemon = True
-        self.server = InvoiceHTTPServer(('127.0.0.1', 0), InvoiceHTTPHandler, html_content, save_callback, invoice_no)
+        self.server = InvoiceHTTPServer(
+            ("127.0.0.1", 0),
+            InvoiceHTTPHandler,
+            html_content,
+            save_callback,
+            invoice_no,
+        )
         self.port = self.server.server_address[1]
 
     def run(self):
@@ -90,10 +123,11 @@ class InvoiceServerThread(threading.Thread):
         except Exception:
             pass
 
+
 class SessionManagerDialog(QDialog):
-    resume_requested = pyqtSignal(str)             # filepath to resume
-    view_report_requested = pyqtSignal(dict)       # report dict
-    invoice_saved_signal = pyqtSignal()            # invoice saved from browser
+    resume_requested = pyqtSignal(str)  # filepath to resume
+    view_report_requested = pyqtSignal(dict)  # report dict
+    invoice_saved_signal = pyqtSignal()  # invoice saved from browser
 
     def __init__(self, settings_data, tracker, parent=None):
         super().__init__(parent)
@@ -103,14 +137,27 @@ class SessionManagerDialog(QDialog):
         self._center_window(520, 540)
 
         # Apply stylesheet and palette on start
-        theme_style = self.settings.get("theme_style", "modern-dark" if self.settings.get("dark_mode", False) else "light")
+        theme_style = self.settings.get(
+            "theme_style",
+            "modern-dark" if self.settings.get("dark_mode", False) else "light",
+        )
         if isinstance(theme_style, bool):
             theme_style = "modern-dark" if theme_style else "light"
-        is_dark = (theme_style in ["modern-dark", "classic-dark"])
-        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(theme_style))
+        is_dark = theme_style in ["modern-dark", "classic-dark"]
+        from theme import (
+            get_qss_style,
+            get_dark_palette,
+            get_light_palette,
+            ensure_checkmark_icon,
+        )
+
+        qss = get_qss_style(theme_style).replace(
+            "CHECKMARK_PATH", ensure_checkmark_icon(theme_style)
+        )
         self.setStyleSheet(qss)
-        self.setPalette(get_dark_palette(theme_style) if is_dark else get_light_palette())
+        self.setPalette(
+            get_dark_palette(theme_style) if is_dark else get_light_palette()
+        )
 
         # Resolve local style attributes
         self.theme_style = theme_style
@@ -131,7 +178,7 @@ class SessionManagerDialog(QDialog):
             self.bg_hover = "#232329"
             self.accent = "#2563EB"
             self.accent_hover = "#3B82F6"
-        else: # light
+        else:  # light
             self.bg_widget = "#FFFFFF"
             self.border_color = "#CBD5E1"
             self.text_primary = "#0F172A"
@@ -159,7 +206,7 @@ class SessionManagerDialog(QDialog):
         self.activateWindow()
 
     def _stop_preview_server(self):
-        if hasattr(self, 'preview_server') and self.preview_server:
+        if hasattr(self, "preview_server") and self.preview_server:
             try:
                 self.preview_server.stop()
             except Exception:
@@ -289,7 +336,13 @@ class SessionManagerDialog(QDialog):
         open_folder_btn.setToolTip("Open manual saved sessions folder")
         open_folder_btn.setObjectName("NormalButton")
         open_folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        open_folder_btn.clicked.connect(lambda: open_file(self.autosave_folder if self.tab_widget.currentIndex() == 1 else self.history_folder))
+        open_folder_btn.clicked.connect(
+            lambda: open_file(
+                self.autosave_folder
+                if self.tab_widget.currentIndex() == 1
+                else self.history_folder
+            )
+        )
         footer.addWidget(open_folder_btn)
 
         close_btn = QPushButton("Close", self)
@@ -305,9 +358,9 @@ class SessionManagerDialog(QDialog):
         if diff < 60:
             return "Just now"
         if diff < 3600:
-            return f"{int(diff/60)}m ago"
+            return f"{int(diff / 60)}m ago"
         if diff < 86400:
-            return f"{int(diff/3600)}h ago"
+            return f"{int(diff / 3600)}h ago"
         return datetime.fromtimestamp(timestamp).strftime("%b %d, %Y")
 
     def _render_list(self, layout_container, folder, is_recoveries):
@@ -329,7 +382,9 @@ class SessionManagerDialog(QDialog):
                 label_txt = "No manual sessions found."
             lbl = QLabel(label_txt)
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; color: #ABABAB; margin: 40px;")
+            lbl.setStyleSheet(
+                "font-family: 'Segoe UI'; font-size: 13px; color: #ABABAB; margin: 40px;"
+            )
             layout_container.insertWidget(0, lbl)
             layout_container.addStretch()
             return
@@ -346,19 +401,24 @@ class SessionManagerDialog(QDialog):
             text_sec = self.text_sec
 
             row_frame = QFrame()
-            row_frame.setStyleSheet(f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_color}; }} QFrame:hover {{ background-color: {bg_hover}; }}")
+            row_frame.setStyleSheet(
+                f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_color}; }} QFrame:hover {{ background-color: {bg_hover}; }}"
+            )
             row_layout = QHBoxLayout(row_frame)
             row_layout.setContentsMargins(8, 8, 8, 8)
 
-            is_trash = (folder == self.trash_folder)
+            is_trash = folder == self.trash_folder
             if not is_recoveries and not is_trash:
                 cb_select = QCheckBox(row_frame)
                 cb_select.setFixedWidth(20)
 
                 def make_cb_connector(path):
                     return lambda state: (
-                        self.selected_sessions.add(path) if state == 2 else self.selected_sessions.discard(path)
+                        self.selected_sessions.add(path)
+                        if state == 2
+                        else self.selected_sessions.discard(path)
                     )
+
                 cb_select.stateChanged.connect(make_cb_connector(filepath))
                 row_layout.addWidget(cb_select)
 
@@ -369,17 +429,27 @@ class SessionManagerDialog(QDialog):
                 date_str = data.get("date", "")
             except Exception:
                 session_name = ""
-                date_str = filename.replace("session_", "").replace("auto_", "").replace("recovery_", "").replace(".json", "").replace("_", "  ")
+                date_str = (
+                    filename.replace("session_", "")
+                    .replace("auto_", "")
+                    .replace("recovery_", "")
+                    .replace(".json", "")
+                    .replace("_", "  ")
+                )
 
             text_layout = QVBoxLayout()
             text_layout.setSpacing(2)
 
             name_lbl = QLabel(session_name or "Unnamed", row_frame)
-            name_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_primary};")
+            name_lbl.setStyleSheet(
+                f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_primary};"
+            )
             text_layout.addWidget(name_lbl)
 
             date_lbl = QLabel(date_str, row_frame)
-            date_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: {text_sec};")
+            date_lbl.setStyleSheet(
+                f"font-family: 'Segoe UI'; font-size: 11px; color: {text_sec};"
+            )
             text_layout.addWidget(date_lbl)
 
             is_dark = self.settings.get("dark_mode", False)
@@ -392,8 +462,12 @@ class SessionManagerDialog(QDialog):
 
             tag_txt = "Latest" if i == 0 else rel_time
             tag_lbl = QLabel(tag_txt, row_frame)
-            tag_lbl.setStyleSheet(f"background-color: {tag_bg}; color: {tag_fg}; font-size: 9px; font-weight: bold; border-radius: 3px; padding: 2px 6px; font-family: 'Segoe UI'; border: none;")
-            tag_lbl.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
+            tag_lbl.setStyleSheet(
+                f"background-color: {tag_bg}; color: {tag_fg}; font-size: 9px; font-weight: bold; border-radius: 3px; padding: 2px 6px; font-family: 'Segoe UI'; border: none;"
+            )
+            tag_lbl.setSizePolicy(
+                QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            )
             text_layout.addWidget(tag_lbl)
 
             row_layout.addLayout(text_layout)
@@ -404,7 +478,9 @@ class SessionManagerDialog(QDialog):
 
             def _open_report_local(path):
                 try:
-                    logger.info(f"[Action] Viewing local report for session: {os.path.basename(path)}")
+                    logger.info(
+                        f"[Action] Viewing local report for session: {os.path.basename(path)}"
+                    )
                     rep = load_session_json(path)
                     self.view_report_requested.emit(rep)
                 except Exception as e:
@@ -413,24 +489,37 @@ class SessionManagerDialog(QDialog):
             def _resume_from_file(path):
                 logger.info(f"[Action] Resuming session from: {os.path.basename(path)}")
                 if self.tracker.running:
-                    reply = QMessageBox.question(self, "Active Session", "A session is currently running.\nStop it and resume this one?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                    reply = QMessageBox.question(
+                        self,
+                        "Active Session",
+                        "A session is currently running.\nStop it and resume this one?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    )
                     if reply != QMessageBox.StandardButton.Yes:
                         return
                 self.resume_requested.emit(path)
                 self.accept()
 
             def _rename_session_file(path, current_name):
-                new_name, ok = QInputDialog.getText(self, "Rename Session", "Enter new session name:", QLineEdit.EchoMode.Normal, current_name)
+                new_name, ok = QInputDialog.getText(
+                    self,
+                    "Rename Session",
+                    "Enter new session name:",
+                    QLineEdit.EchoMode.Normal,
+                    current_name,
+                )
                 if ok and new_name.strip():
                     confirm = QMessageBox.question(
                         self,
                         "Confirm Rename",
                         f"Are you sure you want to rename this session to '{new_name.strip()}'?",
                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                        QMessageBox.StandardButton.No
+                        QMessageBox.StandardButton.No,
                     )
                     if confirm == QMessageBox.StandardButton.Yes:
-                        logger.info(f"[Action] Renaming session file {os.path.basename(path)} from '{current_name}' to '{new_name.strip()}'")
+                        logger.info(
+                            f"[Action] Renaming session file {os.path.basename(path)} from '{current_name}' to '{new_name.strip()}'"
+                        )
                         try:
                             with open(path, "r", encoding="utf-8") as f:
                                 data = json.load(f)
@@ -439,22 +528,33 @@ class SessionManagerDialog(QDialog):
                                 json.dump(data, f, indent=4)
                             self._refresh_all_lists()
                         except Exception as e:
-                            QMessageBox.critical(self, "Error", f"Could not rename session:\n{e}")
+                            QMessageBox.critical(
+                                self, "Error", f"Could not rename session:\n{e}"
+                            )
 
             def _delete_session_file(path):
-                is_trash = (folder == self.trash_folder)
+                is_trash = folder == self.trash_folder
                 if is_trash:
                     import sys
-                    bin_name = "Trash" if sys.platform == "darwin" else "Recycle Bin" if sys.platform == "win32" else "system Trash"
+
+                    bin_name = (
+                        "Trash"
+                        if sys.platform == "darwin"
+                        else "Recycle Bin"
+                        if sys.platform == "win32"
+                        else "system Trash"
+                    )
                     reply = QMessageBox.question(
                         self,
                         "Delete Permanently",
                         f"Are you sure you want to permanently move this session to the {bin_name}?",
                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                        QMessageBox.StandardButton.No
+                        QMessageBox.StandardButton.No,
                     )
                     if reply == QMessageBox.StandardButton.Yes:
-                        logger.info(f"[Action] Permanently deleting session: {os.path.basename(path)}")
+                        logger.info(
+                            f"[Action] Permanently deleting session: {os.path.basename(path)}"
+                        )
                         try:
                             self.selected_sessions.discard(path)
                             if not self._send_to_recycle_bin(path):
@@ -462,32 +562,43 @@ class SessionManagerDialog(QDialog):
                                     os.remove(path)
                             self._refresh_all_lists()
                         except Exception as e:
-                            QMessageBox.critical(self, "Error", f"Could not delete session:\n{e}")
+                            QMessageBox.critical(
+                                self, "Error", f"Could not delete session:\n{e}"
+                            )
                 else:
                     reply = QMessageBox.question(
                         self,
                         "Move to Trash",
                         "Are you sure you want to move this session to the Trash?",
                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                        QMessageBox.StandardButton.No
+                        QMessageBox.StandardButton.No,
                     )
                     if reply == QMessageBox.StandardButton.Yes:
-                        logger.info(f"[Action] Trashing session: {os.path.basename(path)}")
+                        logger.info(
+                            f"[Action] Trashing session: {os.path.basename(path)}"
+                        )
                         try:
                             filename = os.path.basename(path)
                             dest_path = os.path.join(self.trash_folder, filename)
                             if os.path.exists(dest_path):
                                 base, ext = os.path.splitext(filename)
-                                dest_path = os.path.join(self.trash_folder, f"{base}_{int(time.time())}{ext}")
+                                dest_path = os.path.join(
+                                    self.trash_folder, f"{base}_{int(time.time())}{ext}"
+                                )
                             import shutil
+
                             shutil.move(path, dest_path)
                             self.selected_sessions.discard(path)
                             self._refresh_all_lists()
                         except Exception as e:
-                            QMessageBox.critical(self, "Error", f"Could not move session to Trash:\n{e}")
+                            QMessageBox.critical(
+                                self, "Error", f"Could not move session to Trash:\n{e}"
+                            )
 
             def _restore_session_file(path):
-                logger.info(f"[Action] Restoring session from trash: {os.path.basename(path)}")
+                logger.info(
+                    f"[Action] Restoring session from trash: {os.path.basename(path)}"
+                )
                 try:
                     filename = os.path.basename(path)
                     if "auto_" in filename or "recovery_" in filename:
@@ -497,12 +608,17 @@ class SessionManagerDialog(QDialog):
                     dest_path = os.path.join(dest_folder, filename)
                     if os.path.exists(dest_path):
                         base, ext = os.path.splitext(filename)
-                        dest_path = os.path.join(dest_folder, f"{base}_restored_{int(time.time())}{ext}")
+                        dest_path = os.path.join(
+                            dest_folder, f"{base}_restored_{int(time.time())}{ext}"
+                        )
                     import shutil
+
                     shutil.move(path, dest_path)
                     self._refresh_all_lists()
                 except Exception as e:
-                    QMessageBox.critical(self, "Error", f"Could not restore session:\n{e}")
+                    QMessageBox.critical(
+                        self, "Error", f"Could not restore session:\n{e}"
+                    )
 
             is_edit_active = self.edit_btn.isChecked()
 
@@ -544,7 +660,7 @@ class SessionManagerDialog(QDialog):
                 rest_color = "#EDEDED"
                 trash_color = "#EDEDED"
                 rename_color = "#EDEDED"
-            else: # light
+            else:  # light
                 green_bg = "#F0FDF4"
                 green_border = "#DCFCE7"
                 green_hover = "#DCFCE7"
@@ -587,14 +703,23 @@ class SessionManagerDialog(QDialog):
                         border-color: {green_hover_border};
                     }}
                 """)
-                restore_btn.clicked.connect(lambda checked, p=filepath: _restore_session_file(p))
+                restore_btn.clicked.connect(
+                    lambda checked, p=filepath: _restore_session_file(p)
+                )
                 btn_layout.addWidget(restore_btn)
 
                 delete_btn = QPushButton(row_frame)
                 delete_btn.setIcon(del_icon)
                 delete_btn.setIconSize(QSize(18, 18))
                 import sys
-                bin_name = "Trash" if sys.platform == "darwin" else "Recycle Bin" if sys.platform == "win32" else "system Trash"
+
+                bin_name = (
+                    "Trash"
+                    if sys.platform == "darwin"
+                    else "Recycle Bin"
+                    if sys.platform == "win32"
+                    else "system Trash"
+                )
                 delete_btn.setToolTip(f"Move to {bin_name}")
                 delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 delete_btn.setStyleSheet(f"""
@@ -611,7 +736,9 @@ class SessionManagerDialog(QDialog):
                         border-color: {red_hover_border};
                     }}
                 """)
-                delete_btn.clicked.connect(lambda checked, p=filepath: _delete_session_file(p))
+                delete_btn.clicked.connect(
+                    lambda checked, p=filepath: _delete_session_file(p)
+                )
                 btn_layout.addWidget(delete_btn)
 
                 restore_btn.setVisible(is_edit_active)
@@ -623,13 +750,17 @@ class SessionManagerDialog(QDialog):
                 res_btn = QPushButton("▶ Resume", row_frame)
                 res_btn.setObjectName("AccentButton")
                 res_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                res_btn.clicked.connect(lambda checked, p=filepath: _resume_from_file(p))
+                res_btn.clicked.connect(
+                    lambda checked, p=filepath: _resume_from_file(p)
+                )
                 btn_layout.addWidget(res_btn)
 
                 view_btn = QPushButton("View", row_frame)
                 view_btn.setObjectName("NormalButton")
                 view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                view_btn.clicked.connect(lambda checked, p=filepath: _open_report_local(p))
+                view_btn.clicked.connect(
+                    lambda checked, p=filepath: _open_report_local(p)
+                )
                 btn_layout.addWidget(view_btn)
 
                 rename_btn = QPushButton(row_frame)
@@ -651,7 +782,11 @@ class SessionManagerDialog(QDialog):
                         border-color: {normal_border_hover};
                     }}
                 """)
-                rename_btn.clicked.connect(lambda checked, p=filepath, n=session_name: _rename_session_file(p, n))
+                rename_btn.clicked.connect(
+                    lambda checked, p=filepath, n=session_name: _rename_session_file(
+                        p, n
+                    )
+                )
                 btn_layout.addWidget(rename_btn)
 
                 delete_btn = QPushButton(row_frame)
@@ -673,7 +808,9 @@ class SessionManagerDialog(QDialog):
                         border-color: {red_hover_border};
                     }}
                 """)
-                delete_btn.clicked.connect(lambda checked, p=filepath: _delete_session_file(p))
+                delete_btn.clicked.connect(
+                    lambda checked, p=filepath: _delete_session_file(p)
+                )
                 btn_layout.addWidget(delete_btn)
 
                 res_btn.setVisible(not is_edit_active)
@@ -688,6 +825,7 @@ class SessionManagerDialog(QDialog):
 
     def _refresh_all_lists(self):
         from core.reporting.aggregator import rebuild_all_summaries
+
         try:
             rebuild_all_summaries(force=True)
         except Exception as e:
@@ -706,6 +844,7 @@ class SessionManagerDialog(QDialog):
                     w.deleteLater()
 
         from database.schema import get_invoices_list
+
         try:
             invoices = get_invoices_list()
 
@@ -716,7 +855,9 @@ class SessionManagerDialog(QDialog):
         if not invoices:
             lbl = QLabel("No recorded invoices found.")
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; color: #ABABAB; margin: 40px;")
+            lbl.setStyleSheet(
+                "font-family: 'Segoe UI'; font-size: 13px; color: #ABABAB; margin: 40px;"
+            )
             self.invoices_layout.insertWidget(0, lbl)
             self.invoices_layout.addStretch()
             return
@@ -732,7 +873,9 @@ class SessionManagerDialog(QDialog):
 
         for inv in invoices:
             row_frame = QFrame()
-            row_frame.setStyleSheet(f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_color}; }} QFrame:hover {{ background-color: {bg_hover}; }}")
+            row_frame.setStyleSheet(
+                f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_color}; }} QFrame:hover {{ background-color: {bg_hover}; }}"
+            )
             row_layout = QHBoxLayout(row_frame)
             row_layout.setContentsMargins(8, 8, 8, 8)
 
@@ -753,12 +896,18 @@ class SessionManagerDialog(QDialog):
                 date_str = created_at_raw
 
             title_lbl = QLabel(f"{inv_no} — {client}", row_frame)
-            title_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_primary};")
+            title_lbl.setStyleSheet(
+                f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_primary};"
+            )
             title_lbl.setWordWrap(True)
             text_layout.addWidget(title_lbl)
 
-            detail_lbl = QLabel(f"Created: {date_str} | Amount: {curr}{amount:,.2f}", row_frame)
-            detail_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: {text_sec};")
+            detail_lbl = QLabel(
+                f"Created: {date_str} | Amount: {curr}{amount:,.2f}", row_frame
+            )
+            detail_lbl.setStyleSheet(
+                f"font-family: 'Segoe UI'; font-size: 11px; color: {text_sec};"
+            )
             detail_lbl.setWordWrap(True)
             text_layout.addWidget(detail_lbl)
 
@@ -767,7 +916,9 @@ class SessionManagerDialog(QDialog):
             status_btn = QPushButton(status.upper(), row_frame)
             status_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             if status == "draft":
-                status_btn.setToolTip("Draft: Click to confirm and save as an Unpaid invoice")
+                status_btn.setToolTip(
+                    "Draft: Click to confirm and save as an Unpaid invoice"
+                )
             else:
                 status_btn.setToolTip("Click to toggle Paid/Unpaid status")
 
@@ -791,7 +942,7 @@ class SessionManagerDialog(QDialog):
                 else:
                     status_color_bg = "#232329"
                     status_color_fg = "#A3A3A3"
-            else: # light
+            else:  # light
                 if status == "paid":
                     status_color_bg = "#DCFCE7"
                     status_color_fg = "#16A34A"
@@ -819,6 +970,7 @@ class SessionManagerDialog(QDialog):
 
             def make_toggle_status_connector(inv_num, current_status):
                 return lambda: self._toggle_invoice_status(inv_num, current_status)
+
             status_btn.clicked.connect(make_toggle_status_connector(inv_no, status))
             row_layout.addWidget(status_btn)
 
@@ -828,10 +980,12 @@ class SessionManagerDialog(QDialog):
 
             def make_view_connector(inv_data):
                 return lambda: self._view_recorded_invoice(inv_data)
+
             view_btn.clicked.connect(make_view_connector(inv))
             row_layout.addWidget(view_btn)
 
             from assets import RENAME_SVG
+
             if self.theme_style == "classic-dark":
                 normal_bg = "#1e1e1e"
                 normal_border = "#333333"
@@ -854,7 +1008,7 @@ class SessionManagerDialog(QDialog):
                 red_border = "#4A2E2E"
                 red_hover = "#3F2323"
                 red_hover_border = "#EF4444"
-            else: # light
+            else:  # light
                 normal_bg = "#FFFFFF"
                 normal_border = "#CBD5E1"
                 normal_hover = "#F1F5F9"
@@ -887,8 +1041,10 @@ class SessionManagerDialog(QDialog):
                     border-color: {normal_border_hover};
                 }}
             """)
+
             def make_rename_invoice_connector(inv_num):
                 return lambda: self._rename_recorded_invoice(inv_num)
+
             rename_invoice_btn.clicked.connect(make_rename_invoice_connector(inv_no))
             row_layout.addWidget(rename_invoice_btn)
 
@@ -913,8 +1069,10 @@ class SessionManagerDialog(QDialog):
                     border-color: {red_hover_border};
                 }}
             """)
+
             def make_delete_connector(inv_num):
                 return lambda: self._delete_recorded_invoice(inv_num)
+
             delete_btn.clicked.connect(make_delete_connector(inv_no))
             row_layout.addWidget(delete_btn)
 
@@ -927,9 +1085,12 @@ class SessionManagerDialog(QDialog):
             new_status = "unpaid"
         else:
             new_status = "unpaid" if current_status == "paid" else "paid"
-        logger.info(f"[Action] Toggling invoice {invoice_no} status from {current_status} to {new_status}")
+        logger.info(
+            f"[Action] Toggling invoice {invoice_no} status from {current_status} to {new_status}"
+        )
         try:
             from database.schema import update_invoice_status
+
             update_invoice_status(invoice_no, new_status)
             self._refresh_invoices_list()
         except Exception as e:
@@ -941,7 +1102,7 @@ class SessionManagerDialog(QDialog):
             "Rename Invoice",
             "Enter new invoice name/number:",
             QLineEdit.EchoMode.Normal,
-            invoice_no
+            invoice_no,
         )
         if ok and new_name.strip():
             new_name = new_name.strip()
@@ -949,13 +1110,18 @@ class SessionManagerDialog(QDialog):
                 return
 
             from database.schema import get_all_invoices, rename_invoice
+
             try:
                 existing_nos = {inv["invoice_no"] for inv in get_all_invoices()}
             except Exception:
                 existing_nos = set()
 
             if new_name in existing_nos:
-                QMessageBox.warning(self, "Conflict", f"An invoice/receipt named '{new_name}' already exists.")
+                QMessageBox.warning(
+                    self,
+                    "Conflict",
+                    f"An invoice/receipt named '{new_name}' already exists.",
+                )
                 return
 
             logger.info(f"[Action] Renaming invoice from {invoice_no} to {new_name}")
@@ -971,16 +1137,19 @@ class SessionManagerDialog(QDialog):
             "Delete Invoice Record",
             f"Are you sure you want to delete the record for {invoice_no}?\nThis will not delete the session files.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
             logger.info(f"[Action] Deleting invoice {invoice_no} record")
             try:
                 from database.schema import delete_invoice
+
                 delete_invoice(invoice_no)
                 self._refresh_invoices_list()
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to delete invoice record:\n{e}")
+                QMessageBox.critical(
+                    self, "Error", f"Failed to delete invoice record:\n{e}"
+                )
 
     def _view_recorded_invoice(self, inv_data):
         try:
@@ -1000,11 +1169,12 @@ class SessionManagerDialog(QDialog):
 
             if status == "draft":
                 self._stop_preview_server()
-                
+
                 session_files = json.loads(full_inv.get("session_files", "[]"))
-                
+
                 def save_callback():
                     from database.schema import save_invoice
+
                     save_invoice(
                         invoice_no=invoice_no,
                         client_name=settings_data.get("client_name", "Valued Client"),
@@ -1013,42 +1183,54 @@ class SessionManagerDialog(QDialog):
                         status="unpaid",
                         session_files=session_files,
                         billing_data=billing_data,
-                        settings_data=settings_data
+                        settings_data=settings_data,
                     )
                     self.invoice_saved_signal.emit()
 
-                html_content = generate_invoice_html(billing_data, settings_data, status="unpaid", invoice_no=invoice_no)
-                
-                self.preview_server = InvoiceServerThread(html_content, save_callback, invoice_no)
+                html_content = generate_invoice_html(
+                    billing_data, settings_data, status="unpaid", invoice_no=invoice_no
+                )
+
+                self.preview_server = InvoiceServerThread(
+                    html_content, save_callback, invoice_no
+                )
                 self.preview_server.start()
                 port = self.preview_server.port
-                
+
                 try:
                     open_file(f"http://127.0.0.1:{port}/")
                 except Exception as open_err:
-                    logger.warning(f"Failed to auto-open invoice draft in browser: {open_err}")
+                    logger.warning(
+                        f"Failed to auto-open invoice draft in browser: {open_err}"
+                    )
                     QMessageBox.warning(
                         self,
                         "Failed to Open",
                         f"Invoice server started, but browser could not be opened automatically:\nhttp://127.0.0.1:{port}/",
-                        QMessageBox.StandardButton.Ok
+                        QMessageBox.StandardButton.Ok,
                     )
             else:
-                html_content = generate_invoice_html(billing_data, settings_data, status=status, invoice_no=invoice_no)
+                html_content = generate_invoice_html(
+                    billing_data, settings_data, status=status, invoice_no=invoice_no
+                )
 
-                with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html', encoding='utf-8') as f:
+                with tempfile.NamedTemporaryFile(
+                    "w", delete=False, suffix=".html", encoding="utf-8"
+                ) as f:
                     f.write(html_content)
                     temp_path = f.name
 
                 try:
                     open_file(temp_path)
                 except Exception as open_err:
-                    logger.warning(f"Failed to auto-open invoice in browser: {open_err}")
+                    logger.warning(
+                        f"Failed to auto-open invoice in browser: {open_err}"
+                    )
                     QMessageBox.warning(
                         self,
                         "Failed to Open",
                         f"Invoice generated successfully, but could not be opened automatically:\n{temp_path}",
-                        QMessageBox.StandardButton.Ok
+                        QMessageBox.StandardButton.Ok,
                     )
         except Exception as e:
             logger.error(f"Failed to view recorded invoice: {e}", exc_info=True)
@@ -1059,10 +1241,16 @@ class SessionManagerDialog(QDialog):
 
     def _generate_selected_html_invoice(self):
         if not self.selected_sessions:
-            QMessageBox.warning(self, "No Sessions Selected", "Please select at least one session using the checkbox on the left of the item.")
+            QMessageBox.warning(
+                self,
+                "No Sessions Selected",
+                "Please select at least one session using the checkbox on the left of the item.",
+            )
             return
 
-        logger.info(f"[Action] Generating HTML invoice for {len(self.selected_sessions)} selected sessions")
+        logger.info(
+            f"[Action] Generating HTML invoice for {len(self.selected_sessions)} selected sessions"
+        )
 
         try:
             # Mask sensitive data custom options dialog
@@ -1071,7 +1259,7 @@ class SessionManagerDialog(QDialog):
                 default_biz_email=self.settings.get("mask_business_emails", False),
                 default_biz_phone=self.settings.get("mask_business_phone", False),
                 default_client_email=self.settings.get("mask_client_emails", False),
-                is_dark=self.settings.get("dark_mode", False)
+                is_dark=self.settings.get("dark_mode", False),
             )
             if privacy_dialog.exec() != QDialog.DialogCode.Accepted:
                 return
@@ -1081,8 +1269,10 @@ class SessionManagerDialog(QDialog):
             mask_client_email = privacy_dialog.cb_client_email.isChecked()
 
             billing_data = merge_sessions_for_invoice(
-                list(self.selected_sessions), self.tracker,
-                self.settings.get("hourly_rate", 0.0), self.settings.get("currency_symbol", "$")
+                list(self.selected_sessions),
+                self.tracker,
+                self.settings.get("hourly_rate", 0.0),
+                self.settings.get("currency_symbol", "$"),
             )
 
             settings_data = {
@@ -1108,7 +1298,6 @@ class SessionManagerDialog(QDialog):
                 "currency_symbol": self.settings.get("currency_symbol", "$"),
                 "qr_code_paths": self.settings.get("qr_code_paths", []),
                 "qr_code_links": self.settings.get("qr_code_links", {}),
-
                 "mask_business_emails": mask_biz_email,
                 "mask_business_phone": mask_biz_phone,
                 "mask_client_emails": mask_client_email,
@@ -1143,6 +1332,7 @@ class SessionManagerDialog(QDialog):
 
             # Resolve duplicate name conflicts in database
             from database.schema import get_all_invoices, save_invoice
+
             try:
                 existing_nos = {inv["invoice_no"] for inv in get_all_invoices()}
             except Exception:
@@ -1156,8 +1346,12 @@ class SessionManagerDialog(QDialog):
 
             self._stop_preview_server()
 
-            html_content = generate_invoice_html(billing_data, settings_data, status="unpaid", invoice_no=inv_no)
-            session_filenames = [os.path.basename(path) for path in self.selected_sessions]
+            html_content = generate_invoice_html(
+                billing_data, settings_data, status="unpaid", invoice_no=inv_no
+            )
+            session_filenames = [
+                os.path.basename(path) for path in self.selected_sessions
+            ]
 
             # Save immediately as a draft
             save_invoice(
@@ -1168,7 +1362,7 @@ class SessionManagerDialog(QDialog):
                 status="draft",
                 session_files=session_filenames,
                 billing_data=billing_data,
-                settings_data=settings_data
+                settings_data=settings_data,
             )
 
             # Clear checkboxes and refresh lists immediately to show the draft
@@ -1184,11 +1378,13 @@ class SessionManagerDialog(QDialog):
                     status="unpaid",
                     session_files=session_filenames,
                     billing_data=billing_data,
-                    settings_data=settings_data
+                    settings_data=settings_data,
                 )
                 self.invoice_saved_signal.emit()
 
-            self.preview_server = InvoiceServerThread(html_content, save_callback, inv_no)
+            self.preview_server = InvoiceServerThread(
+                html_content, save_callback, inv_no
+            )
             self.preview_server.start()
             port = self.preview_server.port
 
@@ -1200,8 +1396,10 @@ class SessionManagerDialog(QDialog):
                     self,
                     "Failed to Open",
                     f"Invoice server started, but browser could not be opened automatically:\nhttp://127.0.0.1:{port}/",
-                    QMessageBox.StandardButton.Ok
+                    QMessageBox.StandardButton.Ok,
                 )
         except Exception as e:
             logger.error(f"Failed to generate invoice HTML: {e}", exc_info=True)
-            QMessageBox.critical(self, "Error", f"Failed to generate invoice HTML:\n{str(e)}")
+            QMessageBox.critical(
+                self, "Error", f"Failed to generate invoice HTML:\n{str(e)}"
+            )

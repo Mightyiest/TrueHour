@@ -19,12 +19,15 @@ from appinfo import get_foreground_app_info
 from config import get_app_data_dir, DynamicPath
 from secure_time import get_detector, reset_detector
 
+
 def _get_idle_seconds():
     """Return seconds since last mouse/keyboard input (cross-platform)."""
     if sys.platform == "win32":
         try:
+
             class _LASTINPUTINFO(_ctypes.Structure):
                 _fields_ = [("cbSize", _ctypes.c_uint), ("dwTime", _ctypes.c_uint)]
+
             lii = _LASTINPUTINFO()
             lii.cbSize = _ctypes.sizeof(_LASTINPUTINFO)
             _ctypes.windll.user32.GetLastInputInfo(_ctypes.byref(lii))
@@ -36,14 +39,20 @@ def _get_idle_seconds():
         try:
             # Load CoreGraphics library via ctypes (requires no extra python packages)
             import ctypes.util
+
             lib_path = ctypes.util.find_library("CoreGraphics")
             if not lib_path:
-                lib_path = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics"
+                lib_path = (
+                    "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics"
+                )
             cg = _ctypes.CDLL(lib_path)
 
             # CGEventSourceSecondsSinceLastEventType is double CGEventSourceSecondsSinceLastEventType(int, int)
             cg.CGEventSourceSecondsSinceLastEventType.restype = _ctypes.c_double
-            cg.CGEventSourceSecondsSinceLastEventType.argtypes = [_ctypes.c_int32, _ctypes.c_uint32]
+            cg.CGEventSourceSecondsSinceLastEventType.argtypes = [
+                _ctypes.c_int32,
+                _ctypes.c_uint32,
+            ]
 
             # kCGEventSourceStateCombinedSessionState = 0
             # kCGAnyInputEventType = ~0 (0xFFFFFFFF)
@@ -52,20 +61,30 @@ def _get_idle_seconds():
         except Exception:
             # Fallback to Quartz (PyObjC) if ctypes CoreGraphics load failed
             try:
-                from Quartz import CGEventSourceSecondsSinceLastEventType, kCGEventSourceStateCombinedSessionState, kCGAnyInputEventType
-                return float(CGEventSourceSecondsSinceLastEventType(kCGEventSourceStateCombinedSessionState, kCGAnyInputEventType))
+                from Quartz import (
+                    CGEventSourceSecondsSinceLastEventType,
+                    kCGEventSourceStateCombinedSessionState,
+                    kCGAnyInputEventType,
+                )
+
+                return float(
+                    CGEventSourceSecondsSinceLastEventType(
+                        kCGEventSourceStateCombinedSessionState, kCGAnyInputEventType
+                    )
+                )
             except Exception:
                 return 0.0
     return 0.0
+
 
 # Configure logging for security events
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 if not logger.handlers:
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    ))
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
     logger.addHandler(handler)
 
 # ── Auto-Exclusion Setup ──────────────────────────────────────────────
@@ -225,8 +244,12 @@ consent.exe
 # docker.exe
 """
 
-AUTO_EXCLUDE_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "auto_excluded_apps.txt"))
-ACTIVE_SESSION_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "active_session.json"))
+AUTO_EXCLUDE_FILE = DynamicPath(
+    lambda: os.path.join(get_app_data_dir(), "auto_excluded_apps.txt")
+)
+ACTIVE_SESSION_FILE = DynamicPath(
+    lambda: os.path.join(get_app_data_dir(), "active_session.json")
+)
 
 _AUTO_EXCLUDED_EXES = set()  # must be declared before any function references it
 _AUTO_EXCLUDED_LOCK = threading.Lock()  # thread-safe access to _AUTO_EXCLUDED_EXES
@@ -254,14 +277,20 @@ def create_auto_excluded_if_missing():
 
             missing_additions = []
             for raw_name, exe_name in default_apps:
-                base_name = exe_name[:-4] if (is_windows and exe_name.endswith(".exe")) else exe_name
+                base_name = (
+                    exe_name[:-4]
+                    if (is_windows and exe_name.endswith(".exe"))
+                    else exe_name
+                )
                 # Check if this app/process is present in the file
                 if base_name not in content_lower:
                     missing_additions.append(raw_name)
 
             if missing_additions:
                 with open(AUTO_EXCLUDE_FILE, "a", encoding="utf-8") as f:
-                    f.write("\n# ── Automatically Excluded Apps (Added via update) ──\n")
+                    f.write(
+                        "\n# ── Automatically Excluded Apps (Added via update) ──\n"
+                    )
                     for app in missing_additions:
                         f.write(f"{app}\n")
         except Exception as e:
@@ -323,7 +352,9 @@ def reload_auto_excluded():
             abs_file = os.path.abspath(AUTO_EXCLUDE_FILE)
             app_data_dir = os.path.abspath(get_app_data_dir())
             if not abs_file.startswith(app_data_dir):
-                logger.error(f"Invalid auto-exclude file path during reload: {AUTO_EXCLUDE_FILE}")
+                logger.error(
+                    f"Invalid auto-exclude file path during reload: {AUTO_EXCLUDE_FILE}"
+                )
                 return False
             with open(AUTO_EXCLUDE_FILE, "r", encoding="utf-8") as f:
                 for line in f:
@@ -345,6 +376,7 @@ def reload_auto_excluded():
 
 
 _auto_excluded_loaded = False
+
 
 def _is_auto_excluded(exe_path):
     """Return True if this exe should be completely ignored by the tracker."""
@@ -373,16 +405,114 @@ TAGS_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "tags.json"))
 
 class TagManager:
     """Manages application project/category tags locally and thread-safely."""
-    DEFAULT_PROJECTS = ["Development", "Design", "Research", "Documentation", "Communication", "Management", "Unassigned"]
+
+    DEFAULT_PROJECTS = [
+        "Development",
+        "Design",
+        "Research",
+        "Documentation",
+        "Communication",
+        "Management",
+        "Unassigned",
+    ]
 
     # Offline keyword lists
     KEYWORDS = {
-        "Development": ["code", "studio", "compiler", "ide", "git", "docker", "sublime", "debugger", "terminal", "powershell", "python", "node", "npm", "cargo", "msbuild", "visual studio", "pycharm", "intellij", "vscode"],
-        "Design": ["photoshop", "illustrator", "design", "draw", "cad", "paint", "premiere", "blend", "creative", "maya", "blender", "canvas", "figma", "sketch", "invision", "rendering", "image editor"],
-        "Documentation": ["word", "excel", "pdf", "document", "notion", "obsidian", "writer", "spreadsheet", "powerpoint", "slides", "notes", "acrobat", "typora", "logseq"],
-        "Communication": ["slack", "teams", "discord", "zoom", "outlook", "whatsapp", "messenger", "skype", "telegram", "thunderbird", "mail", "chat", "meeting"],
-        "Research": ["chrome", "firefox", "edge", "safari", "browser", "google", "search", "wikipedia", "navigator", "opera", "brave"],
-        "Management": ["project", "jira", "trello", "asana", "clickup", "monday.com", "board", "gantt", "backlog"]
+        "Development": [
+            "code",
+            "studio",
+            "compiler",
+            "ide",
+            "git",
+            "docker",
+            "sublime",
+            "debugger",
+            "terminal",
+            "powershell",
+            "python",
+            "node",
+            "npm",
+            "cargo",
+            "msbuild",
+            "visual studio",
+            "pycharm",
+            "intellij",
+            "vscode",
+        ],
+        "Design": [
+            "photoshop",
+            "illustrator",
+            "design",
+            "draw",
+            "cad",
+            "paint",
+            "premiere",
+            "blend",
+            "creative",
+            "maya",
+            "blender",
+            "canvas",
+            "figma",
+            "sketch",
+            "invision",
+            "rendering",
+            "image editor",
+        ],
+        "Documentation": [
+            "word",
+            "excel",
+            "pdf",
+            "document",
+            "notion",
+            "obsidian",
+            "writer",
+            "spreadsheet",
+            "powerpoint",
+            "slides",
+            "notes",
+            "acrobat",
+            "typora",
+            "logseq",
+        ],
+        "Communication": [
+            "slack",
+            "teams",
+            "discord",
+            "zoom",
+            "outlook",
+            "whatsapp",
+            "messenger",
+            "skype",
+            "telegram",
+            "thunderbird",
+            "mail",
+            "chat",
+            "meeting",
+        ],
+        "Research": [
+            "chrome",
+            "firefox",
+            "edge",
+            "safari",
+            "browser",
+            "google",
+            "search",
+            "wikipedia",
+            "navigator",
+            "opera",
+            "brave",
+        ],
+        "Management": [
+            "project",
+            "jira",
+            "trello",
+            "asana",
+            "clickup",
+            "monday.com",
+            "board",
+            "gantt",
+            "backlog",
+        ],
     }
 
     def __init__(self):
@@ -419,10 +549,12 @@ class TagManager:
                 os.makedirs(dirpath, exist_ok=True)
             temp_file = TAGS_FILE + ".tmp"
             with open(temp_file, "w", encoding="utf-8") as f:
-                json.dump({
-                    "projects": self.projects,
-                    "mappings": self.mappings
-                }, f, indent=2, ensure_ascii=False)
+                json.dump(
+                    {"projects": self.projects, "mappings": self.mappings},
+                    f,
+                    indent=2,
+                    ensure_ascii=False,
+                )
             os.replace(temp_file, TAGS_FILE)
             self.dirty = False
         except Exception as e:
@@ -440,7 +572,7 @@ class TagManager:
         with self.lock:
             if key in self.mappings:
                 return self.mappings[key]
-            
+
             # Temporary placeholder to prevent spawning multiple threads
             self.mappings[key] = "Unassigned"
             self.dirty = True
@@ -452,7 +584,9 @@ class TagManager:
                     self.mappings[key] = matched_tag
                     self.dirty = True
                 self.save_if_dirty()
-                logger.info(f"Offline categorization succeeded for '{app_name}' -> '{matched_tag}'")
+                logger.info(
+                    f"Offline categorization succeeded for '{app_name}' -> '{matched_tag}'"
+                )
                 return
 
             self._fetch_and_update_tag_online(app_name, exe_path)
@@ -506,7 +640,12 @@ class TagManager:
                 exe_name = exe_name[:-4]
 
             # Local imports to prevent circular dependency
-            from appinfo import _get_file_description, get_company_name, get_product_name
+            from appinfo import (
+                _get_file_description,
+                get_company_name,
+                get_product_name,
+            )
+
             desc = _get_file_description(exe_path)
             if desc:
                 desc_lower = desc.lower().strip()
@@ -522,9 +661,19 @@ class TagManager:
         scores = {cat: 0.0 for cat in self.KEYWORDS}
 
         # 1. High priority company/brand mappings
-        if "adobe" in company_lower or "adobe" in product_lower or "photoshop" in app_name_lower or "illustrator" in app_name_lower:
+        if (
+            "adobe" in company_lower
+            or "adobe" in product_lower
+            or "photoshop" in app_name_lower
+            or "illustrator" in app_name_lower
+        ):
             scores["Design"] += 5.0
-        if "jetbrains" in company_lower or "intellij" in product_lower or "pycharm" in product_lower or "webstorm" in product_lower:
+        if (
+            "jetbrains" in company_lower
+            or "intellij" in product_lower
+            or "pycharm" in product_lower
+            or "webstorm" in product_lower
+        ):
             scores["Development"] += 5.0
         if "autodesk" in company_lower or "autocad" in product_lower:
             scores["Design"] += 5.0
@@ -563,7 +712,14 @@ class TagManager:
         # 4. Find category with the maximum score using tie-breaker priority order
         max_score = 0.0
         best_category = None
-        priority = ["Development", "Design", "Documentation", "Communication", "Research", "Management"]
+        priority = [
+            "Development",
+            "Design",
+            "Documentation",
+            "Communication",
+            "Research",
+            "Management",
+        ]
 
         for category in priority:
             if scores.get(category, 0.0) > max_score:
@@ -574,7 +730,6 @@ class TagManager:
             return best_category
 
         return None
-
 
     def _fetch_and_update_tag_online(self, app_name: str, exe_path: str):
         """Asynchronously query DuckDuckGo and update mapping on success."""
@@ -587,20 +742,28 @@ class TagManager:
             search_query = app_name
             if exe_path:
                 from appinfo import _get_file_description
+
                 desc = _get_file_description(exe_path)
                 if desc and len(desc) > 3:
                     search_query = desc
 
             url = f"https://api.duckduckgo.com/?q={urllib.parse.quote(search_query)}&format=json&no_html=1&skip_disambig=1"
-            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) TrueHour/1.0'})
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TrueHour/1.0"
+                },
+            )
 
             # Create SSL context with certificate verification (matches secure_time.py)
             ssl_context = ssl.create_default_context()
 
             # Query DuckDuckGo API with SSL verification and 3.0s timeout
-            with urllib.request.urlopen(req, timeout=3.0, context=ssl_context) as response:
+            with urllib.request.urlopen(
+                req, timeout=3.0, context=ssl_context
+            ) as response:
                 if response.status == 200:
-                    data = json.loads(response.read().decode('utf-8'))
+                    data = json.loads(response.read().decode("utf-8"))
                     abstract = data.get("AbstractText", "") or data.get("Abstract", "")
 
                     if abstract:
@@ -620,29 +783,40 @@ class TagManager:
                             with self.lock:
                                 self.mappings[key] = matched_tag
                                 self._save_tags(force=True)
-                            logger.info(f"Online categorization succeeded for '{app_name}' -> '{matched_tag}'")
+                            logger.info(
+                                f"Online categorization succeeded for '{app_name}' -> '{matched_tag}'"
+                            )
         except ssl.SSLCertVerificationError as e:
-            logger.warning(f"SSL certificate verification failed for DuckDuckGo API: {e}")
+            logger.warning(
+                f"SSL certificate verification failed for DuckDuckGo API: {e}"
+            )
         except Exception as e:
-            logger.debug(f"Online categorization background query failed for {app_name}: {e}")
-
-
+            logger.debug(
+                f"Online categorization background query failed for {app_name}: {e}"
+            )
 
 
 class SessionStorage:
     """Handles serialization and persistence of tracking sessions."""
+
     @staticmethod
-    def save_state(tracker: 'AppTracker', filepath: str):
+    def save_state(tracker: "AppTracker", filepath: str):
         try:
             with tracker._lock:
                 state = {
-                    "session_start": tracker.session_start.timestamp() if tracker.session_start else None,
+                    "session_start": tracker.session_start.timestamp()
+                    if tracker.session_start
+                    else None,
                     "session_name": tracker.session_name,
                     "app_times": tracker.app_times.copy(),
                     "app_included": tracker.app_included.copy(),
                     "app_exe_paths": tracker.app_exe_paths.copy(),
                     "timeline": [
-                        {"app": t["app"], "start": t["start"].timestamp(), "end": t["end"].timestamp()}
+                        {
+                            "app": t["app"],
+                            "start": t["start"].timestamp(),
+                            "end": t["end"].timestamp(),
+                        }
                         for t in tracker.timeline
                     ],
                     "paused": tracker.paused,
@@ -651,7 +825,7 @@ class SessionStorage:
                     "_current_app": tracker._current_app,
                     "_current_start": tracker._current_start,
                     "_current_block_start": tracker._current_block_start,
-                    "_current_block_active": tracker._current_block_active
+                    "_current_block_active": tracker._current_block_active,
                 }
 
             # Atomic file swap
@@ -661,6 +835,7 @@ class SessionStorage:
             os.replace(temp_file, filepath)
         except Exception as e:
             logger.warning(f"Failed to save active state: {e}")
+
 
 class AppTracker:
     """Tracks which application is in the foreground and for how long."""
@@ -750,7 +925,9 @@ class AppTracker:
                     return
                 os.makedirs(dirpath, exist_ok=True)
             with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-                json.dump({"excluded_apps": list(self.persistent_excluded)}, f, indent=2)
+                json.dump(
+                    {"excluded_apps": list(self.persistent_excluded)}, f, indent=2
+                )
         except (OSError, IOError) as e:
             logger.warning(f"Failed to save settings: {e}")
 
@@ -799,24 +976,30 @@ class AppTracker:
         # Flush current app
         self._flush_current()
         if self.paused and self._pause_start:
-            self._total_paused_time += (time.time() - self._pause_start)
+            self._total_paused_time += time.time() - self._pause_start
             self._pause_start = None
         self.paused = False
 
-
         if self._thread:
-            self._thread.join(timeout=0.1)  # Non-blocking: thread exits via running flag
+            self._thread.join(
+                timeout=0.1
+            )  # Non-blocking: thread exits via running flag
             self._thread = None
 
         # Finalize security detector
         if self.security_detector:
             security_report = self.security_detector.end_session()
             if security_report["trust_score"] < 70:
-                self.integrity_warnings.append({
-                    "type": "LOW_TRUST_SCORE",
-                    "score": security_report["trust_score"],
-                    "events_count": security_report.get("tamper_events_count", len(security_report.get("tamper_events", [])))
-                })
+                self.integrity_warnings.append(
+                    {
+                        "type": "LOW_TRUST_SCORE",
+                        "score": security_report["trust_score"],
+                        "events_count": security_report.get(
+                            "tamper_events_count",
+                            len(security_report.get("tamper_events", [])),
+                        ),
+                    }
+                )
 
         self.tag_manager.save_if_dirty()
         if os.path.exists(ACTIVE_SESSION_FILE):
@@ -825,7 +1008,9 @@ class AppTracker:
                 abs_file = os.path.abspath(ACTIVE_SESSION_FILE)
                 app_data_dir = os.path.abspath(get_app_data_dir())
                 if not abs_file.startswith(app_data_dir):
-                    logger.error(f"Invalid active session file path: {ACTIVE_SESSION_FILE}")
+                    logger.error(
+                        f"Invalid active session file path: {ACTIVE_SESSION_FILE}"
+                    )
                 else:
                     os.remove(ACTIVE_SESSION_FILE)
             except OSError as e:
@@ -843,7 +1028,7 @@ class AppTracker:
             "trust_level": report["trust_level"],
             "chain_valid": report["chain_valid"],
             "tamper_events": report["tamper_events_count"],
-            "warnings": self.integrity_warnings
+            "warnings": self.integrity_warnings,
         }
 
     def recover_session(self):
@@ -865,11 +1050,13 @@ class AppTracker:
             self.app_exe_paths = state.get("app_exe_paths", {})
             self.timeline = []
             for t in state["timeline"]:
-                self.timeline.append({
-                    "app": t["app"],
-                    "start": datetime.fromtimestamp(t["start"]),
-                    "end": datetime.fromtimestamp(t["end"])
-                })
+                self.timeline.append(
+                    {
+                        "app": t["app"],
+                        "start": datetime.fromtimestamp(t["start"]),
+                        "end": datetime.fromtimestamp(t["end"]),
+                    }
+                )
             self.paused = state.get("paused", False)
             self._pause_start = state.get("_pause_start")
             self._total_paused_time = state.get("_total_paused_time", 0)
@@ -887,15 +1074,21 @@ class AppTracker:
                         if elapsed > self.poll_interval + 2.0:
                             elapsed = self.poll_interval
                         if self.app_included.get(c_app, True):
-                            self.app_times[c_app] = self.app_times.get(c_app, 0) + elapsed
+                            self.app_times[c_app] = (
+                                self.app_times.get(c_app, 0) + elapsed
+                            )
                             c_block_active += elapsed
 
                 if c_block_active >= self.min_track_seconds:
-                    self.timeline.append({
-                        "app": c_app,
-                        "start": datetime.fromtimestamp(c_block_start),
-                        "end": datetime.fromtimestamp(c_block_start + c_block_active)
-                    })
+                    self.timeline.append(
+                        {
+                            "app": c_app,
+                            "start": datetime.fromtimestamp(c_block_start),
+                            "end": datetime.fromtimestamp(
+                                c_block_start + c_block_active
+                            ),
+                        }
+                    )
 
             self._current_app = None
             self._current_start = None
@@ -906,27 +1099,41 @@ class AppTracker:
             # Adjust paused time to account for the gap while the app was closed
             now = datetime.now()
             tracked_duration = sum(self.app_times.values())
-            self._total_paused_time = max(0, (now - self.session_start).total_seconds() - tracked_duration)
+            self._total_paused_time = max(
+                0, (now - self.session_start).total_seconds() - tracked_duration
+            )
             if self.paused:
-                self._pause_start = time.time()  # reset so UI shows correct paused state
+                self._pause_start = (
+                    time.time()
+                )  # reset so UI shows correct paused state
 
             self.resume_snapshot = None  # Crash recovery — not a user-initiated resume
             self._last_save_time = time.time()
             self._thread = threading.Thread(target=self._poll_loop, daemon=True)
             self._thread.start()
             return True
-        except (OSError, IOError, json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+        except (
+            OSError,
+            IOError,
+            json.JSONDecodeError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ) as e:
             logger.warning(f"Failed to recover session: {e}")
             return False
 
     def load_from_report(self, filepath):
         from report import load_session_json
+
         try:
             rep = load_session_json(filepath)
 
             self.session_name = rep.get("session_name", "")
 
-            self.session_start = datetime.strptime(rep['date'] + " " + rep['start'], "%Y-%m-%d %H:%M:%S")
+            self.session_start = datetime.strptime(
+                rep["date"] + " " + rep["start"], "%Y-%m-%d %H:%M:%S"
+            )
             self.session_end = None
 
             self.app_exe_paths = rep.get("app_exe_paths", {})
@@ -935,10 +1142,10 @@ class AppTracker:
             self.app_times = {}
             self.app_included = {}
 
-            for a in rep['apps']:
-                name = a['name']
-                secs = a['seconds']
-                included = not a['excluded']
+            for a in rep["apps"]:
+                name = a["name"]
+                secs = a["seconds"]
+                included = not a["excluded"]
                 exe_path = self.app_exe_paths.get(name, "")
 
                 if not _is_auto_excluded(exe_path) and name != "[Idle]":
@@ -946,24 +1153,24 @@ class AppTracker:
                     self.app_included[name] = included
 
             self.timeline.clear()
-            for t in rep['timeline']:
+            for t in rep["timeline"]:
                 # load_session_json returns datetime objects; handle both formats
-                if isinstance(t['start'], datetime):
-                    t_start = t['start']
-                    t_end = t['end']
+                if isinstance(t["start"], datetime):
+                    t_start = t["start"]
+                    t_end = t["end"]
                 else:
-                    t_start = datetime.strptime(rep['date'] + " " + t['start'], "%Y-%m-%d %H:%M:%S")
-                    t_end = datetime.strptime(rep['date'] + " " + t['end'], "%Y-%m-%d %H:%M:%S")
+                    t_start = datetime.strptime(
+                        rep["date"] + " " + t["start"], "%Y-%m-%d %H:%M:%S"
+                    )
+                    t_end = datetime.strptime(
+                        rep["date"] + " " + t["end"], "%Y-%m-%d %H:%M:%S"
+                    )
 
                 # Midnight crossover guard
                 if t_end <= t_start:
                     t_end += timedelta(days=1)
 
-                self.timeline.append({
-                    "app": t['app'],
-                    "start": t_start,
-                    "end": t_end
-                })
+                self.timeline.append({"app": t["app"], "start": t_start, "end": t_end})
 
             self._current_app = None
             self._current_start = None
@@ -979,7 +1186,9 @@ class AppTracker:
             # Important: Adjust paused time so the timer respects the saved duration
             # (Now - Start) - Paused = Saved_Duration
             now = datetime.now()
-            self._total_paused_time = (now - self.session_start).total_seconds() - rep['total_seconds']
+            self._total_paused_time = (now - self.session_start).total_seconds() - rep[
+                "total_seconds"
+            ]
 
             self.paused = False
             self._pause_start = None
@@ -992,10 +1201,16 @@ class AppTracker:
             self._thread = threading.Thread(target=self._poll_loop, daemon=True)
             self._thread.start()
             return True
-        except (OSError, IOError, json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+        except (
+            OSError,
+            IOError,
+            json.JSONDecodeError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ) as e:
             logger.warning(f"Failed to load from report: {e}")
             return False
-
 
     def toggle_pause(self, is_idle=False):
         with self._lock:
@@ -1007,8 +1222,12 @@ class AppTracker:
                 if is_idle:
                     deduct = self.idle_threshold_seconds
                     if self._current_app:
-                        self.app_times[self._current_app] = max(0.0, self.app_times.get(self._current_app, 0.0) - deduct)
-                        self._current_block_active = max(0.0, self._current_block_active - deduct)
+                        self.app_times[self._current_app] = max(
+                            0.0, self.app_times.get(self._current_app, 0.0) - deduct
+                        )
+                        self._current_block_active = max(
+                            0.0, self._current_block_active - deduct
+                        )
                     self._total_paused_time += deduct
 
                 self._flush_current_unlocked(now)
@@ -1017,7 +1236,7 @@ class AppTracker:
                 self._pause_start = now
             else:
                 if self._pause_start:
-                    self._total_paused_time += (now - self._pause_start)
+                    self._total_paused_time += now - self._pause_start
                     self._pause_start = None
             return self.paused
 
@@ -1030,7 +1249,6 @@ class AppTracker:
                 self.persistent_excluded.discard(app_name)
             self._save_settings()
 
-
     def get_app_times_sorted(self):
         # Fast path: avoid lock if no apps tracked yet
         if not self.app_times:
@@ -1042,11 +1260,9 @@ class AppTracker:
                 for name, secs in sorted(
                     self.app_times.items(),
                     key=lambda x: (self.app_included.get(x[0], True), x[1]),
-                    reverse=True
+                    reverse=True,
                 )
-                if not _is_auto_excluded(
-                    self.app_exe_paths.get(name, "")
-                )
+                if not _is_auto_excluded(self.app_exe_paths.get(name, ""))
                 and name != "[Idle]"
             ]
 
@@ -1056,11 +1272,11 @@ class AppTracker:
             return 0
         with self._lock:
             return sum(
-                s for a, s in self.app_times.items()
+                s
+                for a, s in self.app_times.items()
                 if self.app_included.get(a, True)
                 and not _is_auto_excluded(self.app_exe_paths.get(a, ""))
             )
-
 
     def get_elapsed(self):
         """Seconds since session started."""
@@ -1070,7 +1286,7 @@ class AppTracker:
         elapsed = (end - self.session_start).total_seconds()
         paused_time = self._total_paused_time
         if self.paused and self._pause_start:
-            paused_time += (time.time() - self._pause_start)
+            paused_time += time.time() - self._pause_start
         return max(0, elapsed - paused_time)
 
     def get_current_app(self):
@@ -1098,19 +1314,14 @@ class AppTracker:
     def _flush_current_unlocked(self, now):
         """Flush current app time. Must be called while holding self._lock."""
         if self._current_app and self._current_block_start:
-
             # Partial time since last per-tick update
             if self._current_start:
                 partial = now - self._current_start
 
                 if partial > 0:
-
                     # Guard against OS sleep leaps
                     if partial > self.poll_interval + 2.0:
-
-                        self._total_paused_time += (
-                            partial - self.poll_interval
-                        )
+                        self._total_paused_time += partial - self.poll_interval
 
                         self.app_times[self._current_app] = (
                             self.app_times.get(self._current_app, 0)
@@ -1119,20 +1330,21 @@ class AppTracker:
                         self._current_block_active += self.poll_interval
 
                     else:
-
                         self.app_times[self._current_app] = (
-                            self.app_times.get(self._current_app, 0)
-                            + partial
+                            self.app_times.get(self._current_app, 0) + partial
                         )
                         self._current_block_active += partial
 
             if self._current_block_active >= self.min_track_seconds:
-
-                self.timeline.append({
-                    "app": self._current_app,
-                    "start": datetime.fromtimestamp(self._current_block_start),
-                    "end": datetime.fromtimestamp(self._current_block_start + self._current_block_active),
-                })
+                self.timeline.append(
+                    {
+                        "app": self._current_app,
+                        "start": datetime.fromtimestamp(self._current_block_start),
+                        "end": datetime.fromtimestamp(
+                            self._current_block_start + self._current_block_active
+                        ),
+                    }
+                )
 
             self._current_start = None
             self._current_block_start = None
@@ -1156,16 +1368,20 @@ class AppTracker:
                     self._idle_paused = True
                     self.toggle_pause(is_idle=True)
                     if self.on_update:
-                        try: self.on_update()
-                        except Exception: pass
+                        try:
+                            self.on_update()
+                        except Exception:
+                            pass
                 elif self._idle_paused and idle_secs < self.idle_threshold_seconds:
                     # Activity resumed — auto-resume
                     self._idle_paused = False
                     if self.paused:
                         self.toggle_pause()
                     if self.on_update:
-                        try: self.on_update()
-                        except Exception: pass
+                        try:
+                            self.on_update()
+                        except Exception:
+                            pass
             if self.paused and not self._distraction_paused:
                 time.sleep(self.poll_interval)
                 continue
@@ -1190,16 +1406,20 @@ class AppTracker:
                     self._distraction_paused = True
                     self.toggle_pause()
                     if self.on_update:
-                        try: self.on_update()
-                        except Exception: pass
+                        try:
+                            self.on_update()
+                        except Exception:
+                            pass
             else:
                 if self._distraction_paused:
                     self._distraction_paused = False
                     if self.paused:
                         self.toggle_pause()
                     if self.on_update:
-                        try: self.on_update()
-                        except Exception: pass
+                        try:
+                            self.on_update()
+                        except Exception:
+                            pass
 
             if self.paused:
                 time.sleep(self.poll_interval)
@@ -1228,7 +1448,7 @@ class AppTracker:
                         if app in self.persistent_excluded:
                             self.app_included[app] = False
                         else:
-                            self.app_included[app] = (app != "[Idle]")
+                            self.app_included[app] = app != "[Idle]"
 
                     # Always callback on app switch for immediate UI response
                     should_callback = True
@@ -1238,7 +1458,7 @@ class AppTracker:
 
                         # Guard against OS sleep/suspend massive time leaps
                         if elapsed > self.poll_interval + 2.0:
-                            self._total_paused_time += (elapsed - self.poll_interval)
+                            self._total_paused_time += elapsed - self.poll_interval
                             elapsed = self.poll_interval
 
                         self.app_times[self._current_app] = (
@@ -1248,10 +1468,13 @@ class AppTracker:
                         self._current_start = now
 
                         # Security: Validate and record with tamper detection
-                        if self.security_detector and self._current_app and self.app_included.get(self._current_app, True):
+                        if (
+                            self.security_detector
+                            and self._current_app
+                            and self.app_included.get(self._current_app, True)
+                        ):
                             validation = self.security_detector.validate_and_record(
-                                self._current_app,
-                                elapsed
+                                self._current_app, elapsed
                             )
 
                             # Log integrity issues
@@ -1260,21 +1483,25 @@ class AppTracker:
                                     "type": "TIME_TAMPER_DETECTED",
                                     "app": self._current_app,
                                     "discrepancy": validation["discrepancy"],
-                                    "timestamp": datetime.now().isoformat()
+                                    "timestamp": datetime.now().isoformat(),
                                 }
                                 self.integrity_warnings.append(warning)
                                 if len(self.integrity_warnings) > 100:
-                                    self.integrity_warnings = self.integrity_warnings[-100:]
+                                    self.integrity_warnings = self.integrity_warnings[
+                                        -100:
+                                    ]
                             elif validation["integrity_status"] == "SUSPICIOUS":
                                 warning = {
                                     "type": "SUSPICIOUS_TIME_CHANGE",
                                     "app": self._current_app,
                                     "discrepancy": validation["discrepancy"],
-                                    "timestamp": datetime.now().isoformat()
+                                    "timestamp": datetime.now().isoformat(),
                                 }
                                 self.integrity_warnings.append(warning)
                                 if len(self.integrity_warnings) > 100:
-                                    self.integrity_warnings = self.integrity_warnings[-100:]
+                                    self.integrity_warnings = self.integrity_warnings[
+                                        -100:
+                                    ]
 
             # Throttled callback to reduce UI update frequency
             if should_callback and self.on_update:

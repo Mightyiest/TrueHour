@@ -64,7 +64,9 @@ class FadingVersionLabel(QLabel):
 
     # ── Public API ───────────────────────────────────────────────────
 
-    def set_update_available(self, available: bool, new_version: str = "", release_url: str = ""):
+    def set_update_available(
+        self, available: bool, new_version: str = "", release_url: str = ""
+    ):
         """Call this to start or stop the fade cycle."""
         self._update_available = available
         self._dismissed = False

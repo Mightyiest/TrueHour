@@ -1,11 +1,13 @@
 """
 TrueHour — Report generation and export utilities.
 """
+
 import json
 import os
 from datetime import datetime, timedelta
 from typing import TypedDict, List
 from config import get_app_data_dir
+
 
 def format_duration(total_seconds):
     """Format seconds into 'Xh XXm XXs' string."""
@@ -15,6 +17,7 @@ def format_duration(total_seconds):
     s = total_seconds % 60
     return f"{h}h {m:02d}m {s:02d}s"
 
+
 def format_duration_hms(total_seconds):
     """Format seconds into 'HH:MM:SS' string."""
     total_seconds = int(total_seconds)
@@ -23,6 +26,7 @@ def format_duration_hms(total_seconds):
     s = total_seconds % 60
     return f"{h:02d}:{m:02d}:{s:02d}"
 
+
 class AppUsage(TypedDict):
     name: str
     seconds: int
@@ -30,6 +34,7 @@ class AppUsage(TypedDict):
     percent: float
     excluded: bool
     tag: str
+
 
 class ProjectBreakdownEntry(TypedDict):
     project: str
@@ -40,23 +45,27 @@ class ProjectBreakdownEntry(TypedDict):
     earned_display: str
     color: str
 
+
 PROJECT_COLORS = {
     "Development": "#4F46E5",  # Indigo
-    "Design": "#EC4899",       # Pink
-    "Research": "#10B981",     # Emerald
-    "Documentation": "#F59E0B",# Amber
-    "Communication": "#06B6D4",# Cyan
-    "Management": "#8B5CF6",   # Purple
-    "Unassigned": "#64748B",   # Slate
+    "Design": "#EC4899",  # Pink
+    "Research": "#10B981",  # Emerald
+    "Documentation": "#F59E0B",  # Amber
+    "Communication": "#06B6D4",  # Cyan
+    "Management": "#8B5CF6",  # Purple
+    "Unassigned": "#64748B",  # Slate
 }
+
 
 def get_project_color(project_name: str) -> str:
     return PROJECT_COLORS.get(project_name, "#64748B")
+
 
 class TimelineEntry(TypedDict):
     app: str
     start: str
     end: str
+
 
 class ReportData(TypedDict):
     date: str
@@ -80,7 +89,10 @@ class ReportData(TypedDict):
     total_earned_display: str
     project_breakdown: List[ProjectBreakdownEntry]
 
-def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$", progress_cb=None) -> ReportData:
+
+def build_report_data(
+    tracker, hourly_rate=0.0, currency_symbol="$", progress_cb=None
+) -> ReportData:
     """Build a structured dict from the tracker's session data."""
     if progress_cb:
         progress_cb(20, "Analyzing tracked session metrics...")
@@ -95,14 +107,16 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$", progress_cb
     for name, secs, included in apps:
         tag = tracker.get_app_tag(name)
         pct = (secs / total_session * 100) if total_session > 0 else 0
-        app_list.append({
-            "name": name,
-            "seconds": int(secs),
-            "formatted": format_duration(secs),
-            "percent": round(pct, 1),
-            "excluded": not included,
-            "tag": tag,
-        })
+        app_list.append(
+            {
+                "name": name,
+                "seconds": int(secs),
+                "formatted": format_duration(secs),
+                "percent": round(pct, 1),
+                "excluded": not included,
+                "tag": tag,
+            }
+        )
         if included:
             project_times[tag] = project_times.get(tag, 0) + secs
 
@@ -117,11 +131,13 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$", progress_cb
     for entry in timeline_snapshot:
         if entry["app"] == "[Idle]" or not tracker.app_included.get(entry["app"], True):
             continue
-        timeline.append({
-            "app": entry["app"],
-            "start": entry["start"].strftime("%H:%M:%S"),
-            "end": entry["end"].strftime("%H:%M:%S"),
-        })
+        timeline.append(
+            {
+                "app": entry["app"],
+                "start": entry["start"].strftime("%H:%M:%S"),
+                "end": entry["end"].strftime("%H:%M:%S"),
+            }
+        )
 
     if progress_cb:
         progress_cb(60, "Constructing timeline log visualizers...")
@@ -131,15 +147,17 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$", progress_cb
     for proj, secs in project_times.items():
         proj_pct = (secs / total_counted * 100) if total_counted > 0 else 0
         proj_earned = (secs / 3600) * hourly_rate
-        breakdown.append({
-            "project": proj,
-            "seconds": int(secs),
-            "formatted": format_duration(secs),
-            "percent": round(proj_pct, 1),
-            "earned": round(proj_earned, 2),
-            "earned_display": f"{currency_symbol}{proj_earned:,.2f}",
-            "color": get_project_color(proj)
-        })
+        breakdown.append(
+            {
+                "project": proj,
+                "seconds": int(secs),
+                "formatted": format_duration(secs),
+                "percent": round(proj_pct, 1),
+                "earned": round(proj_earned, 2),
+                "earned_display": f"{currency_symbol}{proj_earned:,.2f}",
+                "color": get_project_color(proj),
+            }
+        )
     breakdown.sort(key=lambda x: x["seconds"], reverse=True)
 
     earned = 0.0
@@ -148,7 +166,7 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$", progress_cb
 
     # ── New Activity: diff against resume snapshot ─────────────────────────
     # Only populated when the session was loaded from a saved file via Session Manager.
-    resume_snapshot = getattr(tracker, 'resume_snapshot', None)
+    resume_snapshot = getattr(tracker, "resume_snapshot", None)
     is_resumed = resume_snapshot is not None
     new_activity = []
     if is_resumed:
@@ -158,17 +176,21 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$", progress_cb
             new_secs = max(0.0, secs - prev_secs)
             if new_secs > 0 or prev_secs > 0:
                 tag = tracker.get_app_tag(name)
-                new_activity.append({
-                    "name": name,
-                    "previous_seconds": int(prev_secs),
-                    "previous_formatted": format_duration(prev_secs),
-                    "new_seconds": int(new_secs),
-                    "new_formatted": format_duration(new_secs) if new_secs > 0 else "—",
-                    "total_seconds": int(secs),
-                    "total_formatted": format_duration(secs),
-                    "excluded": not included,
-                    "tag": tag,
-                })
+                new_activity.append(
+                    {
+                        "name": name,
+                        "previous_seconds": int(prev_secs),
+                        "previous_formatted": format_duration(prev_secs),
+                        "new_seconds": int(new_secs),
+                        "new_formatted": format_duration(new_secs)
+                        if new_secs > 0
+                        else "—",
+                        "total_seconds": int(secs),
+                        "total_formatted": format_duration(secs),
+                        "excluded": not included,
+                        "tag": tag,
+                    }
+                )
         # Only keep the list if at least one app has new time
         if not any(a["new_seconds"] > 0 for a in new_activity):
             new_activity = []
@@ -189,17 +211,18 @@ def build_report_data(tracker, hourly_rate=0.0, currency_symbol="$", progress_cb
         "counted_formatted": format_duration(counted),
         "apps": app_list,
         "timeline": timeline,
-        "is_recovered": getattr(tracker, 'is_recovered', False),
+        "is_recovered": getattr(tracker, "is_recovered", False),
         "is_resumed": is_resumed,
         "new_activity": new_activity,
-        "session_name": getattr(tracker, 'session_name', ""),
-        "app_exe_paths": getattr(tracker, 'app_exe_paths', {}),
+        "session_name": getattr(tracker, "session_name", ""),
+        "app_exe_paths": getattr(tracker, "app_exe_paths", {}),
         "hourly_rate": hourly_rate,
         "currency_symbol": currency_symbol,
         "total_earned": round(earned, 2),
         "total_earned_display": f"{currency_symbol}{earned:,.2f}",
         "project_breakdown": breakdown,
     }
+
 
 def export_txt(report, filepath):
     """Export the report as a .txt file."""
@@ -208,64 +231,111 @@ def export_txt(report, filepath):
     if report.get("is_resumed"):
         lines.append("[RESUMED SESSION]")
     lines.append(f"Date: {report['date']}")
-    lines.append(f"Start: {report['start']} | End: {report['end']} | Duration: {report['total_formatted']}")
+    lines.append(
+        f"Start: {report['start']} | End: {report['end']} | Duration: {report['total_formatted']}"
+    )
     lines.append(f"Counted Work Time: {report['counted_formatted']}")
     hourly_rate = report.get("hourly_rate", 0.0)
     currency_symbol = report.get("currency_symbol", "$")
     lines.append(f"Hourly Rate: {currency_symbol}{hourly_rate:.2f}/hr")
-    lines.append(f"Total Earned: {report.get('total_earned_display') or (currency_symbol + '0.00')}")
+    lines.append(
+        f"Total Earned: {report.get('total_earned_display') or (currency_symbol + '0.00')}"
+    )
     lines.append("")
     # New activity section (only for resumed sessions with new time)
     new_activity = [a for a in report.get("new_activity", []) if not a["excluded"]]
     if new_activity:
         lines.append("NEW ACTIVITY (THIS RESUME)")
         lines.append("--------------------------")
-        lines.append(f"{'App':<30s} {'Previous':>12s} {'New Added':>12s} {'Total':>12s}")
+        lines.append(
+            f"{'App':<30s} {'Previous':>12s} {'New Added':>12s} {'Total':>12s}"
+        )
         for a in new_activity:
             new_str = a["new_formatted"] if a["new_seconds"] > 0 else "—"
-            lines.append(f"{a['name']:<30s} {a['previous_formatted']:>12s} {new_str:>12s} {a['total_formatted']:>12s}")
+            lines.append(
+                f"{a['name']:<30s} {a['previous_formatted']:>12s} {new_str:>12s} {a['total_formatted']:>12s}"
+            )
         lines.append("")
     lines.append("APP USAGE BREAKDOWN")
     lines.append("-------------------")
     for app in report["apps"]:
         if app["excluded"]:
             continue
-        lines.append(f"{app['name']:<30s} {app['formatted']:>12s}   {app['percent']:>5.1f}%")
+        lines.append(
+            f"{app['name']:<30s} {app['formatted']:>12s}   {app['percent']:>5.1f}%"
+        )
     lines.append("")
     lines.append("TIMELINE LOG")
     lines.append("------------")
     for entry in report["timeline"]:
-        t_start = entry['start'].strftime("%H:%M:%S") if hasattr(entry['start'], 'strftime') else entry['start']
-        t_end = entry['end'].strftime("%H:%M:%S") if hasattr(entry['end'], 'strftime') else entry['end']
+        t_start = (
+            entry["start"].strftime("%H:%M:%S")
+            if hasattr(entry["start"], "strftime")
+            else entry["start"]
+        )
+        t_end = (
+            entry["end"].strftime("%H:%M:%S")
+            if hasattr(entry["end"], "strftime")
+            else entry["end"]
+        )
         lines.append(f"{t_start} -> {t_end}   {entry['app']}")
     lines.append("")
     lines.append("PROJECT BREAKDOWN SUMMARY")
     lines.append("-------------------------")
     for pb in report.get("project_breakdown", []):
-        earned_str = f"   Earned: {pb['earned_display']}" if pb.get('earned_display') else ""
-        lines.append(f"{pb['project']:<20s} {pb['formatted']:>12s}   {pb['percent']:>5.1f}%{earned_str}")
+        earned_str = (
+            f"   Earned: {pb['earned_display']}" if pb.get("earned_display") else ""
+        )
+        lines.append(
+            f"{pb['project']:<20s} {pb['formatted']:>12s}   {pb['percent']:>5.1f}%{earned_str}"
+        )
     lines.append("")
 
     with open(filepath, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
+
 
 def export_json(report, filepath, is_internal=False):
     """Export the report as a .json file."""
     # Normalize timeline entries — may contain datetime objects from load_session_json
     normalized_timeline = []
     for t in report["timeline"]:
-        normalized_timeline.append({
-            "app": t["app"],
-            "start": t["start"].strftime("%H:%M:%S") if hasattr(t["start"], "strftime") else t["start"],
-            "end": t["end"].strftime("%H:%M:%S") if hasattr(t["end"], "strftime") else t["end"],
-        })
+        normalized_timeline.append(
+            {
+                "app": t["app"],
+                "start": t["start"].strftime("%H:%M:%S")
+                if hasattr(t["start"], "strftime")
+                else t["start"],
+                "end": t["end"].strftime("%H:%M:%S")
+                if hasattr(t["end"], "strftime")
+                else t["end"],
+            }
+        )
 
     if is_internal:
-        apps_list = [{"name": a["name"], "seconds": a["seconds"], "excluded": a["excluded"], "tag": a.get("tag", "Unassigned")} for a in report["apps"]]
+        apps_list = [
+            {
+                "name": a["name"],
+                "seconds": a["seconds"],
+                "excluded": a["excluded"],
+                "tag": a.get("tag", "Unassigned"),
+            }
+            for a in report["apps"]
+        ]
         new_activity_list = report.get("new_activity", [])
     else:
-        apps_list = [{"name": a["name"], "seconds": a["seconds"], "tag": a.get("tag", "Unassigned")} for a in report["apps"] if not a["excluded"]]
-        new_activity_list = [a for a in report.get("new_activity", []) if not a["excluded"]]
+        apps_list = [
+            {
+                "name": a["name"],
+                "seconds": a["seconds"],
+                "tag": a.get("tag", "Unassigned"),
+            }
+            for a in report["apps"]
+            if not a["excluded"]
+        ]
+        new_activity_list = [
+            a for a in report.get("new_activity", []) if not a["excluded"]
+        ]
 
     export = {
         "session_name": report.get("session_name", ""),
@@ -287,43 +357,54 @@ def export_json(report, filepath, is_internal=False):
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(export, f, indent=2, ensure_ascii=False)
 
+
 def save_to_autosave(report):
     """Save session to autosave/ folder for crash recovery & system backup."""
     folder = os.path.join(get_app_data_dir(), "autosave")
     os.makedirs(folder, exist_ok=True)
-    start_dt = datetime.strptime(report['date'] + " " + report['start'], "%Y-%m-%d %H:%M:%S")
+    start_dt = datetime.strptime(
+        report["date"] + " " + report["start"], "%Y-%m-%d %H:%M:%S"
+    )
     prefix = "recovery" if report.get("is_recovered") else "auto"
     filename = f"{prefix}_{start_dt.strftime('%Y-%m-%d_%H-%M-%S')}.json"
     filepath = os.path.join(folder, filename)
     export_json(report, filepath, is_internal=True)
     try:
         from core.reporting.aggregator import update_daily_summary
+
         update_daily_summary(report)
     except Exception as e:
         print(f"[TrueHour] Failed to update daily summary: {e}")
     return filepath
+
 
 def save_to_history(report):
     """Save session to sessions/ folder (User Manual Save)."""
     folder = os.path.join(get_app_data_dir(), "sessions")
     os.makedirs(folder, exist_ok=True)
-    start_dt = datetime.strptime(report['date'] + " " + report['start'], "%Y-%m-%d %H:%M:%S")
+    start_dt = datetime.strptime(
+        report["date"] + " " + report["start"], "%Y-%m-%d %H:%M:%S"
+    )
     filename = f"session_{start_dt.strftime('%Y-%m-%d_%H-%M-%S')}.json"
     filepath = os.path.join(folder, filename)
     export_json(report, filepath, is_internal=True)
     try:
         from core.reporting.aggregator import update_daily_summary
+
         update_daily_summary(report)
     except Exception as e:
         print(f"[TrueHour] Failed to update daily summary: {e}")
     return filepath
 
+
 def load_session_json(filepath):
     """Load an exported JSON session back into the report format."""
     with open(filepath, "r", encoding="utf-8") as f:
         data = json.load(f)
-    start_dt = datetime.strptime(data['date'] + " " + data['start'], "%Y-%m-%d %H:%M:%S")
-    end_dt = datetime.strptime(data['date'] + " " + data['end'], "%Y-%m-%d %H:%M:%S")
+    start_dt = datetime.strptime(
+        data["date"] + " " + data["start"], "%Y-%m-%d %H:%M:%S"
+    )
+    end_dt = datetime.strptime(data["date"] + " " + data["end"], "%Y-%m-%d %H:%M:%S")
 
     # Midnight crossover guard for session bounds
     if end_dt <= start_dt:
@@ -331,45 +412,61 @@ def load_session_json(filepath):
 
     apps = []
     project_times = {}
-    for a in data['apps']:
-        tag = a.get('tag', 'Unassigned')
-        pct = (a['seconds'] / data['total_seconds'] * 100) if data['total_seconds'] > 0 else 0
-        apps.append({
-            "name": a['name'],
-            "seconds": a['seconds'],
-            "formatted": format_duration(a['seconds']),
-            "percent": round(pct, 1),
-            "excluded": a.get('excluded', False),
-            "tag": tag
-        })
-        if not a.get('excluded', False):
-            project_times[tag] = project_times.get(tag, 0) + a['seconds']
+    for a in data["apps"]:
+        tag = a.get("tag", "Unassigned")
+        pct = (
+            (a["seconds"] / data["total_seconds"] * 100)
+            if data["total_seconds"] > 0
+            else 0
+        )
+        apps.append(
+            {
+                "name": a["name"],
+                "seconds": a["seconds"],
+                "formatted": format_duration(a["seconds"]),
+                "percent": round(pct, 1),
+                "excluded": a.get("excluded", False),
+                "tag": tag,
+            }
+        )
+        if not a.get("excluded", False):
+            project_times[tag] = project_times.get(tag, 0) + a["seconds"]
 
     total_counted = sum(project_times.values())
     breakdown = []
     for proj, secs in project_times.items():
         proj_pct = (secs / total_counted * 100) if total_counted > 0 else 0
-        proj_earned = (secs / 3600) * data.get('hourly_rate', 0.0)
-        breakdown.append({
-            "project": proj,
-            "seconds": int(secs),
-            "formatted": format_duration(secs),
-            "percent": round(proj_pct, 1),
-            "earned": round(proj_earned, 2),
-            "earned_display": f"{data.get('currency_symbol', '$')}{proj_earned:,.2f}",
-            "color": get_project_color(proj)
-        })
+        proj_earned = (secs / 3600) * data.get("hourly_rate", 0.0)
+        breakdown.append(
+            {
+                "project": proj,
+                "seconds": int(secs),
+                "formatted": format_duration(secs),
+                "percent": round(proj_pct, 1),
+                "earned": round(proj_earned, 2),
+                "earned_display": f"{data.get('currency_symbol', '$')}{proj_earned:,.2f}",
+                "color": get_project_color(proj),
+            }
+        )
     breakdown.sort(key=lambda x: x["seconds"], reverse=True)
 
-    excluded_apps = {a['name'] for a in data.get('apps', []) if a.get('excluded', False)}
+    excluded_apps = {
+        a["name"] for a in data.get("apps", []) if a.get("excluded", False)
+    }
     timeline = []
     day_offset = timedelta(days=0)  # Track accumulated midnight crossovers
     prev_end_time = None
-    for t in data['timeline']:
-        if t['app'] in excluded_apps:
+    for t in data["timeline"]:
+        if t["app"] in excluded_apps:
             continue
-        t_start = datetime.strptime(data['date'] + " " + t['start'], "%Y-%m-%d %H:%M:%S") + day_offset
-        t_end = datetime.strptime(data['date'] + " " + t['end'], "%Y-%m-%d %H:%M:%S") + day_offset
+        t_start = (
+            datetime.strptime(data["date"] + " " + t["start"], "%Y-%m-%d %H:%M:%S")
+            + day_offset
+        )
+        t_end = (
+            datetime.strptime(data["date"] + " " + t["end"], "%Y-%m-%d %H:%M:%S")
+            + day_offset
+        )
 
         # Detect if this entry's start is before the previous entry's end (crossed midnight)
         if prev_end_time and t_start < prev_end_time:
@@ -383,11 +480,7 @@ def load_session_json(filepath):
             day_offset += timedelta(days=1)
 
         prev_end_time = t_end
-        timeline.append({
-            "app": t['app'],
-            "start": t_start,
-            "end": t_end
-        })
+        timeline.append({"app": t["app"], "start": t_start, "end": t_end})
 
     return {
         "session_name": data.get("session_name", ""),
@@ -407,16 +500,24 @@ def load_session_json(filepath):
         "hourly_rate": data.get("hourly_rate", 0.0),
         "currency_symbol": data.get("currency_symbol", "$"),
         "total_earned": data.get("total_earned", 0.0),
-        "total_earned_display": f"{data.get('currency_symbol','$')}{data.get('total_earned',0.0):,.2f}",
+        "total_earned_display": f"{data.get('currency_symbol', '$')}{data.get('total_earned', 0.0):,.2f}",
         "project_breakdown": breakdown,
     }
 
-def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate: float = 0.0, currency_symbol: str = "$", exclude_key=None):
+
+def aggregate_history_data(
+    start_date: datetime,
+    end_date: datetime,
+    hourly_rate: float = 0.0,
+    currency_symbol: str = "$",
+    exclude_key=None,
+):
     """
     Scans and aggregates manual saved sessions and autosaved backups for a specific date range.
     Deduplicates sessions found in both folders using (date, start) as a unique key.
     """
     import glob
+
     sessions_folder = os.path.join(get_app_data_dir(), "sessions")
     autosave_folder = os.path.join(get_app_data_dir(), "autosave")
 
@@ -473,7 +574,9 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
         try:
             s_date_obj = datetime.strptime(session["date"], "%Y-%m-%d").date()
             start_time_str = session.get("start", "00:00:00")
-            s_time_obj = datetime.strptime(start_time_str.split('.')[0], "%H:%M:%S").time()
+            s_time_obj = datetime.strptime(
+                start_time_str.split(".")[0], "%H:%M:%S"
+            ).time()
             s_dt = datetime.combine(s_date_obj, s_time_obj)
 
             if start_date <= s_dt <= end_date:
@@ -540,15 +643,17 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
     app_list = []
     for name, secs in app_times.items():
         pct = (secs / total_seconds * 100.0) if total_seconds > 0 else 0
-        app_list.append({
-            "name": name,
-            "seconds": int(secs),
-            "formatted": format_duration(secs),
-            "percent": round(pct, 1),
-            "excluded": app_exclusions.get(name, False),
-            "tag": app_tags.get(name, "Unassigned"),
-            "exe_path": app_exes.get(name, "")
-        })
+        app_list.append(
+            {
+                "name": name,
+                "seconds": int(secs),
+                "formatted": format_duration(secs),
+                "percent": round(pct, 1),
+                "excluded": app_exclusions.get(name, False),
+                "tag": app_tags.get(name, "Unassigned"),
+                "exe_path": app_exes.get(name, ""),
+            }
+        )
     app_list.sort(key=lambda x: x["seconds"], reverse=True)
 
     # Format project breakdown
@@ -557,15 +662,17 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
     for proj, secs in project_times.items():
         pct = (secs / total_project_counted * 100.0) if total_project_counted > 0 else 0
         earned = (secs / 3600.0) * hourly_rate
-        project_list.append({
-            "project": proj,
-            "seconds": int(secs),
-            "formatted": format_duration(secs),
-            "percent": round(pct, 1),
-            "earned": round(earned, 2),
-            "earned_display": f"{currency_symbol}{earned:,.2f}",
-            "color": get_project_color(proj)
-        })
+        project_list.append(
+            {
+                "project": proj,
+                "seconds": int(secs),
+                "formatted": format_duration(secs),
+                "percent": round(pct, 1),
+                "earned": round(earned, 2),
+                "earned_display": f"{currency_symbol}{earned:,.2f}",
+                "color": get_project_color(proj),
+            }
+        )
     project_list.sort(key=lambda x: x["seconds"], reverse=True)
 
     # Format daily trend data for BarChartWidget
@@ -583,10 +690,7 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
         else:
             label = curr_d.strftime("%m/%d")  # 05/26
 
-        daily_trend.append({
-            "label": label,
-            "value": round(secs / 3600.0, 2)
-        })
+        daily_trend.append({"label": label, "value": round(secs / 3600.0, 2)})
         curr_d += timedelta(days=1)
 
     # Calculate total earned
@@ -604,10 +708,13 @@ def aggregate_history_data(start_date: datetime, end_date: datetime, hourly_rate
         "apps": app_list,
         "project_breakdown": project_list,
         "daily_trend": daily_trend,
-        "session_count": len(filtered_sessions)
+        "session_count": len(filtered_sessions),
     }
 
-def merge_sessions_for_invoice(filepaths: List[str], tracker, hourly_rate: float = 0.0, currency_symbol: str = "$"):
+
+def merge_sessions_for_invoice(
+    filepaths: List[str], tracker, hourly_rate: float = 0.0, currency_symbol: str = "$"
+):
     """
     Merges multiple session logs for invoicing.
     Applies real-time category & exclusion overrides using the active tracker.
@@ -650,7 +757,11 @@ def merge_sessions_for_invoice(filepaths: List[str], tracker, hourly_rate: float
 
             # Use the saved session's own exclusion status to compile exactly the productive/counted work time
             active_tag = tracker.get_app_tag(name)
-            tag = active_tag if active_tag and active_tag != "Unassigned" else app.get("tag", "Unassigned")
+            tag = (
+                active_tag
+                if active_tag and active_tag != "Unassigned"
+                else app.get("tag", "Unassigned")
+            )
             included = not app.get("excluded", False)
 
             if included:
@@ -666,15 +777,17 @@ def merge_sessions_for_invoice(filepaths: List[str], tracker, hourly_rate: float
     for proj, secs in project_times.items():
         pct = (secs / total_project_counted * 100.0) if total_project_counted > 0 else 0
         earned = (secs / 3600.0) * hourly_rate
-        breakdown.append({
-            "project": proj,
-            "seconds": int(secs),
-            "formatted": format_duration(secs),
-            "percent": round(pct, 1),
-            "earned": round(earned, 2),
-            "earned_display": f"{curr_sym}{earned:,.2f}",
-            "color": get_project_color(proj)
-        })
+        breakdown.append(
+            {
+                "project": proj,
+                "seconds": int(secs),
+                "formatted": format_duration(secs),
+                "percent": round(pct, 1),
+                "earned": round(earned, 2),
+                "earned_display": f"{curr_sym}{earned:,.2f}",
+                "color": get_project_color(proj),
+            }
+        )
     breakdown.sort(key=lambda x: x["seconds"], reverse=True)
 
     total_earned = 0.0
@@ -689,8 +802,9 @@ def merge_sessions_for_invoice(filepaths: List[str], tracker, hourly_rate: float
         "total_earned": round(total_earned, 2),
         "total_earned_display": f"{curr_sym}{total_earned:,.2f}",
         "project_breakdown": breakdown,
-        "session_count": len(unique_sessions)
+        "session_count": len(unique_sessions),
     }
+
 
 def mask_email(email: str) -> str:
     """
@@ -722,6 +836,7 @@ def mask_email(email: str) -> str:
     except Exception:
         return email
 
+
 def mask_phone(phone: str) -> str:
     """
     Masks sensitive phone numbers.
@@ -734,7 +849,7 @@ def mask_phone(phone: str) -> str:
         mask_count = 0
         for c in reversed(phone):
             if c.isdigit() and mask_count < 7:
-                masked.append('*')
+                masked.append("*")
                 mask_count += 1
             else:
                 masked.append(c)
@@ -742,7 +857,9 @@ def mask_phone(phone: str) -> str:
     except Exception:
         return phone
 
+
 _TEMPLATE_CACHE = {}
+
 
 def get_cached_template(template_path: str, default_content: str) -> str:
     """Return cached HTML template content to prevent redundant disk read operations."""
@@ -775,6 +892,7 @@ def get_cached_template(template_path: str, default_content: str) -> str:
 
     _TEMPLATE_CACHE[template_path] = content
     return content
+
 
 default_receipt_template = """<!DOCTYPE html>
 <html lang="en">
@@ -1221,6 +1339,7 @@ default_receipt_template = """<!DOCTYPE html>
 </body>
 </html>"""
 
+
 def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
     """
     Generates a stunning, premium, modern A4 HTML payment receipt with simplified details.
@@ -1269,9 +1388,15 @@ def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
     curr_sym = settings_data.get("currency_symbol", "$")
 
     # Email & Phone Masking & Multi-Email Processing
-    mask_biz_emails = settings_data.get("mask_business_emails", settings_data.get("mask_sensitive_data", False))
-    mask_biz_phone = settings_data.get("mask_business_phone", settings_data.get("mask_sensitive_data", False))
-    mask_client_emails = settings_data.get("mask_client_emails", settings_data.get("mask_sensitive_data", False))
+    mask_biz_emails = settings_data.get(
+        "mask_business_emails", settings_data.get("mask_sensitive_data", False)
+    )
+    mask_biz_phone = settings_data.get(
+        "mask_business_phone", settings_data.get("mask_sensitive_data", False)
+    )
+    mask_client_emails = settings_data.get(
+        "mask_client_emails", settings_data.get("mask_sensitive_data", False)
+    )
 
     biz_emails = settings_data.get("business_emails", [])
     if not biz_emails:
@@ -1311,7 +1436,7 @@ def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
         client_emails_html = f'<div class="party-address">{emails_joined}</div>'
 
     # Self-healing logic for receipt.html
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         base_dir = os.path.dirname(sys.executable)
     else:
         try:
@@ -1325,19 +1450,33 @@ def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
     template_html = get_cached_template(template_path, default_receipt_template)
 
     html = template_html
-    theme_style = settings_data.get("theme_style", "modern-dark" if settings_data.get("dark_mode", False) else "light")
+    theme_style = settings_data.get(
+        "theme_style",
+        "modern-dark" if settings_data.get("dark_mode", False) else "light",
+    )
     if settings_data.get("dark_mode", False):
         html = html.replace("<body>", f'<body class="dark {theme_style}">')
     html = html.replace("{{LOGO_HTML}}", logo_html)
-    html = html.replace("{{BUSINESS_NAME}}", _esc(settings_data.get("business_name", "TrueHour Business")))
-    html = html.replace("{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", "")))
+    html = html.replace(
+        "{{BUSINESS_NAME}}",
+        _esc(settings_data.get("business_name", "TrueHour Business")),
+    )
+    html = html.replace(
+        "{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", ""))
+    )
     html = html.replace("{{BUSINESS_CONTACT}}", biz_contact_html)
 
-    final_receipt_no = invoice_no if invoice_no else f"REC-{datetime.now().strftime('%Y%m%d%H%M')}"
+    final_receipt_no = (
+        invoice_no if invoice_no else f"REC-{datetime.now().strftime('%Y%m%d%H%M')}"
+    )
     html = html.replace("{{RECEIPT_NO}}", final_receipt_no)
     html = html.replace("{{DATE}}", datetime.now().strftime("%B %d, %Y"))
-    html = html.replace("{{CLIENT_NAME}}", _esc(settings_data.get("client_name", "Valued Client")))
-    html = html.replace("{{CLIENT_ADDRESS}}", _esc(settings_data.get("client_address", "")))
+    html = html.replace(
+        "{{CLIENT_NAME}}", _esc(settings_data.get("client_name", "Valued Client"))
+    )
+    html = html.replace(
+        "{{CLIENT_ADDRESS}}", _esc(settings_data.get("client_address", ""))
+    )
     html = html.replace("{{CLIENT_EMAILS_HTML}}", client_emails_html)
 
     html = html.replace("{{HOURS_COUNTED}}", f"{hours_counted:.2f}")
@@ -1351,17 +1490,21 @@ def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
 
     return html
 
-def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_no=None) -> str:
+
+def generate_invoice_html(
+    billing_data, settings_data, status="unpaid", invoice_no=None
+) -> str:
     """
     Generates a stunning, premium, modern A4 HTML invoice.
     Optimized for high-fidelity web viewing and perfect browser-based PDF printing.
     Loads templates/invoice.html from disk, auto-creating it if missing.
     """
-    if status == 'paid':
+    if status == "paid":
         return generate_receipt_html(billing_data, settings_data, invoice_no=invoice_no)
     import base64
     import sys
     from html import escape as _esc
+
     logo_path = settings_data.get("business_logo_path", "")
     logo_data_uri = ""
     if logo_path and os.path.exists(logo_path):
@@ -1400,9 +1543,15 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
     curr_sym = settings_data.get("currency_symbol", "$")
 
     # Email & Phone Masking & Multi-Email Processing
-    mask_biz_emails = settings_data.get("mask_business_emails", settings_data.get("mask_sensitive_data", False))
-    mask_biz_phone = settings_data.get("mask_business_phone", settings_data.get("mask_sensitive_data", False))
-    mask_client_emails = settings_data.get("mask_client_emails", settings_data.get("mask_sensitive_data", False))
+    mask_biz_emails = settings_data.get(
+        "mask_business_emails", settings_data.get("mask_sensitive_data", False)
+    )
+    mask_biz_phone = settings_data.get(
+        "mask_business_phone", settings_data.get("mask_sensitive_data", False)
+    )
+    mask_client_emails = settings_data.get(
+        "mask_client_emails", settings_data.get("mask_sensitive_data", False)
+    )
 
     # Process business emails
     biz_emails = settings_data.get("business_emails", [])
@@ -1451,6 +1600,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
     qr_code_links = settings_data.get("qr_code_links", {})
     if qr_code_paths:
         from config import get_app_data_dir
+
         qr_dir = os.path.join(get_app_data_dir(), "qr_codes")
         qr_items = []
         for qr_fname in qr_code_paths:
@@ -1485,7 +1635,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             has_any_link = any(qr_code_links.get(fn, "") for fn in qr_code_paths)
             hint_html = ""
             if has_any_link:
-                hint_html = '\n            <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px; font-weight: 500; font-family: \'Inter\', sans-serif;">💡 Click on a QR code to open its payment link.</div>'
+                hint_html = "\n            <div style=\"font-size: 11px; color: var(--text-muted); margin-top: 8px; font-weight: 500; font-family: 'Inter', sans-serif;\">💡 Click on a QR code to open its payment link.</div>"
             qr_html = f"""
             <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; width: 100%;">
                 <div class="qr-codes-container">
@@ -1502,7 +1652,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
             """
 
     # Self-healing logic: find templates/invoice.html or auto-create it
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         base_dir = os.path.dirname(sys.executable)
     else:
         try:
@@ -2340,15 +2490,15 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
     template_html = get_cached_template(template_path, default_template)
 
     # Define labels based on status
-    if status == 'paid':
+    if status == "paid":
         invoice_badge = "RECEIPT"
         total_due_label = "Total Amount Paid"
         stamp_style = (
-            'position: absolute; top: 30px; right: 40px; border: 4px double var(--success); '
+            "position: absolute; top: 30px; right: 40px; border: 4px double var(--success); "
             'color: var(--success); font-family: "Outfit", sans-serif; font-size: 20px; '
-            'font-weight: 800; padding: 4px 14px; border-radius: 8px; transform: rotate(-8deg); '
-            'text-transform: uppercase; letter-spacing: 0.1em; background-color: var(--success-bg); '
-            'pointer-events: none; user-select: none; z-index: 10;'
+            "font-weight: 800; padding: 4px 14px; border-radius: 8px; transform: rotate(-8deg); "
+            "text-transform: uppercase; letter-spacing: 0.1em; background-color: var(--success-bg); "
+            "pointer-events: none; user-select: none; z-index: 10;"
         )
         stamp_html = f'<div style="{stamp_style}">PAID RECEIPT</div>'
     else:
@@ -2356,25 +2506,41 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
         total_due_label = "Total Amount Due"
         stamp_html = ""
 
-    final_invoice_no = invoice_no if invoice_no else f"INV-{datetime.now().strftime('%Y%m%d%H%M')}"
+    final_invoice_no = (
+        invoice_no if invoice_no else f"INV-{datetime.now().strftime('%Y%m%d%H%M')}"
+    )
 
     # Replace all placeholders in HTML template
     html = template_html
-    theme_style = settings_data.get("theme_style", "modern-dark" if settings_data.get("dark_mode", False) else "light")
+    theme_style = settings_data.get(
+        "theme_style",
+        "modern-dark" if settings_data.get("dark_mode", False) else "light",
+    )
     if settings_data.get("dark_mode", False):
         html = html.replace("<body>", f'<body class="dark {theme_style}">')
     html = html.replace("{{LOGO_HTML}}", logo_html)
-    html = html.replace("{{BUSINESS_NAME}}", _esc(settings_data.get("business_name", "TrueHour Invoice")))
-    html = html.replace("{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", "")))
+    html = html.replace(
+        "{{BUSINESS_NAME}}",
+        _esc(settings_data.get("business_name", "TrueHour Invoice")),
+    )
+    html = html.replace(
+        "{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", ""))
+    )
     html = html.replace("{{BUSINESS_CONTACT}}", biz_contact_html)
     html = html.replace("{{INVOICE_NO}}", final_invoice_no)
     html = html.replace("{{INVOICE_BADGE}}", invoice_badge)
     html = html.replace("{{TOTAL_DUE_LABEL}}", total_due_label)
     html = html.replace("{{PAYMENT_CONFIRMATION_STAMP}}", stamp_html)
     html = html.replace("{{DATE}}", datetime.now().strftime("%B %d, %Y"))
-    html = html.replace("{{SESSIONS_COMPILED}}", str(billing_data.get("session_count", 1)))
-    html = html.replace("{{CLIENT_NAME}}", _esc(settings_data.get("client_name", "Valued Client")))
-    html = html.replace("{{CLIENT_ADDRESS}}", _esc(settings_data.get("client_address", "")))
+    html = html.replace(
+        "{{SESSIONS_COMPILED}}", str(billing_data.get("session_count", 1))
+    )
+    html = html.replace(
+        "{{CLIENT_NAME}}", _esc(settings_data.get("client_name", "Valued Client"))
+    )
+    html = html.replace(
+        "{{CLIENT_ADDRESS}}", _esc(settings_data.get("client_address", ""))
+    )
     html = html.replace("{{CLIENT_EMAILS_HTML}}", client_emails_html)
     html = html.replace("{{HOURS_COUNTED}}", f"{hours_counted:.2f}")
 
@@ -2387,7 +2553,14 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
 
     html = html.replace("{{TOTAL_AMOUNT_DUE}}", _esc(total_earned_display))
     html = html.replace("{{GRAND_TOTAL}}", _esc(total_earned_display))
-    html = html.replace("{{PAYMENT_INSTRUCTIONS}}", _esc(settings_data.get("business_payment", "Payment is due within 14 days of invoice date.")))
+    html = html.replace(
+        "{{PAYMENT_INSTRUCTIONS}}",
+        _esc(
+            settings_data.get(
+                "business_payment", "Payment is due within 14 days of invoice date."
+            )
+        ),
+    )
     html = html.replace("{{QR_HTML}}", qr_html)
 
     # Generate bank details block if any provided
@@ -2399,7 +2572,9 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
     bank_address = settings_data.get("bank_address", "")
 
     bank_details_html = ""
-    if settings_data.get("enable_bank_details", True) and any([bank_holder, bank_account, bank_routing, bank_swift, bank_name, bank_address]):
+    if settings_data.get("enable_bank_details", True) and any(
+        [bank_holder, bank_account, bank_routing, bank_swift, bank_name, bank_address]
+    ):
         items = []
         if bank_holder:
             items.append(f"""
@@ -2453,7 +2628,11 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
     for pb in billing_data.get("project_breakdown", []):
         cat_hours = pb["seconds"] / 3600.0
         tag_color = pb.get("color", "#64748B")
-        pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" else ""
+        pill_style = (
+            f"background-color: {tag_color}1a; color: {tag_color};"
+            if tag_color != "#64748B"
+            else ""
+        )
         items_html += f"""
                 <tr>
                     <td style="font-weight: 600;"><span class="tag-pill" style="{pill_style}">{pb["project"]}</span></td>
@@ -2470,6 +2649,7 @@ def generate_invoice_html(billing_data, settings_data, status='unpaid', invoice_
 
     return html
 
+
 def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -> str:
     """
     Generates a stunning, premium, modern A4 HTML session report.
@@ -2478,7 +2658,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     """
     import sys
     from html import escape as _esc
-    if getattr(sys, 'frozen', False):
+
+    if getattr(sys, "frozen", False):
         base_dir = os.path.dirname(sys.executable)
     else:
         try:
@@ -3097,6 +3278,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
 
     from config import get_app_data_dir
     import json
+
     settings_path = os.path.join(get_app_data_dir(), "settings.json")
     dark_mode = False
     theme_style = "light"
@@ -3105,13 +3287,14 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             with open(settings_path, "r", encoding="utf-8") as f:
                 settings_data = json.load(f)
                 dark_mode = settings_data.get("dark_mode", False)
-                theme_style = settings_data.get("theme_style", "modern-dark" if dark_mode else "light")
+                theme_style = settings_data.get(
+                    "theme_style", "modern-dark" if dark_mode else "light"
+                )
         except Exception:
             pass
 
     def get_color(tag):
         return get_project_color(tag)
-
 
     total_secs = report.get("total_seconds", 0)
     counted_secs = report.get("counted_seconds", 0)
@@ -3140,16 +3323,22 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
 
     # New Activity logic for resumed sessions
     new_activity_html = ""
-    new_activity = [a for a in report.get("new_activity", []) if not a.get("excluded", False)]
+    new_activity = [
+        a for a in report.get("new_activity", []) if not a.get("excluded", False)
+    ]
     if new_activity:
         rows_html = ""
         for a in new_activity:
             raw_tag = a.get("tag", "Unassigned")
             tag_color = get_color(raw_tag)
-            pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" or dark_mode else ""
-            escaped_name = _esc(a['name'])
+            pill_style = (
+                f"background-color: {tag_color}1a; color: {tag_color};"
+                if tag_color != "#64748B" or dark_mode
+                else ""
+            )
+            escaped_name = _esc(a["name"])
             escaped_tag = _esc(raw_tag)
-            initial = _esc(a['name'][0].upper()) if a['name'] else "?"
+            initial = _esc(a["name"][0].upper()) if a["name"] else "?"
             icon_html = f"""<svg class="app-icon" style="vertical-align: middle; margin-right: 8px;" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect width="24" height="24" rx="6" fill="{tag_color}1a"/>
                 <text x="12" y="16" fill="{tag_color}" font-size="12" font-weight="800" font-family="Inter, system-ui, sans-serif" text-anchor="middle">{initial}</text>
@@ -3159,9 +3348,9 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             <tr>
                 <td style="font-weight: 600;">{icon_html}{escaped_name}</td>
                 <td><span class="tag-pill" style="{pill_style}">{escaped_tag}</span></td>
-                <td>{a['previous_formatted']}</td>
-                <td style="color: var(--success); font-weight: 600;">+{a['new_formatted']}</td>
-                <td style="text-align: right; font-weight: 600;">{a['total_formatted']}</td>
+                <td>{a["previous_formatted"]}</td>
+                <td style="color: var(--success); font-weight: 600;">+{a["new_formatted"]}</td>
+                <td style="text-align: right; font-weight: 600;">{a["total_formatted"]}</td>
             </tr>
             """
         new_activity_html = f"""
@@ -3188,12 +3377,12 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     projects_visual = ""
     for pb in report.get("project_breakdown", []):
         pct = pb.get("percent", 0.0)
-        color = get_color(pb['project'])
+        color = get_color(pb["project"])
         projects_visual += f"""
         <div class="project-row">
             <div class="project-info">
-                <span class="project-name">{pb['project']}</span>
-                <span class="project-stats">{pb['formatted']} ({pct:.1f}%)</span>
+                <span class="project-name">{pb["project"]}</span>
+                <span class="project-stats">{pb["formatted"]} ({pct:.1f}%)</span>
             </div>
             <div class="project-bar-bg">
                 <div class="project-bar-fill" style="width: {pct:.1f}%; background: linear-gradient(90deg, {color} 0%, {color}cc 100%);"></div>
@@ -3209,15 +3398,19 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         pct = app.get("percent", 0.0)
         raw_tag = app.get("tag", "Unassigned")
         tag_color = get_color(raw_tag)
-        pill_style = f"background-color: {tag_color}1a; color: {tag_color};" if tag_color != "#64748B" or dark_mode else ""
-        escaped_app_name = _esc(app['name'])
+        pill_style = (
+            f"background-color: {tag_color}1a; color: {tag_color};"
+            if tag_color != "#64748B" or dark_mode
+            else ""
+        )
+        escaped_app_name = _esc(app["name"])
         escaped_tag = _esc(raw_tag)
 
         # Clean background-friendly bypass for local icon extraction
         local_b64 = ""
 
         # Mappings for premium online SVG icons via Simple Icons CDN
-        app_name_lower = app['name'].lower().strip()
+        app_name_lower = app["name"].lower().strip()
         simple_icons = {
             "vs code": "visualstudiocode",
             "vscode": "visualstudiocode",
@@ -3275,7 +3468,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             if local_b64:
                 fallback_src = f"data:image/png;base64,{local_b64}"
             else:
-                initial = _esc(app['name'][0].upper()) if app['name'] else "?"
+                initial = _esc(app["name"][0].upper()) if app["name"] else "?"
                 fallback_src = f"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><rect width='24' height='24' rx='6' fill='{tag_color.replace('#', '%23')}1a'/><text x='12' y='16' fill='{tag_color.replace('#', '%23')}' font-size='12' font-weight='800' font-family='sans-serif' text-anchor='middle'>{initial}</text></svg>"
 
             # Escape quotes safely for HTML attributes
@@ -3286,10 +3479,12 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
             icon_html = f"""<img src="https://cdn.simpleicons.org/{slug}{si_url_suffix}" class="app-icon" onerror="this.onerror=function(){{ this.onerror=function(){{ this.onerror=null; this.src='{escaped_fallback}'; }}; this.src='https://unpkg.com/simple-icons@11.13.0/icons/{slug}.svg'; }}; this.src='https://cdn.jsdelivr.net/npm/simple-icons@11.13.0/icons/{slug}.svg';" />"""
         elif local_b64:
             # Use local base64 extracted exe icon
-            icon_html = f'<img src="data:image/png;base64,{local_b64}" class="app-icon" />'
+            icon_html = (
+                f'<img src="data:image/png;base64,{local_b64}" class="app-icon" />'
+            )
         else:
             # High-fidelity category-colored letter-initial SVG vector (completely offline & local)
-            initial = _esc(app['name'][0].upper()) if app['name'] else "?"
+            initial = _esc(app["name"][0].upper()) if app["name"] else "?"
             icon_html = f"""<svg class="app-icon" style="vertical-align: middle; margin-right: 8px;" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect width="24" height="24" rx="6" fill="{tag_color}1a"/>
                 <text x="12" y="16" fill="{tag_color}" font-size="12" font-weight="800" font-family="Inter, system-ui, sans-serif" text-anchor="middle">{initial}</text>
@@ -3299,7 +3494,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         <tr>
             <td style="font-weight: 600;">{icon_html}{escaped_app_name}</td>
             <td><span class="tag-pill" style="{pill_style}">{escaped_tag}</span></td>
-            <td>{app['formatted']}</td>
+            <td>{app["formatted"]}</td>
             <td style="text-align: right; font-weight: 600;">{pct:.1f}%</td>
         </tr>
         """
@@ -3310,7 +3505,9 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     capped_timeline = timeline_entries[:15]
 
     # Pre-compile app category mappings in O(N) to allow O(1) lookups inside loop
-    app_tags = {app["name"]: app.get("tag", "Unassigned") for app in report.get("apps", [])}
+    app_tags = {
+        app["name"]: app.get("tag", "Unassigned") for app in report.get("apps", [])
+    }
 
     base_date_str = report.get("date")
     if not base_date_str or not isinstance(base_date_str, str):
@@ -3326,7 +3523,9 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
                 if "%Y-%m-%d" in fmt:
                     return datetime.strptime(time_val, fmt)
                 else:
-                    return datetime.strptime(base_date_str + " " + time_val, "%Y-%m-%d " + fmt)
+                    return datetime.strptime(
+                        base_date_str + " " + time_val, "%Y-%m-%d " + fmt
+                    )
             except ValueError:
                 continue
         return time_val
@@ -3345,8 +3544,16 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         else:
             duration_secs = 0
 
-        start_str = t_start_dt.strftime("%I:%M:%S %p") if hasattr(t_start_dt, "strftime") else str(t_start)
-        end_str = t_end_dt.strftime("%I:%M:%S %p") if hasattr(t_end_dt, "strftime") else str(t_end)
+        start_str = (
+            t_start_dt.strftime("%I:%M:%S %p")
+            if hasattr(t_start_dt, "strftime")
+            else str(t_start)
+        )
+        end_str = (
+            t_end_dt.strftime("%I:%M:%S %p")
+            if hasattr(t_end_dt, "strftime")
+            else str(t_end)
+        )
 
         app_name = t.get("app", "Active Session")
         app_tag = app_tags.get(app_name, "Unassigned")
@@ -3373,12 +3580,25 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
 
     # Replacements
     html = template_html
-    html = html.replace("{{SESSION_NAME}}", _esc(report.get("session_name", "Unnamed Session")))
-    html = html.replace("{{DATE}}", _esc(report.get("date_display", report.get("date", ""))))
-    html = html.replace("{{START_TIME}}", _esc(report.get("start_display", report.get("start", ""))))
-    html = html.replace("{{END_TIME}}", _esc(report.get("end_display", report.get("end", ""))))
-    html = html.replace("{{TOTAL_DURATION}}", report.get("total_formatted", format_duration(total_secs)))
-    html = html.replace("{{PRODUCTIVE_DURATION}}", report.get("counted_formatted", format_duration(counted_secs)))
+    html = html.replace(
+        "{{SESSION_NAME}}", _esc(report.get("session_name", "Unnamed Session"))
+    )
+    html = html.replace(
+        "{{DATE}}", _esc(report.get("date_display", report.get("date", "")))
+    )
+    html = html.replace(
+        "{{START_TIME}}", _esc(report.get("start_display", report.get("start", "")))
+    )
+    html = html.replace(
+        "{{END_TIME}}", _esc(report.get("end_display", report.get("end", "")))
+    )
+    html = html.replace(
+        "{{TOTAL_DURATION}}", report.get("total_formatted", format_duration(total_secs))
+    )
+    html = html.replace(
+        "{{PRODUCTIVE_DURATION}}",
+        report.get("counted_formatted", format_duration(counted_secs)),
+    )
     html = html.replace("{{PRODUCTIVITY_RATIO}}", f"{ratio:.1f}")
     html = html.replace("{{EARNINGS_HTML}}", earnings_html)
     html = html.replace("{{NEW_ACTIVITY_HTML}}", new_activity_html)
@@ -3387,5 +3607,8 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     html = html.replace("{{TIMELINE_ITEMS}}", timeline_items)
 
     if dark_mode:
-        html = html.replace('<body class="theme-indigo">', f'<body class="theme-indigo dark {theme_style}">')
+        html = html.replace(
+            '<body class="theme-indigo">',
+            f'<body class="theme-indigo dark {theme_style}">',
+        )
     return html

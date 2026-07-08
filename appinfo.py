@@ -2,7 +2,9 @@
 TrueHour — App info resolver.
 Extracts friendly display names and icons from Windows executables.
 """
+
 import platform
+
 SYSTEM = platform.system()
 
 if SYSTEM == "Windows":
@@ -21,15 +23,18 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 if not logger.handlers:
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    ))
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
     logger.addHandler(handler)
 
 _name_cache = {}
-OVERRIDES_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "name_overrides.txt"))
+OVERRIDES_FILE = DynamicPath(
+    lambda: os.path.join(get_app_data_dir(), "name_overrides.txt")
+)
 _NAME_OVERRIDES = {}
 _name_overrides_loaded = False
+
 
 def _load_name_overrides(force=True):
     global _name_overrides_loaded
@@ -43,7 +48,9 @@ def _load_name_overrides(force=True):
             if override_dir:
                 os.makedirs(override_dir, exist_ok=True)
             with open(OVERRIDES_FILE, "w", encoding="utf-8") as f:
-                f.write("# Add your custom app name overrides here. Format: exename=Friendly Name\n")
+                f.write(
+                    "# Add your custom app name overrides here. Format: exename=Friendly Name\n"
+                )
                 f.write("# Example: chrome=Google Chrome\n")
         except OSError as e:
             logger.warning(f"Failed to create name overrides file: {e}")
@@ -59,6 +66,7 @@ def _load_name_overrides(force=True):
             logger.warning(f"Failed to read name overrides file: {e}")
     _name_overrides_loaded = True
 
+
 def get_foreground_app_info():
     """Return (friendly_name, exe_path) for the current foreground window."""
     _load_name_overrides(force=False)
@@ -67,12 +75,14 @@ def get_foreground_app_info():
         try:
             # pyrefly: ignore [missing-import]
             from AppKit import NSWorkspace
+
             active_app = NSWorkspace.sharedWorkspace().activeApplication()
             if not active_app:
                 return "[Idle]", ""
-            
+
             # Check if active app is our own process
             import os
+
             if active_app.get("NSApplicationProcessIdentifier") == os.getpid():
                 return "TrueHour", "truehour.exe"
 
@@ -97,14 +107,16 @@ def get_foreground_app_info():
         _, pid = win32process.GetWindowThreadProcessId(hwnd)
         if pid <= 0:
             return "[Idle]", ""
-        
+
         # Check if the foreground window belongs to our own TrueHour process
         import os
+
         if pid == os.getpid():
             return "TrueHour", "truehour.exe"
 
         try:
             import psutil
+
             proc = psutil.Process(pid)
             exe_path = proc.exe()
             base = proc.name()
@@ -119,14 +131,19 @@ def get_foreground_app_info():
         logger.warning(f"Error getting foreground app info: {e}")
         return "[Idle]", ""
 
+
 def resolve_name(exe_path, base_name):
     _load_name_overrides(force=False)
-    if exe_path in _name_cache: return _name_cache[exe_path]
+    if exe_path in _name_cache:
+        return _name_cache[exe_path]
     friendly = None
     key = base_name.lower()
-    if key in _NAME_OVERRIDES: friendly = _NAME_OVERRIDES[key]
-    if not friendly: friendly = _get_file_description(exe_path)
-    if not friendly: friendly = base_name.replace("_", " ").replace("-", " ").title()
+    if key in _NAME_OVERRIDES:
+        friendly = _NAME_OVERRIDES[key]
+    if not friendly:
+        friendly = _get_file_description(exe_path)
+    if not friendly:
+        friendly = base_name.replace("_", " ").replace("-", " ").title()
     if len(_name_cache) >= 500:
         try:
             del _name_cache[next(iter(_name_cache))]
@@ -135,13 +152,16 @@ def resolve_name(exe_path, base_name):
     _name_cache[exe_path] = friendly
     return friendly
 
+
 def _get_file_description(exe_path):
     """Extract FileDescription from an executable's version info."""
     if SYSTEM != "Windows":
         return None
     try:
-        lang, codepage = win32api.GetFileVersionInfo(exe_path, '\\VarFileInfo\\Translation')[0]
-        path = f'\\StringFileInfo\\{lang:04X}{codepage:04X}\\FileDescription'
+        lang, codepage = win32api.GetFileVersionInfo(
+            exe_path, "\\VarFileInfo\\Translation"
+        )[0]
+        path = f"\\StringFileInfo\\{lang:04X}{codepage:04X}\\FileDescription"
         desc = win32api.GetFileVersionInfo(exe_path, path)
         if desc and desc.strip():
             return desc.strip()
@@ -149,13 +169,16 @@ def _get_file_description(exe_path):
         logger.debug(f"Failed to get file description for {exe_path}: {e}")
     return None
 
+
 def get_company_name(exe_path):
     """Extract CompanyName from an executable's version info."""
     if SYSTEM != "Windows":
         return None
     try:
-        lang, codepage = win32api.GetFileVersionInfo(exe_path, '\\VarFileInfo\\Translation')[0]
-        path = f'\\StringFileInfo\\{lang:04X}{codepage:04X}\\CompanyName'
+        lang, codepage = win32api.GetFileVersionInfo(
+            exe_path, "\\VarFileInfo\\Translation"
+        )[0]
+        path = f"\\StringFileInfo\\{lang:04X}{codepage:04X}\\CompanyName"
         desc = win32api.GetFileVersionInfo(exe_path, path)
         if desc and desc.strip():
             return desc.strip()
@@ -163,13 +186,16 @@ def get_company_name(exe_path):
         logger.debug(f"Failed to get company name for {exe_path}: {e}")
     return None
 
+
 def get_product_name(exe_path):
     """Extract ProductName from an executable's version info."""
     if SYSTEM != "Windows":
         return None
     try:
-        lang, codepage = win32api.GetFileVersionInfo(exe_path, '\\VarFileInfo\\Translation')[0]
-        path = f'\\StringFileInfo\\{lang:04X}{codepage:04X}\\ProductName'
+        lang, codepage = win32api.GetFileVersionInfo(
+            exe_path, "\\VarFileInfo\\Translation"
+        )[0]
+        path = f"\\StringFileInfo\\{lang:04X}{codepage:04X}\\ProductName"
         desc = win32api.GetFileVersionInfo(exe_path, path)
         if desc and desc.strip():
             return desc.strip()
@@ -177,13 +203,17 @@ def get_product_name(exe_path):
         logger.debug(f"Failed to get product name for {exe_path}: {e}")
     return None
 
+
 @lru_cache(maxsize=128)
 def get_icon_image(exe_path: str, size: int = 16):
-    if not exe_path: return None
+    if not exe_path:
+        return None
     return _extract_icon(exe_path, size)
+
 
 def _extract_icon(exe_path, size=16):
     from PIL import Image
+
     if SYSTEM != "Windows":
         # macOS Icon Extraction using native Cocoa / AppKit
         try:
@@ -197,7 +227,7 @@ def _extract_icon(exe_path, size=16):
                 # Convert NSImage to PNG data, then load into Pillow
                 tiff_data = ns_image.TIFFRepresentation()
                 img = Image.open(io.BytesIO(tiff_data))
-                resampler = getattr(Image, 'Resampling', Image).LANCZOS
+                resampler = getattr(Image, "Resampling", Image).LANCZOS
                 return img.resize((size, size), resampler)
         except Exception as e:
             logger.debug(f"Failed to extract icon from {exe_path} on macOS: {e}")
@@ -224,14 +254,32 @@ def _extract_icon(exe_path, size=16):
 
         brush = win32gui.GetSysColorBrush(win32con.COLOR_WINDOW)
         win32gui.FillRect(mem_dc.GetHandleOutput(), (0, 0, size, size), brush)
-        win32gui.DrawIconEx(mem_dc.GetHandleOutput(), 0, 0, hicon, size, size, 0, None, win32con.DI_NORMAL)
+        win32gui.DrawIconEx(
+            mem_dc.GetHandleOutput(),
+            0,
+            0,
+            hicon,
+            size,
+            size,
+            0,
+            None,
+            win32con.DI_NORMAL,
+        )
 
         bmp_info = bmp.GetInfo()
         bmp_bits = bmp.GetBitmapBits()
-        img = Image.frombuffer('RGBA', (bmp_info['bmWidth'], bmp_info['bmHeight']), bmp_bits, 'raw', 'BGRA', 0, 1)
+        img = Image.frombuffer(
+            "RGBA",
+            (bmp_info["bmWidth"], bmp_info["bmHeight"]),
+            bmp_bits,
+            "raw",
+            "BGRA",
+            0,
+            1,
+        )
 
         # Handle Pillow deprecation
-        resampler = getattr(Image, 'Resampling', Image).LANCZOS
+        resampler = getattr(Image, "Resampling", Image).LANCZOS
         return img.resize((size, size), resampler)
     except Exception as e:
         logger.debug(f"Failed to extract icon from {exe_path}: {e}")
@@ -239,21 +287,31 @@ def _extract_icon(exe_path, size=16):
     finally:
         if mem_dc:
             if old_bmp:
-                try: mem_dc.SelectObject(old_bmp)
-                except Exception: pass
-            try: mem_dc.DeleteDC()
-            except Exception: pass
+                try:
+                    mem_dc.SelectObject(old_bmp)
+                except Exception:
+                    pass
+            try:
+                mem_dc.DeleteDC()
+            except Exception:
+                pass
         if bmp:
-            try: win32gui.DeleteObject(bmp.GetHandle())
-            except Exception: pass
+            try:
+                win32gui.DeleteObject(bmp.GetHandle())
+            except Exception:
+                pass
         if screen_dc:
-            try: win32gui.ReleaseDC(0, screen_dc)
-            except Exception: pass
+            try:
+                win32gui.ReleaseDC(0, screen_dc)
+            except Exception:
+                pass
         for icon in large_icons:
-            try: win32gui.DestroyIcon(icon)
-            except Exception: pass
+            try:
+                win32gui.DestroyIcon(icon)
+            except Exception:
+                pass
         for icon in small_icons:
-            try: win32gui.DestroyIcon(icon)
-            except Exception: pass
-
-
+            try:
+                win32gui.DestroyIcon(icon)
+            except Exception:
+                pass

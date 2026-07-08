@@ -2,37 +2,39 @@
 TrueHour — Unified Theme & Design System
 Houses colors, global stylesheets, palette configurations, and SVG paint utilities.
 """
+
 import os
 import math
 from PyQt6.QtCore import Qt, QSize, QPointF, QRectF
 from PyQt6.QtGui import QColor, QPalette, QIcon, QPixmap, QPainter, QPen, QPainterPath
 
 # ── Design Tokens & Color Palettes ───────────────────────────────────
-BG_WHITE      = "#FFFFFF"
-BG_SURFACE    = "#F8FAFC"
-BG_HOVER      = "#F1F5F9"
-BG_CARD       = "#FFFFFF"
-ACCENT        = "#0078D4"
-ACCENT_HOVER  = "#106EBE"
-ACCENT_LIGHT  = "#F0FDF4"
-GREEN_STATUS  = "#16A34A"
-RED_STATUS    = "#EF4444"
-ORANGE        = "#F59E0B"
-TEXT_PRIMARY  = "#0F172A"
-TEXT_SECONDARY= "#475569"
+BG_WHITE = "#FFFFFF"
+BG_SURFACE = "#F8FAFC"
+BG_HOVER = "#F1F5F9"
+BG_CARD = "#FFFFFF"
+ACCENT = "#0078D4"
+ACCENT_HOVER = "#106EBE"
+ACCENT_LIGHT = "#F0FDF4"
+GREEN_STATUS = "#16A34A"
+RED_STATUS = "#EF4444"
+ORANGE = "#F59E0B"
+TEXT_PRIMARY = "#0F172A"
+TEXT_SECONDARY = "#475569"
 TEXT_DISABLED = "#94A3B8"
-BORDER        = "#E2E8F0"
-FONT_FAMILY   = "Segoe UI"
+BORDER = "#E2E8F0"
+FONT_FAMILY = "Segoe UI"
 
 PROJECT_COLORS = {
     "Development": "#4F46E5",  # Indigo
-    "Design": "#EC4899",       # Pink
-    "Research": "#10B981",     # Emerald
-    "Documentation": "#F59E0B",# Amber
-    "Communication": "#06B6D4",# Cyan
-    "Management": "#8B5CF6",   # Purple
-    "Unassigned": "#64748B",   # Slate
+    "Design": "#EC4899",  # Pink
+    "Research": "#10B981",  # Emerald
+    "Documentation": "#F59E0B",  # Amber
+    "Communication": "#06B6D4",  # Cyan
+    "Management": "#8B5CF6",  # Purple
+    "Unassigned": "#64748B",  # Slate
 }
+
 
 def get_tag_color(tag_name: str) -> str:
     if tag_name in PROJECT_COLORS:
@@ -40,6 +42,7 @@ def get_tag_color(tag_name: str) -> str:
     palette = list(PROJECT_COLORS.values())[:-1]
     idx = sum(ord(c) for c in tag_name) % len(palette)
     return palette[idx]
+
 
 def get_light_palette() -> QPalette:
     palette = QPalette()
@@ -60,41 +63,103 @@ def get_light_palette() -> QPalette:
     palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#0078D4"))
 
     # Inactive Colors (match Active to prevent visual blinking/flickering)
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, QColor("#F8FAFC"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.WindowText, QColor("#0F172A"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Base, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.AlternateBase, QColor("#F8FAFC"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipBase, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipText, QColor("#0F172A"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Text, QColor("#0F172A"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Button, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ButtonText, QColor("#0F172A"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Link, QColor("#0078D4"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Highlight, QColor("#F1F5F9"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.HighlightedText, QColor("#0078D4"))
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, QColor("#F8FAFC")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.WindowText, QColor("#0F172A")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Base, QColor("#FFFFFF")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive,
+        QPalette.ColorRole.AlternateBase,
+        QColor("#F8FAFC"),
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipBase, QColor("#FFFFFF")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipText, QColor("#0F172A")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Text, QColor("#0F172A")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Button, QColor("#FFFFFF")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.ButtonText, QColor("#0F172A")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.BrightText, QColor("#FFFFFF")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Link, QColor("#0078D4")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Highlight, QColor("#F1F5F9")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive,
+        QPalette.ColorRole.HighlightedText,
+        QColor("#0078D4"),
+    )
 
     # Disabled Colors (elegant grayish states)
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, QColor("#F8FAFC"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#94A3B8"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Base, QColor("#F8FAFC"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.AlternateBase, QColor("#F8FAFC"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipBase, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipText, QColor("#94A3B8"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor("#94A3B8"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Button, QColor("#F8FAFC"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#94A3B8"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Link, QColor("#0078D4"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Highlight, QColor("#F1F5F9"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.HighlightedText, QColor("#94A3B8"))
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, QColor("#F8FAFC")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#94A3B8")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Base, QColor("#F8FAFC")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled,
+        QPalette.ColorRole.AlternateBase,
+        QColor("#F8FAFC"),
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipBase, QColor("#FFFFFF")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipText, QColor("#94A3B8")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor("#94A3B8")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Button, QColor("#F8FAFC")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#94A3B8")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.BrightText, QColor("#FFFFFF")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Link, QColor("#0078D4")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Highlight, QColor("#F1F5F9")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled,
+        QPalette.ColorRole.HighlightedText,
+        QColor("#94A3B8"),
+    )
 
     return palette
+
 
 def get_dark_palette(theme_style: str = "modern-dark") -> QPalette:
     if theme_style == "classic-dark":
         return get_classic_dark_palette()
     return get_modern_dark_palette()
+
 
 def get_classic_dark_palette() -> QPalette:
     palette = QPalette()
@@ -115,36 +180,97 @@ def get_classic_dark_palette() -> QPalette:
     palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
 
     # Inactive Colors (match Active)
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, QColor("#141414"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.WindowText, QColor("#e0e0e0"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Base, QColor("#1e1e1e"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.AlternateBase, QColor("#262626"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipBase, QColor("#1e1e1e"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipText, QColor("#e0e0e0"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Text, QColor("#e0e0e0"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Button, QColor("#1e1e1e"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ButtonText, QColor("#e0e0e0"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Link, QColor("#d1d5db"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Highlight, QColor("#262626"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, QColor("#141414")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.WindowText, QColor("#e0e0e0")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Base, QColor("#1e1e1e")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive,
+        QPalette.ColorRole.AlternateBase,
+        QColor("#262626"),
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipBase, QColor("#1e1e1e")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipText, QColor("#e0e0e0")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Text, QColor("#e0e0e0")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Button, QColor("#1e1e1e")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.ButtonText, QColor("#e0e0e0")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.BrightText, QColor("#FFFFFF")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Link, QColor("#d1d5db")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Highlight, QColor("#262626")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive,
+        QPalette.ColorRole.HighlightedText,
+        QColor("#ffffff"),
+    )
 
     # Disabled Colors (grayed out dark theme)
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, QColor("#141414"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#888888"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Base, QColor("#141414"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.AlternateBase, QColor("#141414"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipBase, QColor("#1e1e1e"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipText, QColor("#888888"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor("#888888"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Button, QColor("#141414"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#888888"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Link, QColor("#d1d5db"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Highlight, QColor("#262626"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.HighlightedText, QColor("#888888"))
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, QColor("#141414")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#888888")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Base, QColor("#141414")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled,
+        QPalette.ColorRole.AlternateBase,
+        QColor("#141414"),
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipBase, QColor("#1e1e1e")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipText, QColor("#888888")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor("#888888")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Button, QColor("#141414")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#888888")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.BrightText, QColor("#FFFFFF")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Link, QColor("#d1d5db")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Highlight, QColor("#262626")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled,
+        QPalette.ColorRole.HighlightedText,
+        QColor("#888888"),
+    )
 
     return palette
+
 
 def get_modern_dark_palette() -> QPalette:
     palette = QPalette()
@@ -165,50 +291,112 @@ def get_modern_dark_palette() -> QPalette:
     palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
 
     # Inactive Colors (match Active)
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.WindowText, QColor("#EDEDED"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Base, QColor("#16161A"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.AlternateBase, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipBase, QColor("#16161A"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipText, QColor("#EDEDED"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Text, QColor("#EDEDED"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Button, QColor("#16161A"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ButtonText, QColor("#EDEDED"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Link, QColor("#2563EB"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Highlight, QColor("#232329"))
-    palette.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, QColor("#0F0F11")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.WindowText, QColor("#EDEDED")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Base, QColor("#16161A")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive,
+        QPalette.ColorRole.AlternateBase,
+        QColor("#0F0F11"),
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipBase, QColor("#16161A")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.ToolTipText, QColor("#EDEDED")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Text, QColor("#EDEDED")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Button, QColor("#16161A")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.ButtonText, QColor("#EDEDED")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.BrightText, QColor("#FFFFFF")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Link, QColor("#2563EB")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive, QPalette.ColorRole.Highlight, QColor("#232329")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Inactive,
+        QPalette.ColorRole.HighlightedText,
+        QColor("#ffffff"),
+    )
 
     # Disabled Colors (grayed out modern dark theme)
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#555555"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Base, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.AlternateBase, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipBase, QColor("#16161A"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipText, QColor("#555555"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor("#555555"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Button, QColor("#0F0F11"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#555555"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.BrightText, QColor("#FFFFFF"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Link, QColor("#2563EB"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Highlight, QColor("#232329"))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.HighlightedText, QColor("#555555"))
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, QColor("#0F0F11")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#555555")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Base, QColor("#0F0F11")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled,
+        QPalette.ColorRole.AlternateBase,
+        QColor("#0F0F11"),
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipBase, QColor("#16161A")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.ToolTipText, QColor("#555555")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor("#555555")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Button, QColor("#0F0F11")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#555555")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.BrightText, QColor("#FFFFFF")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Link, QColor("#2563EB")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled, QPalette.ColorRole.Highlight, QColor("#232329")
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled,
+        QPalette.ColorRole.HighlightedText,
+        QColor("#555555"),
+    )
 
     return palette
 
+
 _GENERATED_CHECKMARKS = set()
+
 
 # ── Dynamic Checkmark Icon Generator ─────────────────────────────────
 def ensure_checkmark_icon(theme_style_or_is_dark=False) -> str:
     from config import get_app_data_dir
-    
+
     if isinstance(theme_style_or_is_dark, bool):
         use_dark_checkmark = theme_style_or_is_dark
     else:
         # For strings, only classic-dark needs a dark checkmark (accent is light gray).
         # modern-dark and light have dark/blue accents so they need a white checkmark.
-        use_dark_checkmark = (theme_style_or_is_dark == "classic-dark")
-        
+        use_dark_checkmark = theme_style_or_is_dark == "classic-dark"
+
     filename = "checkmark_dark.png" if use_dark_checkmark else "checkmark_light.png"
     checkmark_path = os.path.join(get_app_data_dir(), filename).replace("\\", "/")
 
@@ -241,6 +429,7 @@ def ensure_checkmark_icon(theme_style_or_is_dark=False) -> str:
     except Exception:
         try:
             import base64
+
             if use_dark_checkmark:
                 # Dark checkmark fallback
                 png_base64 = b"iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAADpJREFUOBFjYBgFMMCEw/wnHGaE4D//kXWgm2DCwADCYEDQAWBsICwAGBsYiwfG4oHRcMAoGAWDEAMAANbQDBW/k19vAAAAAElFTkSuQmCC"
@@ -253,6 +442,7 @@ def ensure_checkmark_icon(theme_style_or_is_dark=False) -> str:
         except Exception:
             pass
     return checkmark_path
+
 
 # ── Icon Painters ──────────────────────────────────────────────────
 def get_svg_icon(svg_content, size=QSize(20, 20), color_hex=None) -> QIcon:
@@ -273,6 +463,7 @@ def get_svg_icon(svg_content, size=QSize(20, 20), color_hex=None) -> QIcon:
     try:
         from PyQt6.QtSvg import QSvgRenderer
         from PyQt6.QtCore import QByteArray
+
         renderer = QSvgRenderer(QByteArray(svg_content))
         renderer.render(painter, QRectF(pixmap.rect()))
     except Exception:
@@ -280,6 +471,7 @@ def get_svg_icon(svg_content, size=QSize(20, 20), color_hex=None) -> QIcon:
         painter.drawEllipse(2, 2, 16, 16)
     painter.end()
     return QIcon(pixmap)
+
 
 def create_minimalist_icon(icon_type, color_hex, size=16) -> QIcon:
     pixmap = QPixmap(size, size)
@@ -313,12 +505,14 @@ def create_minimalist_icon(icon_type, color_hex, size=16) -> QIcon:
             s = math.sin(angle)
             painter.drawLine(
                 QPointF(8.0 + 4.5 * c, 8.0 + 4.5 * s),
-                QPointF(8.0 + 7.0 * c, 8.0 + 7.0 * s)
+                QPointF(8.0 + 7.0 * c, 8.0 + 7.0 * s),
             )
     painter.end()
     return QIcon(pixmap)
 
+
 _QSS_STYLE_CACHE = {}
+
 
 # ── Unified Styled Window Palette (QSS) ──────────────────────────────
 def get_qss_style(theme_style) -> str:
@@ -356,7 +550,7 @@ def get_qss_style(theme_style) -> str:
         accent_btn_bg = "#262626"
         accent_btn_hover = "#3f3f46"
         accent_btn_disabled_bg = "#16161A"
-    else: # light
+    else:  # light
         bg_window = "#F8FAFC"
         bg_widget = "#FFFFFF"
         text_primary = "#0F172A"

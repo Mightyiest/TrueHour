@@ -3,9 +3,23 @@ import shutil
 import logging
 import json
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTabWidget, QWidget,
-    QScrollArea, QCheckBox, QFormLayout, QLineEdit, QComboBox, QGroupBox,
-    QPushButton, QMessageBox, QFileDialog, QApplication, QInputDialog
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QTabWidget,
+    QWidget,
+    QScrollArea,
+    QCheckBox,
+    QFormLayout,
+    QLineEdit,
+    QComboBox,
+    QGroupBox,
+    QPushButton,
+    QMessageBox,
+    QFileDialog,
+    QApplication,
+    QInputDialog,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QSize
 
@@ -18,6 +32,7 @@ from assets import INFO_SVG, LOCK_SVG
 
 logger = logging.getLogger(__name__)
 
+
 class DistractionAppsDialog(QDialog):
     def __init__(self, current_distractions, parent=None):
         super().__init__(parent)
@@ -28,22 +43,39 @@ class DistractionAppsDialog(QDialog):
 
         self.theme_style = "light"
         if parent:
-            self.theme_style = parent.settings.get("theme_style", "modern-dark" if parent.settings.get("dark_mode", False) else "light")
+            self.theme_style = parent.settings.get(
+                "theme_style",
+                "modern-dark" if parent.settings.get("dark_mode", False) else "light",
+            )
         if isinstance(self.theme_style, bool):
             self.theme_style = "modern-dark" if self.theme_style else "light"
-        self.is_dark = (self.theme_style in ["modern-dark", "classic-dark"])
+        self.is_dark = self.theme_style in ["modern-dark", "classic-dark"]
 
-        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(self.theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style))
+        from theme import (
+            get_qss_style,
+            get_dark_palette,
+            get_light_palette,
+            ensure_checkmark_icon,
+        )
+
+        qss = get_qss_style(self.theme_style).replace(
+            "CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style)
+        )
         self.setStyleSheet(qss)
-        self.setPalette(get_dark_palette(self.theme_style) if self.is_dark else get_light_palette())
+        self.setPalette(
+            get_dark_palette(self.theme_style) if self.is_dark else get_light_palette()
+        )
 
         self.init_ui()
 
     def _get_all_tracked_apps(self):
         apps = set()
         # 1. Add current session tracker apps if parent's parent (TrueHourApp) is available
-        if self.parent() and hasattr(self.parent(), "parent") and self.parent().parent():
+        if (
+            self.parent()
+            and hasattr(self.parent(), "parent")
+            and self.parent().parent()
+        ):
             main_app = self.parent().parent()
             if hasattr(main_app, "tracker") and main_app.tracker:
                 apps.update(main_app.tracker.app_times.keys())
@@ -52,6 +84,7 @@ class DistractionAppsDialog(QDialog):
         # 2. Scan sessions/autosave folders
         from config import get_app_data_dir
         import glob
+
         for folder in ["sessions", "autosave"]:
             dirpath = os.path.join(get_app_data_dir(), folder)
             if os.path.exists(dirpath):
@@ -74,7 +107,9 @@ class DistractionAppsDialog(QDialog):
         layout.setSpacing(10)
 
         title = QLabel("Manage Distracting Apps", self)
-        title.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold;")
+        title.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 14px; font-weight: bold;"
+        )
         layout.addWidget(title)
 
         self.search_input = QLineEdit(self)
@@ -85,7 +120,9 @@ class DistractionAppsDialog(QDialog):
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll_border = "#333333" if self.is_dark else "#E2E8F0"
-        scroll.setStyleSheet(f"QScrollArea {{ border: 1px solid {scroll_border}; border-radius: 6px; }}")
+        scroll.setStyleSheet(
+            f"QScrollArea {{ border: 1px solid {scroll_border}; border-radius: 6px; }}"
+        )
 
         self.scroll_content = QWidget()
         self.scroll_layout = QVBoxLayout(self.scroll_content)
@@ -148,8 +185,9 @@ class DistractionAppsDialog(QDialog):
 
     def _add_custom_app(self):
         text, ok = QInputDialog.getText(
-            self, "Add Custom App",
-            "Enter application name or executable (e.g. steam.exe, game.exe):"
+            self,
+            "Add Custom App",
+            "Enter application name or executable (e.g. steam.exe, game.exe):",
         )
         if ok and text.strip():
             app = text.strip()
@@ -158,7 +196,7 @@ class DistractionAppsDialog(QDialog):
                 if existing.lower() == app.lower():
                     match_key = existing
                     break
-            
+
             if match_key:
                 self.checkboxes[match_key].setChecked(True)
                 self.checkboxes[match_key].setVisible(True)
@@ -167,8 +205,11 @@ class DistractionAppsDialog(QDialog):
                 self.checkboxes[app].setChecked(True)
 
     def _save_changes(self):
-        self.distraction_apps = [app for app, cb in self.checkboxes.items() if cb.isChecked()]
+        self.distraction_apps = [
+            app for app, cb in self.checkboxes.items() if cb.isChecked()
+        ]
         self.accept()
+
 
 class BackupTypeDialog(QDialog):
     def __init__(self, theme_style, parent=None):
@@ -179,24 +220,36 @@ class BackupTypeDialog(QDialog):
         self._center_window(360, 220)
 
         # Style matching parent
-        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        is_dark = (theme_style in ["modern-dark", "classic-dark"])
-        qss = get_qss_style(theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(theme_style))
+        from theme import (
+            get_qss_style,
+            get_dark_palette,
+            get_light_palette,
+            ensure_checkmark_icon,
+        )
+
+        is_dark = theme_style in ["modern-dark", "classic-dark"]
+        qss = get_qss_style(theme_style).replace(
+            "CHECKMARK_PATH", ensure_checkmark_icon(theme_style)
+        )
         self.setStyleSheet(qss)
-        self.setPalette(get_dark_palette(theme_style) if is_dark else get_light_palette())
+        self.setPalette(
+            get_dark_palette(theme_style) if is_dark else get_light_palette()
+        )
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 16, 18, 16)
         layout.setSpacing(10)
 
         title = QLabel("Select Backup Type", self)
-        title.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold;")
+        title.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 14px; font-weight: bold;"
+        )
         layout.addWidget(title)
 
         desc = QLabel(
             "Standard backup removes sensitive banking info. "
             "Encrypted backup protects it with a password for transfer to other devices.",
-            self
+            self,
         )
         desc.setWordWrap(True)
         desc.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B;")
@@ -209,7 +262,9 @@ class BackupTypeDialog(QDialog):
         self.btn_standard.setObjectName("NormalButton")
         self.btn_standard.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_standard.setMinimumHeight(34)
-        self.btn_standard.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; font-weight: bold;")
+        self.btn_standard.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 12px; font-weight: bold;"
+        )
         self.btn_standard.clicked.connect(self._on_standard)
         buttons_layout.addWidget(self.btn_standard, 1)
 
@@ -217,8 +272,12 @@ class BackupTypeDialog(QDialog):
         self.btn_encrypted.setObjectName("AccentButton")
         self.btn_encrypted.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_encrypted.setMinimumHeight(34)
-        self.btn_encrypted.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; font-weight: bold;")
-        self.btn_encrypted.setIcon(get_svg_icon(LOCK_SVG, QSize(14, 14), color_hex="#FFFFFF"))
+        self.btn_encrypted.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 12px; font-weight: bold;"
+        )
+        self.btn_encrypted.setIcon(
+            get_svg_icon(LOCK_SVG, QSize(14, 14), color_hex="#FFFFFF")
+        )
         self.btn_encrypted.setIconSize(QSize(14, 14))
         self.btn_encrypted.clicked.connect(self._on_encrypted)
         buttons_layout.addWidget(self.btn_encrypted, 1)
@@ -230,7 +289,9 @@ class BackupTypeDialog(QDialog):
         self.btn_cancel = QPushButton("Cancel", self)
         self.btn_cancel.setObjectName("NormalButton")
         self.btn_cancel.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_cancel.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; padding: 4px 12px;")
+        self.btn_cancel.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 11px; padding: 4px 12px;"
+        )
         self.btn_cancel.clicked.connect(self.reject)
         cancel_layout.addWidget(self.btn_cancel)
         layout.addLayout(cancel_layout)
@@ -249,6 +310,7 @@ class BackupTypeDialog(QDialog):
     def _on_encrypted(self):
         self.selected_type = "encrypted"
         self.accept()
+
 
 class SettingsDialog(QDialog):
     manage_categories_requested = pyqtSignal()
@@ -287,14 +349,27 @@ class SettingsDialog(QDialog):
         self._qr_thumb_refs = []
 
         # Apply stylesheet and palette on start
-        self.theme_style = self.settings.get("theme_style", "modern-dark" if self.settings.get("dark_mode", False) else "light")
+        self.theme_style = self.settings.get(
+            "theme_style",
+            "modern-dark" if self.settings.get("dark_mode", False) else "light",
+        )
         if isinstance(self.theme_style, bool):
             self.theme_style = "modern-dark" if self.theme_style else "light"
-        is_dark = (self.theme_style in ["modern-dark", "classic-dark"])
-        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(self.theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style))
+        is_dark = self.theme_style in ["modern-dark", "classic-dark"]
+        from theme import (
+            get_qss_style,
+            get_dark_palette,
+            get_light_palette,
+            ensure_checkmark_icon,
+        )
+
+        qss = get_qss_style(self.theme_style).replace(
+            "CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style)
+        )
         self.setStyleSheet(qss)
-        self.setPalette(get_dark_palette(self.theme_style) if is_dark else get_light_palette())
+        self.setPalette(
+            get_dark_palette(self.theme_style) if is_dark else get_light_palette()
+        )
 
         self._build_ui()
 
@@ -320,7 +395,9 @@ class SettingsDialog(QDialog):
         layout.setSpacing(10)
 
         title = QLabel("Settings", self)
-        title.setStyleSheet("font-family: 'Segoe UI'; font-size: 15px; font-weight: bold;")
+        title.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 15px; font-weight: bold;"
+        )
         layout.addWidget(title)
 
         # QTabWidget for settings categories
@@ -334,8 +411,12 @@ class SettingsDialog(QDialog):
 
         scroll_general = QScrollArea(tab_general)
         scroll_general.setWidgetResizable(True)
-        scroll_general.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll_general.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        scroll_general.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        scroll_general.setStyleSheet(
+            "QScrollArea { border: none; background: transparent; }"
+        )
 
         scroll_general_content = QWidget()
         tg_layout = QVBoxLayout(scroll_general_content)
@@ -374,13 +455,17 @@ class SettingsDialog(QDialog):
 
         tg_layout.addWidget(profile_box)
 
-        self.cb_confirm = QCheckBox("Always ask for confirmation before closing", scroll_general_content)
+        self.cb_confirm = QCheckBox(
+            "Always ask for confirmation before closing", scroll_general_content
+        )
         self.cb_confirm.setChecked(self.settings.get("confirm_on_close", True))
         self.cb_confirm.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
         tg_layout.addWidget(self.cb_confirm)
 
         # Checkbox for Developer Options
-        self.cb_dev = QCheckBox("Enable Developer Options (Debug Console)", scroll_general_content)
+        self.cb_dev = QCheckBox(
+            "Enable Developer Options (Debug Console)", scroll_general_content
+        )
         self.cb_dev.setChecked(self.settings.get("developer_mode", False))
         self.cb_dev.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
         tg_layout.addWidget(self.cb_dev)
@@ -388,20 +473,25 @@ class SettingsDialog(QDialog):
         # Dropdown selection for Theme Style
         theme_row = QHBoxLayout()
         theme_lbl = QLabel("Theme Style:", scroll_general_content)
-        theme_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; font-weight: 500;")
+        theme_lbl.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 13px; font-weight: 500;"
+        )
         theme_row.addWidget(theme_lbl)
 
         self.theme_combo = QComboBox(scroll_general_content)
         self.theme_combo.addItems(["Light", "Modern Dark", "Classic Dark"])
-        
-        current_style = self.settings.get("theme_style", "modern-dark" if self.settings.get("dark_mode", False) else "light")
+
+        current_style = self.settings.get(
+            "theme_style",
+            "modern-dark" if self.settings.get("dark_mode", False) else "light",
+        )
         if current_style == "light":
             self.theme_combo.setCurrentText("Light")
         elif current_style == "classic-dark":
             self.theme_combo.setCurrentText("Classic Dark")
         else:
             self.theme_combo.setCurrentText("Modern Dark")
-            
+
         theme_row.addWidget(self.theme_combo)
         theme_row.addStretch()
         tg_layout.addLayout(theme_row)
@@ -413,17 +503,27 @@ class SettingsDialog(QDialog):
                 style_name = "classic-dark"
             else:
                 style_name = "modern-dark"
-                
+
             self.settings["theme_style"] = style_name
             self.theme_style = style_name
-            self.settings["dark_mode"] = (style_name in ["modern-dark", "classic-dark"])
+            self.settings["dark_mode"] = style_name in ["modern-dark", "classic-dark"]
             is_dark = self.settings["dark_mode"]
-            
+
             # Instantly apply stylesheet to SettingsDialog itself!
-            from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-            qss = get_qss_style(style_name).replace("CHECKMARK_PATH", ensure_checkmark_icon(style_name))
+            from theme import (
+                get_qss_style,
+                get_dark_palette,
+                get_light_palette,
+                ensure_checkmark_icon,
+            )
+
+            qss = get_qss_style(style_name).replace(
+                "CHECKMARK_PATH", ensure_checkmark_icon(style_name)
+            )
             self.setStyleSheet(qss)
-            self.setPalette(get_dark_palette(style_name) if is_dark else get_light_palette())
+            self.setPalette(
+                get_dark_palette(style_name) if is_dark else get_light_palette()
+            )
             self.theme_toggled.emit(style_name)
 
         self.theme_combo.currentTextChanged.connect(_on_theme_combo_changed)
@@ -463,11 +563,34 @@ class SettingsDialog(QDialog):
 
         # Billing Group details inside general tab
         currency_options = [
-            "$ (USD)", "€ (EUR)", "£ (GBP)", "¥ (JPY/CNY)", "₱ (PHP)", "₹ (INR)",
-            "₽ (RUB)", "₩ (KRW)", "₫ (VND)", "฿ (THB)", "₪ (ILS)", "₺ (TRY)",
-            "Rp (IDR)", "RM (MYR)", "R$ (BRL)", "C$ (CAD)", "A$ (AUD)", "S$ (SGD)",
-            "NZ$ (NZD)", "CHF (CHF)", "kr (SEK/NOK)", "zł (PLN)", "Kč (CZK)",
-            "Ft (HUF)", "lei (RON)", "лв (BGN)", "₴ (UAH)", "R (ZAR)"
+            "$ (USD)",
+            "€ (EUR)",
+            "£ (GBP)",
+            "¥ (JPY/CNY)",
+            "₱ (PHP)",
+            "₹ (INR)",
+            "₽ (RUB)",
+            "₩ (KRW)",
+            "₫ (VND)",
+            "฿ (THB)",
+            "₪ (ILS)",
+            "₺ (TRY)",
+            "Rp (IDR)",
+            "RM (MYR)",
+            "R$ (BRL)",
+            "C$ (CAD)",
+            "A$ (AUD)",
+            "S$ (SGD)",
+            "NZ$ (NZD)",
+            "CHF (CHF)",
+            "kr (SEK/NOK)",
+            "zł (PLN)",
+            "Kč (CZK)",
+            "Ft (HUF)",
+            "lei (RON)",
+            "лв (BGN)",
+            "₴ (UAH)",
+            "R (ZAR)",
         ]
         self.curr_combo = QComboBox(scroll_general_content)
         self.curr_combo.addItems(currency_options)
@@ -491,8 +614,12 @@ class SettingsDialog(QDialog):
         distract_layout.setContentsMargins(8, 8, 8, 8)
         distract_layout.setSpacing(6)
 
-        self.cb_distract = QCheckBox("Automatically pause tracking on distracting apps", distract_box)
-        self.cb_distract.setChecked(self.settings.get("enable_distraction_auto_pause", False))
+        self.cb_distract = QCheckBox(
+            "Automatically pause tracking on distracting apps", distract_box
+        )
+        self.cb_distract.setChecked(
+            self.settings.get("enable_distraction_auto_pause", False)
+        )
         self.cb_distract.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px;")
         distract_layout.addWidget(self.cb_distract)
 
@@ -503,7 +630,9 @@ class SettingsDialog(QDialog):
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self._distraction_apps_local = dialog.distraction_apps
 
-        self.manage_distract_btn = QPushButton("Manage Distraction Apps...", distract_box)
+        self.manage_distract_btn = QPushButton(
+            "Manage Distraction Apps...", distract_box
+        )
         self.manage_distract_btn.setObjectName("NormalButton")
         self.manage_distract_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.manage_distract_btn.clicked.connect(_manage_distraction_apps)
@@ -530,13 +659,14 @@ class SettingsDialog(QDialog):
             elif filepath == OVERRIDES_FILE:
                 try:
                     from appinfo import _load_name_overrides
+
                     _load_name_overrides()
                 except Exception:
                     pass
 
             if not os.path.exists(filepath):
                 try:
-                    with open(filepath, 'w', encoding='utf-8') as f:
+                    with open(filepath, "w", encoding="utf-8") as f:
                         f.write("# Configuration file created.\n")
                 except Exception:
                     pass
@@ -570,7 +700,9 @@ class SettingsDialog(QDialog):
         excl_row.addWidget(self.reload_status_lbl)
         config_layout.addLayout(excl_row)
 
-        btn_categories = QPushButton("Manage Project Categories...", scroll_general_content)
+        btn_categories = QPushButton(
+            "Manage Project Categories...", scroll_general_content
+        )
         btn_categories.setObjectName("NormalButton")
         btn_categories.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_categories.clicked.connect(lambda: self.manage_categories_requested.emit())
@@ -644,8 +776,12 @@ class SettingsDialog(QDialog):
 
         scroll_invoice = QScrollArea(tab_invoice)
         scroll_invoice.setWidgetResizable(True)
-        scroll_invoice.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll_invoice.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        scroll_invoice.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        scroll_invoice.setStyleSheet(
+            "QScrollArea { border: none; background: transparent; }"
+        )
 
         scroll_invoice_content = QWidget()
         scroll_invoice_layout = QVBoxLayout(scroll_invoice_content)
@@ -675,7 +811,9 @@ class SettingsDialog(QDialog):
         biz_layout.addRow("Billing Address:", self.business_address_entry)
 
         self.business_payment_entry = QLineEdit(biz_box)
-        self.business_payment_entry.setPlaceholderText("e.g. IBAN: US12 3456... or PayPal: ...")
+        self.business_payment_entry.setPlaceholderText(
+            "e.g. IBAN: US12 3456... or PayPal: ..."
+        )
         self.business_payment_entry.setText(self.settings.get("business_payment", ""))
         biz_layout.addRow("Payment Details:", self.business_payment_entry)
 
@@ -686,7 +824,9 @@ class SettingsDialog(QDialog):
         bank_layout = QFormLayout(bank_box)
         bank_layout.setSpacing(6)
 
-        self.enable_bank_cb = QCheckBox("Enable Bank Transfer Details on Invoices", bank_box)
+        self.enable_bank_cb = QCheckBox(
+            "Enable Bank Transfer Details on Invoices", bank_box
+        )
         self.enable_bank_cb.setChecked(self.settings.get("enable_bank_details", True))
         bank_layout.addRow(self.enable_bank_cb)
 
@@ -755,7 +895,12 @@ class SettingsDialog(QDialog):
 
         def _browse_logo():
             logger.info("[Action] Browsing for business logo image")
-            path, _ = QFileDialog.getOpenFileName(self, "Select Business Logo Image", "", "Image files (*.png *.jpg *.jpeg)")
+            path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Select Business Logo Image",
+                "",
+                "Image files (*.png *.jpg *.jpeg)",
+            )
             if path:
                 self.logo_path_entry.setText(path)
 
@@ -766,9 +911,14 @@ class SettingsDialog(QDialog):
         logo_row.addWidget(self.browse_logo_btn)
         logo_layout.addLayout(logo_row)
 
-        self.logo_spec_lbl = QLabel("Image Spec: PNG, JPG, or JPEG. Max size: 250px (w) x 80px (h). Proportionally resized automatically.", logo_box)
+        self.logo_spec_lbl = QLabel(
+            "Image Spec: PNG, JPG, or JPEG. Max size: 250px (w) x 80px (h). Proportionally resized automatically.",
+            logo_box,
+        )
         self.logo_spec_lbl.setWordWrap(True)
-        self.logo_spec_lbl.setStyleSheet("color: #64748B; font-size: 10px; font-family: 'Segoe UI';")
+        self.logo_spec_lbl.setStyleSheet(
+            "color: #64748B; font-size: 10px; font-family: 'Segoe UI';"
+        )
         logo_layout.addWidget(self.logo_spec_lbl)
 
         self.enable_logo_cb.toggled.connect(self._toggle_logo_inputs)
@@ -791,14 +941,21 @@ class SettingsDialog(QDialog):
 
         def _add_qr_code():
             if len(self._qr_paths_local) >= 4:
-                QMessageBox.information(self, "QR Limit", "Maximum of 4 QR code images allowed.")
+                QMessageBox.information(
+                    self, "QR Limit", "Maximum of 4 QR code images allowed."
+                )
                 return
-            path, _ = QFileDialog.getOpenFileName(self, "Select Payment QR Code Image", "", "Image files (*.png *.jpg *.jpeg)")
+            path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Select Payment QR Code Image",
+                "",
+                "Image files (*.png *.jpg *.jpeg)",
+            )
             if not path:
                 return
             qr_dir = os.path.join(get_app_data_dir(), "qr_codes")
             os.makedirs(qr_dir, exist_ok=True)
-            fname = f"qr_{len(self._qr_paths_local)+1}_{os.path.basename(path)}"
+            fname = f"qr_{len(self._qr_paths_local) + 1}_{os.path.basename(path)}"
             dest = os.path.join(qr_dir, fname)
             try:
                 shutil.copy2(path, dest)
@@ -814,9 +971,14 @@ class SettingsDialog(QDialog):
         add_qr_btn.clicked.connect(_add_qr_code)
         self.qr_box_layout.addWidget(add_qr_btn)
 
-        qr_spec_lbl = QLabel("Upload up to 4 payment QR code images (PNG/JPG). They will appear in generated invoices at 140×140px.", qr_box)
+        qr_spec_lbl = QLabel(
+            "Upload up to 4 payment QR code images (PNG/JPG). They will appear in generated invoices at 140×140px.",
+            qr_box,
+        )
         qr_spec_lbl.setWordWrap(True)
-        qr_spec_lbl.setStyleSheet("color: #64748B; font-size: 10px; font-family: 'Segoe UI';")
+        qr_spec_lbl.setStyleSheet(
+            "color: #64748B; font-size: 10px; font-family: 'Segoe UI';"
+        )
         self.qr_box_layout.addWidget(qr_spec_lbl)
 
         scroll_invoice_layout.addWidget(qr_box)
@@ -826,24 +988,47 @@ class SettingsDialog(QDialog):
         mask_layout = QVBoxLayout(mask_box)
         mask_layout.setSpacing(6)
 
-        self.mask_biz_email_cb = QCheckBox("Mask business contact emails by default", mask_box)
-        self.mask_biz_email_cb.setChecked(self.settings.get("mask_business_emails", False))
-        self.mask_biz_email_cb.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px;")
+        self.mask_biz_email_cb = QCheckBox(
+            "Mask business contact emails by default", mask_box
+        )
+        self.mask_biz_email_cb.setChecked(
+            self.settings.get("mask_business_emails", False)
+        )
+        self.mask_biz_email_cb.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 12px;"
+        )
         mask_layout.addWidget(self.mask_biz_email_cb)
 
-        self.mask_biz_phone_cb = QCheckBox("Mask business contact phone number by default", mask_box)
-        self.mask_biz_phone_cb.setChecked(self.settings.get("mask_business_phone", False))
-        self.mask_biz_phone_cb.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px;")
+        self.mask_biz_phone_cb = QCheckBox(
+            "Mask business contact phone number by default", mask_box
+        )
+        self.mask_biz_phone_cb.setChecked(
+            self.settings.get("mask_business_phone", False)
+        )
+        self.mask_biz_phone_cb.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 12px;"
+        )
         mask_layout.addWidget(self.mask_biz_phone_cb)
 
-        self.mask_client_email_cb = QCheckBox("Mask client contact emails by default", mask_box)
-        self.mask_client_email_cb.setChecked(self.settings.get("mask_client_emails", False))
-        self.mask_client_email_cb.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px;")
+        self.mask_client_email_cb = QCheckBox(
+            "Mask client contact emails by default", mask_box
+        )
+        self.mask_client_email_cb.setChecked(
+            self.settings.get("mask_client_emails", False)
+        )
+        self.mask_client_email_cb.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 12px;"
+        )
         mask_layout.addWidget(self.mask_client_email_cb)
 
-        mask_hint = QLabel("When enabled, sensitive contact details (emails, phone) are masked on the generated invoice. You can override these per-invoice.", mask_box)
+        mask_hint = QLabel(
+            "When enabled, sensitive contact details (emails, phone) are masked on the generated invoice. You can override these per-invoice.",
+            mask_box,
+        )
         mask_hint.setWordWrap(True)
-        mask_hint.setStyleSheet("color: #64748B; font-size: 10px; font-family: 'Segoe UI';")
+        mask_hint.setStyleSheet(
+            "color: #64748B; font-size: 10px; font-family: 'Segoe UI';"
+        )
         mask_layout.addWidget(mask_hint)
 
         scroll_invoice_layout.addWidget(mask_box)
@@ -922,7 +1107,7 @@ class SettingsDialog(QDialog):
                 initial_url=initial_url,
                 on_remove=lambda checked=False, fname=qr_filename: _remove_qr(fname),
                 on_link_changed=_link_changed,
-                parent=self.qr_thumbs_widget
+                parent=self.qr_thumbs_widget,
             )
 
             self.qr_thumbs_layout.addWidget(thumb_widget)
@@ -946,7 +1131,9 @@ class SettingsDialog(QDialog):
             # (Focus goals settings are managed directly in the Web Dashboard)
 
             raw_symbol = self.curr_combo.currentText().strip()
-            self.settings["currency_symbol"] = raw_symbol.split()[0].split('(')[0].strip() if raw_symbol else "$"
+            self.settings["currency_symbol"] = (
+                raw_symbol.split()[0].split("(")[0].strip() if raw_symbol else "$"
+            )
             self.settings["hourly_rate"] = float(self.rate_entry.text().strip() or 0)
 
             _im = max(0, int(self.idle_min_entry.text().strip() or 0))
@@ -956,8 +1143,12 @@ class SettingsDialog(QDialog):
             self.settings["business_name"] = self.business_name_entry.text().strip()
             self.settings["business_emails"] = self.business_email_chips.get_emails()
             self.settings["business_phone"] = self.business_phone_entry.text().strip()
-            self.settings["business_address"] = self.business_address_entry.text().strip()
-            self.settings["business_payment"] = self.business_payment_entry.text().strip()
+            self.settings["business_address"] = (
+                self.business_address_entry.text().strip()
+            )
+            self.settings["business_payment"] = (
+                self.business_payment_entry.text().strip()
+            )
 
             self.settings["enable_bank_details"] = self.enable_bank_cb.isChecked()
             self.settings["bank_holder"] = self.bank_holder_entry.text().strip()
@@ -980,9 +1171,9 @@ class SettingsDialog(QDialog):
             self.settings["mask_business_phone"] = self.mask_biz_phone_cb.isChecked()
             self.settings["mask_client_emails"] = self.mask_client_email_cb.isChecked()
             self.settings["mask_sensitive_data"] = (
-                self.settings["mask_business_emails"] or
-                self.settings["mask_business_phone"] or
-                self.settings["mask_client_emails"]
+                self.settings["mask_business_emails"]
+                or self.settings["mask_business_phone"]
+                or self.settings["mask_client_emails"]
             )
             self.settings["developer_mode"] = self.cb_dev.isChecked()
             theme_text = self.theme_combo.currentText()
@@ -992,8 +1183,13 @@ class SettingsDialog(QDialog):
                 self.settings["theme_style"] = "classic-dark"
             else:
                 self.settings["theme_style"] = "modern-dark"
-            self.settings["dark_mode"] = (self.settings["theme_style"] in ["modern-dark", "classic-dark"])
-            self.settings["enable_distraction_auto_pause"] = self.cb_distract.isChecked()
+            self.settings["dark_mode"] = self.settings["theme_style"] in [
+                "modern-dark",
+                "classic-dark",
+            ]
+            self.settings["enable_distraction_auto_pause"] = (
+                self.cb_distract.isChecked()
+            )
             self.settings["distraction_apps"] = list(self._distraction_apps_local)
 
             self.settings_saved.emit(self.settings)
@@ -1008,9 +1204,7 @@ class SettingsDialog(QDialog):
 
     def _on_new_profile_clicked(self):
         name, ok = QInputDialog.getText(
-            self, "New Profile",
-            "Enter profile name:",
-            QLineEdit.EchoMode.Normal, ""
+            self, "New Profile", "Enter profile name:", QLineEdit.EchoMode.Normal, ""
         )
         if not ok or not name.strip():
             return
@@ -1018,15 +1212,15 @@ class SettingsDialog(QDialog):
         # Clean profile name validation
         if not all(c.isalnum() or c in " _-" for c in name):
             QMessageBox.critical(
-                self, "Invalid Name",
-                "Profile name can only contain alphanumeric characters, spaces, hyphens, or underscores."
+                self,
+                "Invalid Name",
+                "Profile name can only contain alphanumeric characters, spaces, hyphens, or underscores.",
             )
             return
 
         if name in self.profiles_list:
             QMessageBox.critical(
-                self, "Already Exists",
-                f"A profile named '{name}' already exists."
+                self, "Already Exists", f"A profile named '{name}' already exists."
             )
             return
 
@@ -1036,10 +1230,11 @@ class SettingsDialog(QDialog):
         try:
             self.profiles_list.append(name)
             with open(profiles_file, "w", encoding="utf-8") as f:
-                json.dump({
-                    "active_profile": name,
-                    "profiles": self.profiles_list
-                }, f, indent=4)
+                json.dump(
+                    {"active_profile": name, "profiles": self.profiles_list},
+                    f,
+                    indent=4,
+                )
             self.profile_changed.emit(name)
             self.accept()
         except Exception as e:
@@ -1047,9 +1242,11 @@ class SettingsDialog(QDialog):
 
     def _on_rename_profile_clicked(self):
         name, ok = QInputDialog.getText(
-            self, "Rename Profile",
+            self,
+            "Rename Profile",
             f"Enter new name for profile '{self.active_profile}':",
-            QLineEdit.EchoMode.Normal, self.active_profile
+            QLineEdit.EchoMode.Normal,
+            self.active_profile,
         )
         if not ok or not name.strip():
             return
@@ -1058,15 +1255,15 @@ class SettingsDialog(QDialog):
             return
         if not all(c.isalnum() or c in " _-" for c in name):
             QMessageBox.critical(
-                self, "Invalid Name",
-                "Profile name can only contain alphanumeric characters, spaces, hyphens, or underscores."
+                self,
+                "Invalid Name",
+                "Profile name can only contain alphanumeric characters, spaces, hyphens, or underscores.",
             )
             return
 
         if name in self.profiles_list:
             QMessageBox.critical(
-                self, "Already Exists",
-                f"A profile named '{name}' already exists."
+                self, "Already Exists", f"A profile named '{name}' already exists."
             )
             return
 
@@ -1076,16 +1273,16 @@ class SettingsDialog(QDialog):
     def _on_delete_profile_clicked(self):
         if len(self.profiles_list) <= 1:
             QMessageBox.critical(
-                self, "Action Prohibited",
-                "You must keep at least one active profile."
+                self, "Action Prohibited", "You must keep at least one active profile."
             )
             return
 
         confirm = QMessageBox.question(
-            self, "Delete Profile",
+            self,
+            "Delete Profile",
             f"Are you sure you want to permanently delete profile '{self.active_profile}' and ALL of its session logs?\n\nThis action cannot be undone.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.No,
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.profile_deleted.emit(self.active_profile)
@@ -1097,37 +1294,57 @@ class SettingsDialog(QDialog):
 
         theme_style = self.settings.get("theme_style", "modern-dark")
         type_dialog = BackupTypeDialog(theme_style, self)
-        if type_dialog.exec() != QDialog.DialogCode.Accepted or not type_dialog.selected_type:
+        if (
+            type_dialog.exec() != QDialog.DialogCode.Accepted
+            or not type_dialog.selected_type
+        ):
             return
 
         password = None
         if type_dialog.selected_type == "encrypted":
             pwd1, ok1 = QInputDialog.getText(
-                self, "Backup Password",
+                self,
+                "Backup Password",
                 "Enter a password to encrypt your banking details (min 4 characters):",
-                QLineEdit.EchoMode.Password, ""
+                QLineEdit.EchoMode.Password,
+                "",
             )
             if not ok1:
                 return
             if not pwd1 or len(pwd1) < 4:
-                QMessageBox.critical(self, "Invalid Password", "Password must be at least 4 characters long.")
+                QMessageBox.critical(
+                    self,
+                    "Invalid Password",
+                    "Password must be at least 4 characters long.",
+                )
                 return
 
             pwd2, ok2 = QInputDialog.getText(
-                self, "Confirm Password",
+                self,
+                "Confirm Password",
                 "Re-enter password to confirm:",
-                QLineEdit.EchoMode.Password, ""
+                QLineEdit.EchoMode.Password,
+                "",
             )
             if not ok2:
                 return
             if pwd1 != pwd2:
-                QMessageBox.critical(self, "Passwords Mismatch", "Passwords do not match. Backup aborted.")
+                QMessageBox.critical(
+                    self,
+                    "Passwords Mismatch",
+                    "Passwords do not match. Backup aborted.",
+                )
                 return
             password = pwd1
 
-        default_name = f"backup_{self.active_profile}_{datetime.now().strftime('%Y%m%d')}.truehour"
+        default_name = (
+            f"backup_{self.active_profile}_{datetime.now().strftime('%Y%m%d')}.truehour"
+        )
         dest_path, _ = QFileDialog.getSaveFileName(
-            self, "Backup Settings & History", default_name, "TrueHour Backup Files (*.truehour)"
+            self,
+            "Backup Settings & History",
+            default_name,
+            "TrueHour Backup Files (*.truehour)",
         )
         if not dest_path:
             return
@@ -1136,22 +1353,27 @@ class SettingsDialog(QDialog):
             dest_path += ".truehour"
 
         anon_user_id = self.settings.get("anonymous_user_id", "")
-        success = backup_settings(dest_path, self.active_profile, password, anon_user_id)
+        success = backup_settings(
+            dest_path, self.active_profile, password, anon_user_id
+        )
         if success:
             if password:
                 QMessageBox.information(
-                    self, "Backup Successful",
-                    f"Encrypted profile backup created successfully! Banking credentials are protected.\n\nFile location:\n{dest_path}"
+                    self,
+                    "Backup Successful",
+                    f"Encrypted profile backup created successfully! Banking credentials are protected.\n\nFile location:\n{dest_path}",
                 )
             else:
                 QMessageBox.information(
-                    self, "Backup Successful",
-                    f"Profile backup created successfully! Note that sensitive banking details were omitted for security.\n\nFile location:\n{dest_path}"
+                    self,
+                    "Backup Successful",
+                    f"Profile backup created successfully! Note that sensitive banking details were omitted for security.\n\nFile location:\n{dest_path}",
                 )
         else:
             QMessageBox.critical(
-                self, "Backup Failed",
-                "An error occurred while compiling and writing the settings backup."
+                self,
+                "Backup Failed",
+                "An error occurred while compiling and writing the settings backup.",
             )
 
     def _on_import_clicked(self):
@@ -1169,9 +1391,11 @@ class SettingsDialog(QDialog):
         suggested_name = match.group(1) if match else os.path.splitext(base_fn)[0]
 
         imported_name, ok = QInputDialog.getText(
-            self, "Import Profile Name",
+            self,
+            "Import Profile Name",
             "Enter the profile name to restore this backup as:",
-            QLineEdit.EchoMode.Normal, suggested_name
+            QLineEdit.EchoMode.Normal,
+            suggested_name,
         )
         if not ok or not imported_name.strip():
             return
@@ -1179,29 +1403,35 @@ class SettingsDialog(QDialog):
 
         if not all(c.isalnum() or c in " _-" for c in imported_name):
             QMessageBox.critical(
-                self, "Invalid Name",
-                "Profile name can only contain alphanumeric characters, spaces, hyphens, or underscores."
+                self,
+                "Invalid Name",
+                "Profile name can only contain alphanumeric characters, spaces, hyphens, or underscores.",
             )
             return
 
         if imported_name in self.profiles_list:
             overwrite_confirm = QMessageBox.question(
-                self, "Overwrite Profile?",
+                self,
+                "Overwrite Profile?",
                 f"A profile named '{imported_name}' already exists. Importing this backup will permanently overwrite all of its preferences, tags, pre-aggregated summaries, and historical session logs.\n\nDo you want to proceed?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
+                QMessageBox.StandardButton.No,
             )
             if overwrite_confirm != QMessageBox.StandardButton.Yes:
                 return
 
         # Attempt standard/default import (password=None, strip_if_encrypted=False)
-        status = import_settings(src_path, imported_name, password=None, strip_if_encrypted=False)
+        status = import_settings(
+            src_path, imported_name, password=None, strip_if_encrypted=False
+        )
 
         if status == "password_required":
             password, ok = QInputDialog.getText(
-                self, "Encrypted Backup Detected",
+                self,
+                "Encrypted Backup Detected",
                 "This backup is encrypted. Please enter the password to restore banking details:",
-                QLineEdit.EchoMode.Password, ""
+                QLineEdit.EchoMode.Password,
+                "",
             )
             if not ok:
                 return
@@ -1209,43 +1439,53 @@ class SettingsDialog(QDialog):
 
             while status == "wrong_password":
                 retry = QMessageBox.question(
-                    self, "Incorrect Password",
+                    self,
+                    "Incorrect Password",
                     "Incorrect password entered. Would you like to try again?\n\n(Click 'No' to import without banking details, or 'Cancel' to abort)",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
                     QMessageBox.StandardButton.Yes
+                    | QMessageBox.StandardButton.No
+                    | QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Yes,
                 )
                 if retry == QMessageBox.StandardButton.Yes:
                     password, ok = QInputDialog.getText(
-                        self, "Enter Backup Password",
+                        self,
+                        "Enter Backup Password",
                         "Enter the password to decrypt banking details:",
-                        QLineEdit.EchoMode.Password, ""
+                        QLineEdit.EchoMode.Password,
+                        "",
                     )
                     if not ok:
                         return
                     status = import_settings(src_path, imported_name, password=password)
                 elif retry == QMessageBox.StandardButton.No:
-                    status = import_settings(src_path, imported_name, password=None, strip_if_encrypted=True)
+                    status = import_settings(
+                        src_path, imported_name, password=None, strip_if_encrypted=True
+                    )
                 else:
                     return
 
         if status == "success":
             QMessageBox.information(
-                self, "Import Successful",
-                f"Profile '{imported_name}' imported successfully including all preferences, session history, and decrypted banking credentials."
+                self,
+                "Import Successful",
+                f"Profile '{imported_name}' imported successfully including all preferences, session history, and decrypted banking credentials.",
             )
             self.settings_imported.emit(imported_name)
             self.accept()
         elif status == "banking_stripped":
             QMessageBox.information(
-                self, "Import Successful",
-                f"Profile '{imported_name}' imported successfully. Note that sensitive banking details were omitted or stripped — you can re-enter them under Billing & Invoices."
+                self,
+                "Import Successful",
+                f"Profile '{imported_name}' imported successfully. Note that sensitive banking details were omitted or stripped — you can re-enter them under Billing & Invoices.",
             )
             self.settings_imported.emit(imported_name)
             self.accept()
         else:
             QMessageBox.critical(
-                self, "Import Failed",
-                "Failed to restore profile. Please ensure that the selected file is a valid TrueHour backup archive."
+                self,
+                "Import Failed",
+                "Failed to restore profile. Please ensure that the selected file is a valid TrueHour backup archive.",
             )
 
     def _on_browse_files_clicked(self):

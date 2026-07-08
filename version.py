@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 __version__ = "3.3.3-beta.2"
 
+
 @dataclass(frozen=True)
 class VersionInfo:
     version: str
@@ -20,6 +21,7 @@ class VersionInfo:
     @property
     def full(self) -> str:
         return f"v{self.version} \u00b7 Build {self.build_date}"
+
 
 INFO = VersionInfo(version=__version__, build_date="2026.07.04", build_number=34)
 VERSION_SHORT = INFO.short

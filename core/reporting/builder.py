@@ -1,11 +1,18 @@
 import os
 from core.reporting.models import ReportStatus
 from core.reporting.queue import update_job, get_report_job
-from core.reporting.statistics import get_daily_summaries, calculate_total_hours, calculate_average_hours, calculate_longest_session, calculate_project_breakdown
+from core.reporting.statistics import (
+    get_daily_summaries,
+    calculate_total_hours,
+    calculate_average_hours,
+    calculate_longest_session,
+    calculate_project_breakdown,
+)
 from core.reporting.charts import build_donut_chart, build_bar_chart
 from core.reporting.cache import get_cached_report, save_to_cache
 from report import get_project_color, format_duration
 from config import get_app_data_dir
+
 
 def generate_report(job_id: str):
     job = get_report_job(job_id)
@@ -20,6 +27,7 @@ def generate_report(job_id: str):
     cached_path = get_cached_report(report_type, start_date, end_date, report_type)
     if cached_path and job.output_path:
         import shutil
+
         try:
             shutil.copy2(cached_path, job.output_path)
             update_job(job_id, ReportStatus.COMPLETE, 100, output_path=job.output_path)
@@ -43,23 +51,24 @@ def generate_report(job_id: str):
     for item in project_breakdown:
         proj_name = item["project"]
         secs = item["seconds"]
-        enriched_breakdown.append({
-            "project": proj_name,
-            "seconds": secs,
-            "percent": item["percent"],
-            "formatted": format_duration(secs),
-            "color": get_project_color(proj_name)
-        })
+        enriched_breakdown.append(
+            {
+                "project": proj_name,
+                "seconds": secs,
+                "percent": item["percent"],
+                "formatted": format_duration(secs),
+                "color": get_project_color(proj_name),
+            }
+        )
 
     # Build daily trend representation for bar chart
     trend_data = []
     for day in days:
         # e.g., '2026-05-30' -> '05/30'
         label = day["date"][5:].replace("-", "/")
-        trend_data.append({
-            "label": label,
-            "value": round(day["total_seconds"] / 3600.0, 2)
-        })
+        trend_data.append(
+            {"label": label, "value": round(day["total_seconds"] / 3600.0, 2)}
+        )
 
     # 4. Generate Charts
     update_job(job_id, ReportStatus.RUNNING, 70)
@@ -83,7 +92,7 @@ def generate_report(job_id: str):
         "project_breakdown": enriched_breakdown,
         "daily_trend": trend_data,
         "donut_chart_path": donut_chart_path,
-        "bar_chart_path": bar_chart_path
+        "bar_chart_path": bar_chart_path,
     }
 
     # 5. Export Report
@@ -97,17 +106,22 @@ def generate_report(job_id: str):
             export_format = ext[1:].lower()
     else:
         # Default fallback output path
-        output_path = os.path.join(get_app_data_dir(), f"Report_{start_date}_{end_date}.{export_format}")
+        output_path = os.path.join(
+            get_app_data_dir(), f"Report_{start_date}_{end_date}.{export_format}"
+        )
 
     success = False
     if export_format == "html":
         from core.reporting.exporters.html_exporter import HTMLExporter
+
         exporter = HTMLExporter()
         success = exporter.export(report_data, output_path)
     elif export_format == "txt":
         try:
             txt_total_hours = round(report_data.get("total_seconds", 0) / 3600.0, 2)
-            longest_hours = round(report_data.get("longest_session_secs", 0) / 3600.0, 2)
+            longest_hours = round(
+                report_data.get("longest_session_secs", 0) / 3600.0, 2
+            )
 
             lines = [
                 "==================================================",
@@ -124,15 +138,21 @@ def generate_report(job_id: str):
                 "--------------------------------------------------",
             ]
             for item in report_data.get("project_breakdown", []):
-                lines.append(f"- {item.get('project', ''):<20} {item.get('formatted', ''):<15} ({item.get('percent', 0.0)}%)")
+                lines.append(
+                    f"- {item.get('project', ''):<20} {item.get('formatted', ''):<15} ({item.get('percent', 0.0)}%)"
+                )
 
-            lines.extend([
-                "",
-                "DAILY TREND",
-                "--------------------------------------------------",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "DAILY TREND",
+                    "--------------------------------------------------",
+                ]
+            )
             for item in report_data.get("daily_trend", []):
-                lines.append(f"- {item.get('label', ''):<10} {item.get('value', 0.0):>5} hours")
+                lines.append(
+                    f"- {item.get('label', ''):<10} {item.get('value', 0.0):>5} hours"
+                )
 
             lines.append("==================================================")
 
@@ -156,4 +176,9 @@ def generate_report(job_id: str):
         save_to_cache(report_type, start_date, end_date, export_format, output_path)
         update_job(job_id, ReportStatus.COMPLETE, 100, output_path=output_path)
     else:
-        update_job(job_id, ReportStatus.FAILED, 100, error_message="Exporter failed to output report.")
+        update_job(
+            job_id,
+            ReportStatus.FAILED,
+            100,
+            error_message="Exporter failed to output report.",
+        )

@@ -1,17 +1,22 @@
 from datetime import datetime, timedelta
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QPushButton,
-    QTabWidget, QWidget, QScrollArea, QComboBox
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QFrame,
+    QLabel,
+    QPushButton,
+    QTabWidget,
+    QWidget,
+    QScrollArea,
+    QComboBox,
 )
 from PyQt6.QtCore import Qt, QTimer
 
-from report import (
-    format_duration_hms, build_report_data, aggregate_history_data
-)
-from theme import (
-    get_tag_color
-)
+from report import format_duration_hms, build_report_data, aggregate_history_data
+from theme import get_tag_color
 from dashboard_widgets import DonutChartWidget, BarChartWidget, ContributionMapWidget
+
 
 class TrueHourDashboard(QDialog):
     def __init__(self, parent=None):
@@ -23,10 +28,13 @@ class TrueHourDashboard(QDialog):
         theme_style = getattr(self.main_app, "theme_style", "light")
         if isinstance(theme_style, bool):
             theme_style = "modern-dark" if theme_style else "light"
-        is_dark = (theme_style in ["modern-dark", "classic-dark"])
+        is_dark = theme_style in ["modern-dark", "classic-dark"]
         from theme import get_dark_palette, get_light_palette
+
         self.setStyleSheet(self.main_app.styleSheet())
-        self.setPalette(get_dark_palette(theme_style) if is_dark else get_light_palette())
+        self.setPalette(
+            get_dark_palette(theme_style) if is_dark else get_light_palette()
+        )
 
         self.init_ui()
 
@@ -42,7 +50,7 @@ class TrueHourDashboard(QDialog):
         self.theme_style = getattr(self.main_app, "theme_style", "light")
         if isinstance(self.theme_style, bool):
             self.theme_style = "modern-dark" if self.theme_style else "light"
-        self.is_dark = (self.theme_style in ["modern-dark", "classic-dark"])
+        self.is_dark = self.theme_style in ["modern-dark", "classic-dark"]
 
         if self.theme_style == "classic-dark":
             self.bg_window = "#141414"
@@ -58,7 +66,7 @@ class TrueHourDashboard(QDialog):
             self.text_primary = "#EDEDED"
             self.text_secondary = "#A3A3A3"
             self.accent = "#2563EB"
-        else: # light
+        else:  # light
             self.bg_window = "#F8FAFC"
             self.bg_widget = "#FFFFFF"
             self.border_color = "#E2E8F0"
@@ -75,12 +83,16 @@ class TrueHourDashboard(QDialog):
 
         hdr = QFrame(self)
         hdr.setFixedHeight(46)
-        hdr.setStyleSheet(f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_color}; }}")
+        hdr.setStyleSheet(
+            f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_color}; }}"
+        )
         hdr_layout = QHBoxLayout(hdr)
         hdr_layout.setContentsMargins(16, 0, 16, 0)
 
         title_lbl = QLabel("📊 Focus Analytics Dashboard", hdr)
-        title_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 15px; font-weight: bold; color: {text_primary}; border: none;")
+        title_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 15px; font-weight: bold; color: {text_primary}; border: none;"
+        )
         hdr_layout.addWidget(title_lbl)
         hdr_layout.addStretch()
 
@@ -178,7 +190,9 @@ class TrueHourDashboard(QDialog):
         if icon_text:
             title_row = QHBoxLayout()
             title_lbl = QLabel(title)
-            title_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B; font-weight: 500;")
+            title_lbl.setStyleSheet(
+                "font-family: 'Segoe UI'; font-size: 11px; color: #64748B; font-weight: 500;"
+            )
             icon_lbl = QLabel(icon_text)
             icon_lbl.setStyleSheet("font-size: 14px;")
             title_row.addWidget(title_lbl)
@@ -187,11 +201,15 @@ class TrueHourDashboard(QDialog):
             layout.addLayout(title_row)
         else:
             title_lbl = QLabel(title)
-            title_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B; font-weight: 500;")
+            title_lbl.setStyleSheet(
+                "font-family: 'Segoe UI'; font-size: 11px; color: #64748B; font-weight: 500;"
+            )
             layout.addWidget(title_lbl)
 
         val_lbl = QLabel(value_text)
-        val_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 18px; font-weight: bold; color: {val_color};")
+        val_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 18px; font-weight: bold; color: {val_color};"
+        )
         layout.addWidget(val_lbl)
 
         return card, val_lbl
@@ -215,13 +233,22 @@ class TrueHourDashboard(QDialog):
         ph_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ph_layout.addWidget(ph_icon)
 
-        ph_lbl = QLabel("No active session is currently running.", self.live_placeholder)
-        ph_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: {text_sec}; margin-top: 10px;")
+        ph_lbl = QLabel(
+            "No active session is currently running.", self.live_placeholder
+        )
+        ph_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: {text_sec}; margin-top: 10px;"
+        )
         ph_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ph_layout.addWidget(ph_lbl)
 
-        ph_sub = QLabel("Start focus tracking from the main screen to view real-time live insights.", self.live_placeholder)
-        ph_sub.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; color: #94A3B8; margin-top: 4px;")
+        ph_sub = QLabel(
+            "Start focus tracking from the main screen to view real-time live insights.",
+            self.live_placeholder,
+        )
+        ph_sub.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 12px; color: #94A3B8; margin-top: 4px;"
+        )
         ph_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ph_layout.addWidget(ph_sub)
 
@@ -237,10 +264,18 @@ class TrueHourDashboard(QDialog):
         left_col = QVBoxLayout()
         left_col.setSpacing(10)
 
-        self.card_live_total, self.lbl_live_total = self.create_kpi_card("Total Session Time", "00:00:00", "🕒")
-        self.card_live_focus, self.lbl_live_focus = self.create_kpi_card("Counted Focus Time", "00:00:00", "🛡️", "#0078D4")
-        self.card_live_earnings, self.lbl_live_earnings = self.create_kpi_card("Session Earnings", "0.00", "💰", "#16A34A")
-        self.card_live_active, self.lbl_live_active = self.create_kpi_card("Current Active App", "None", "💻")
+        self.card_live_total, self.lbl_live_total = self.create_kpi_card(
+            "Total Session Time", "00:00:00", "🕒"
+        )
+        self.card_live_focus, self.lbl_live_focus = self.create_kpi_card(
+            "Counted Focus Time", "00:00:00", "🛡️", "#0078D4"
+        )
+        self.card_live_earnings, self.lbl_live_earnings = self.create_kpi_card(
+            "Session Earnings", "0.00", "💰", "#16A34A"
+        )
+        self.card_live_active, self.lbl_live_active = self.create_kpi_card(
+            "Current Active App", "None", "💻"
+        )
 
         left_col.addWidget(self.card_live_total)
         left_col.addWidget(self.card_live_focus)
@@ -261,7 +296,9 @@ class TrueHourDashboard(QDialog):
         chart_card_layout.setContentsMargins(12, 12, 12, 12)
 
         chart_lbl = QLabel("App Time Allocation", chart_card)
-        chart_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {text_sec};")
+        chart_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {text_sec};"
+        )
         chart_card_layout.addWidget(chart_lbl)
 
         self.live_donut = DonutChartWidget(chart_card)
@@ -278,14 +315,18 @@ class TrueHourDashboard(QDialog):
         ll_layout.setSpacing(2)
 
         ll_title = QLabel("Focus Categories breakdown", self.live_legend_card)
-        ll_title.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_sec}; background: transparent; border: none;")
+        ll_title.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_sec}; background: transparent; border: none;"
+        )
         ll_layout.addWidget(ll_title)
 
         # Scroll area for legend list
         self.live_legend_scroll = QScrollArea(self.live_legend_card)
         self.live_legend_scroll.setWidgetResizable(True)
         self.live_legend_scroll.setFixedHeight(75)
-        self.live_legend_scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        self.live_legend_scroll.setStyleSheet(
+            "QScrollArea { border: none; background: transparent; }"
+        )
         self.live_legend_widget = QWidget()
         self.live_legend_list_layout = QVBoxLayout(self.live_legend_widget)
         self.live_legend_list_layout.setContentsMargins(0, 0, 0, 0)
@@ -311,7 +352,9 @@ class TrueHourDashboard(QDialog):
         period_bar.setSpacing(8)
 
         period_lbl = QLabel("Select Analysis Range:", self.history_tab)
-        period_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {text_sec};")
+        period_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {text_sec};"
+        )
         period_bar.addWidget(period_lbl)
 
         self.period_combo = QComboBox(self.history_tab)
@@ -333,10 +376,18 @@ class TrueHourDashboard(QDialog):
         left_col = QVBoxLayout()
         left_col.setSpacing(10)
 
-        self.card_hist_sessions, self.lbl_hist_sessions = self.create_kpi_card("Tracked Sessions", "0", "📊")
-        self.card_hist_total, self.lbl_hist_total = self.create_kpi_card("Total Tracked Time", "00:00:00", "🕒")
-        self.card_hist_focus, self.lbl_hist_focus = self.create_kpi_card("Total Focus Time", "00:00:00", "🛡️", "#0078D4")
-        self.card_hist_earnings, self.lbl_hist_earnings = self.create_kpi_card("Aggregated Earnings", "0.00", "💰", "#16A34A")
+        self.card_hist_sessions, self.lbl_hist_sessions = self.create_kpi_card(
+            "Tracked Sessions", "0", "📊"
+        )
+        self.card_hist_total, self.lbl_hist_total = self.create_kpi_card(
+            "Total Tracked Time", "00:00:00", "🕒"
+        )
+        self.card_hist_focus, self.lbl_hist_focus = self.create_kpi_card(
+            "Total Focus Time", "00:00:00", "🛡️", "#0078D4"
+        )
+        self.card_hist_earnings, self.lbl_hist_earnings = self.create_kpi_card(
+            "Aggregated Earnings", "0.00", "💰", "#16A34A"
+        )
 
         left_col.addWidget(self.card_hist_sessions)
         left_col.addWidget(self.card_hist_total)
@@ -362,7 +413,9 @@ class TrueHourDashboard(QDialog):
         ac_layout.setContentsMargins(10, 10, 10, 10)
 
         ac_lbl = QLabel("App Allocation", app_card)
-        ac_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_sec};")
+        ac_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_sec};"
+        )
         ac_layout.addWidget(ac_lbl)
 
         self.hist_donut = DonutChartWidget(app_card)
@@ -377,7 +430,9 @@ class TrueHourDashboard(QDialog):
         tc_layout.setContentsMargins(10, 10, 10, 10)
 
         tc_lbl = QLabel("Productivity Hours Trend", trend_card)
-        tc_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_sec};")
+        tc_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_sec};"
+        )
         tc_layout.addWidget(tc_lbl)
 
         self.hist_bar = BarChartWidget(trend_card)
@@ -395,13 +450,17 @@ class TrueHourDashboard(QDialog):
         hl_layout.setSpacing(2)
 
         hl_title = QLabel("Focus Categories Aggregation", self.hist_legend_card)
-        hl_title.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_sec}; background: transparent; border: none;")
+        hl_title.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_sec}; background: transparent; border: none;"
+        )
         hl_layout.addWidget(hl_title)
 
         self.hist_legend_scroll = QScrollArea(self.hist_legend_card)
         self.hist_legend_scroll.setWidgetResizable(True)
         self.hist_legend_scroll.setFixedHeight(75)
-        self.hist_legend_scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        self.hist_legend_scroll.setStyleSheet(
+            "QScrollArea { border: none; background: transparent; }"
+        )
         self.hist_legend_widget = QWidget()
         self.hist_legend_list_layout = QVBoxLayout(self.hist_legend_widget)
         self.hist_legend_list_layout.setContentsMargins(0, 0, 0, 0)
@@ -424,7 +483,9 @@ class TrueHourDashboard(QDialog):
         hm_layout.setSpacing(2)
 
         hm_title = QLabel("Activity History (Past 365 Days)", self.heatmap_card)
-        hm_title.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_sec}; background: transparent; border: none;")
+        hm_title.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_sec}; background: transparent; border: none;"
+        )
         hm_layout.addWidget(hm_title)
         self.hist_heatmap = ContributionMapWidget(self.heatmap_card)
         hm_layout.addWidget(self.hist_heatmap, 1)
@@ -432,8 +493,6 @@ class TrueHourDashboard(QDialog):
         self.history_layout.addWidget(self.heatmap_card)
 
     def build_goals_tab(self):
-        bg_widget = self.bg_widget
-        border_color = self.border_color
         text_primary = self.text_primary
         text_sec = self.text_secondary
 
@@ -444,19 +503,28 @@ class TrueHourDashboard(QDialog):
 
         # Illustration / Large Icon
         icon_lbl = QLabel("🎯", self.goals_tab)
-        icon_lbl.setStyleSheet("font-size: 64px; border: none; background: transparent;")
+        icon_lbl.setStyleSheet(
+            "font-size: 64px; border: none; background: transparent;"
+        )
         icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.goals_layout.addWidget(icon_lbl)
 
         # Title
         title_lbl = QLabel("Focus Goals Studio", self.goals_tab)
-        title_lbl.setStyleSheet(f"font-family: 'Outfit', 'Segoe UI'; font-size: 20px; font-weight: bold; color: {text_primary}; border: none; background: transparent;")
+        title_lbl.setStyleSheet(
+            f"font-family: 'Outfit', 'Segoe UI'; font-size: 20px; font-weight: bold; color: {text_primary}; border: none; background: transparent;"
+        )
         title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.goals_layout.addWidget(title_lbl)
 
         # Subtitle
-        sub_lbl = QLabel("We've created a fun, interactive web dashboard to set and track your goals.\nAdjust category hours with sliders, check milestones, and toggle notifications instantly.", self.goals_tab)
-        sub_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_sec}; border: none; background: transparent; line-height: 18px;")
+        sub_lbl = QLabel(
+            "We've created a fun, interactive web dashboard to set and track your goals.\nAdjust category hours with sliders, check milestones, and toggle notifications instantly.",
+            self.goals_tab,
+        )
+        sub_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 12px; color: {text_sec}; border: none; background: transparent; line-height: 18px;"
+        )
         sub_lbl.setWordWrap(True)
         sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.goals_layout.addWidget(sub_lbl)
@@ -482,18 +550,26 @@ class TrueHourDashboard(QDialog):
 
         def launch_web_console():
             import webbrowser
-            if hasattr(self.main_app, "web_server_mgr") and self.main_app.web_server_mgr:
+
+            if (
+                hasattr(self.main_app, "web_server_mgr")
+                and self.main_app.web_server_mgr
+            ):
                 port = self.main_app.web_server_mgr.port
                 webbrowser.open(f"http://127.0.0.1:{port}/")
             else:
-                webbrowser.open("http://127.0.0.1:5080/") # fallback
+                webbrowser.open("http://127.0.0.1:5080/")  # fallback
 
         launch_btn.clicked.connect(launch_web_console)
         self.goals_layout.addWidget(launch_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Footer server status
-        status_lbl = QLabel("Local Web Console is secure, lightweight, and offline.", self.goals_tab)
-        status_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 10px; color: #64748B; border: none; background: transparent;")
+        status_lbl = QLabel(
+            "Local Web Console is secure, lightweight, and offline.", self.goals_tab
+        )
+        status_lbl.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 10px; color: #64748B; border: none; background: transparent;"
+        )
         status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.goals_layout.addWidget(status_lbl)
 
@@ -548,15 +624,19 @@ class TrueHourDashboard(QDialog):
         self.lbl_live_active.setText(current_app)
 
         # Apps donut
-        report = build_report_data(tracker, hourly_rate=hourly, currency_symbol=display_symbol)
+        report = build_report_data(
+            tracker, hourly_rate=hourly, currency_symbol=display_symbol
+        )
         apps_breakdown = []
         for app in report.get("apps", []):
             if not app["excluded"]:
-                apps_breakdown.append({
-                    "name": app["name"],
-                    "seconds": app["seconds"],
-                    "color": self.get_project_color(app["tag"])
-                })
+                apps_breakdown.append(
+                    {
+                        "name": app["name"],
+                        "seconds": app["seconds"],
+                        "color": self.get_project_color(app["tag"]),
+                    }
+                )
         self.live_donut.set_data(apps_breakdown)
 
         # Refresh live legend list
@@ -578,26 +658,38 @@ class TrueHourDashboard(QDialog):
             # Dynamic styled color dot for baseline alignment
             swatch = QLabel(row_f)
             swatch.setFixedSize(8, 8)
-            swatch.setStyleSheet(f"background-color: {self.get_project_color(pb['project'])}; border-radius: 4px; border: none; margin-top: 1px;")
+            swatch.setStyleSheet(
+                f"background-color: {self.get_project_color(pb['project'])}; border-radius: 4px; border: none; margin-top: 1px;"
+            )
             row_layout.addWidget(swatch, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             text_primary = self.text_primary
 
             lbl = QLabel(pb["project"], row_f)
-            lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_primary}; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
+            lbl.setStyleSheet(
+                f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_primary}; border: none; background: transparent; margin-bottom: 1px; padding: 0px;"
+            )
             lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
             row_layout.addWidget(lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             pct_lbl = QLabel(f"{pb['percent']:.1f}%", row_f)
-            pct_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
-            pct_lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+            pct_lbl.setStyleSheet(
+                "font-family: 'Segoe UI'; font-size: 11px; color: #64748B; border: none; background: transparent; margin-bottom: 1px; padding: 0px;"
+            )
+            pct_lbl.setAlignment(
+                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+            )
             row_layout.addWidget(pct_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             row_layout.addStretch()
 
             time_lbl = QLabel(pb["formatted"], row_f)
-            time_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: 500; color: {text_primary}; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
-            time_lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+            time_lbl.setStyleSheet(
+                f"font-family: 'Segoe UI'; font-size: 11px; font-weight: 500; color: {text_primary}; border: none; background: transparent; margin-bottom: 1px; padding: 0px;"
+            )
+            time_lbl.setAlignment(
+                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
+            )
             row_layout.addWidget(time_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             self.live_legend_list_layout.addWidget(row_f)
@@ -620,7 +712,9 @@ class TrueHourDashboard(QDialog):
         hourly = self.main_app.hourly_rate
         curr_sym = self.main_app.currency_symbol
 
-        data = aggregate_history_data(start_d, end_d, hourly_rate=hourly, currency_symbol=curr_sym)
+        data = aggregate_history_data(
+            start_d, end_d, hourly_rate=hourly, currency_symbol=curr_sym
+        )
 
         # Fill historical KPI Cards
         self.lbl_hist_sessions.setText(str(data["session_count"]))
@@ -632,11 +726,13 @@ class TrueHourDashboard(QDialog):
         apps_breakdown = []
         for app in data.get("apps", []):
             if not app["excluded"]:
-                apps_breakdown.append({
-                    "name": app["name"],
-                    "seconds": app["seconds"],
-                    "color": self.get_project_color(app["tag"])
-                })
+                apps_breakdown.append(
+                    {
+                        "name": app["name"],
+                        "seconds": app["seconds"],
+                        "color": self.get_project_color(app["tag"]),
+                    }
+                )
         self.hist_donut.set_data(apps_breakdown)
 
         # Productivity bar trend
@@ -653,25 +749,36 @@ class TrueHourDashboard(QDialog):
         weekly_project_seconds = {}
         try:
             from datetime import datetime as dt_class, timedelta as td_class
+
             now_dt = dt_class.now()
             today_start = now_dt.replace(hour=0, minute=0, second=0, microsecond=0)
             start_of_week = today_start - td_class(days=today_start.weekday())
 
             exclude_key = None
-            if self.main_app and self.main_app.tracker.running and self.main_app.tracker.session_start:
+            if (
+                self.main_app
+                and self.main_app.tracker.running
+                and self.main_app.tracker.session_start
+            ):
                 s_date = self.main_app.tracker.session_start.strftime("%Y-%m-%d")
                 s_start = self.main_app.tracker.session_start.strftime("%H:%M:%S")
                 exclude_key = (s_date, s_start)
 
-            data_w = aggregate_history_data(start_of_week, now_dt, exclude_key=exclude_key)
+            data_w = aggregate_history_data(
+                start_of_week, now_dt, exclude_key=exclude_key
+            )
             for item in data_w.get("project_breakdown", []):
                 weekly_project_seconds[item["project"]] = item["seconds"]
 
             if self.main_app and self.main_app.tracker.running:
-                report_l = build_report_data(self.main_app.tracker, hourly_rate=self.main_app.hourly_rate)
+                report_l = build_report_data(
+                    self.main_app.tracker, hourly_rate=self.main_app.hourly_rate
+                )
                 for item in report_l.get("project_breakdown", []):
                     proj = item["project"]
-                    weekly_project_seconds[proj] = weekly_project_seconds.get(proj, 0.0) + item["seconds"]
+                    weekly_project_seconds[proj] = (
+                        weekly_project_seconds.get(proj, 0.0) + item["seconds"]
+                    )
         except Exception as e:
             print(f"[TrueHour] Failed to compute weekly progress data: {e}")
 
@@ -684,7 +791,9 @@ class TrueHourDashboard(QDialog):
             # Dynamic styled color dot for baseline alignment
             swatch = QLabel(row_f)
             swatch.setFixedSize(8, 8)
-            swatch.setStyleSheet(f"background-color: {self.get_project_color(pb['project'])}; border-radius: 4px; border: none; margin-top: 1px;")
+            swatch.setStyleSheet(
+                f"background-color: {self.get_project_color(pb['project'])}; border-radius: 4px; border: none; margin-top: 1px;"
+            )
 
             text_primary = self.text_primary
 
@@ -703,21 +812,29 @@ class TrueHourDashboard(QDialog):
                 top_layout.addWidget(swatch, alignment=Qt.AlignmentFlag.AlignVCenter)
 
                 lbl = QLabel(pb["project"], row_f)
-                lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_primary}; border: none; background: transparent; padding: 0px;")
+                lbl.setStyleSheet(
+                    f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_primary}; border: none; background: transparent; padding: 0px;"
+                )
                 top_layout.addWidget(lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
                 goal_seconds = goal_hours * 3600.0
                 tracked_seconds = weekly_project_seconds.get(pb["project"], 0.0)
                 progress_pct = (tracked_seconds / goal_seconds) * 100.0
 
-                pct_lbl = QLabel(f"({progress_pct:.1f}% of {goal_hours:.1f}h weekly goal)", row_f)
-                pct_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 10px; color: #64748B; border: none; background: transparent; padding: 0px;")
+                pct_lbl = QLabel(
+                    f"({progress_pct:.1f}% of {goal_hours:.1f}h weekly goal)", row_f
+                )
+                pct_lbl.setStyleSheet(
+                    "font-family: 'Segoe UI'; font-size: 10px; color: #64748B; border: none; background: transparent; padding: 0px;"
+                )
                 top_layout.addWidget(pct_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
                 top_layout.addStretch()
 
                 time_lbl = QLabel(pb["formatted"], row_f)
-                time_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: 500; color: {text_primary}; border: none; background: transparent; padding: 0px;")
+                time_lbl.setStyleSheet(
+                    f"font-family: 'Segoe UI'; font-size: 11px; font-weight: 500; color: {text_primary}; border: none; background: transparent; padding: 0px;"
+                )
                 top_layout.addWidget(time_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
                 row_layout.addLayout(top_layout)
@@ -725,7 +842,9 @@ class TrueHourDashboard(QDialog):
                 # Bottom progress bar row
                 pbar = QFrame(row_f)
                 pbar.setFixedHeight(4)
-                pbar.setStyleSheet(f"background-color: {self.border_color}; border-radius: 2px; border: none;")
+                pbar.setStyleSheet(
+                    f"background-color: {self.border_color}; border-radius: 2px; border: none;"
+                )
                 pbar_layout = QHBoxLayout(pbar)
                 pbar_layout.setContentsMargins(0, 0, 0, 0)
                 pbar_layout.setSpacing(0)
@@ -733,7 +852,9 @@ class TrueHourDashboard(QDialog):
                 pfill = QFrame(pbar)
                 pfill.setFixedHeight(4)
                 fill_pct = max(0, min(100, round(progress_pct)))
-                pfill.setStyleSheet(f"background-color: {self.get_project_color(pb['project'])}; border-radius: 2px; border: none;")
+                pfill.setStyleSheet(
+                    f"background-color: {self.get_project_color(pb['project'])}; border-radius: 2px; border: none;"
+                )
                 pbar_layout.addWidget(pfill, fill_pct)
                 pbar_layout.addStretch(100 - fill_pct)
 
@@ -748,20 +869,32 @@ class TrueHourDashboard(QDialog):
                 row_layout.addWidget(swatch, alignment=Qt.AlignmentFlag.AlignVCenter)
 
                 lbl = QLabel(pb["project"], row_f)
-                lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_primary}; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
-                lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+                lbl.setStyleSheet(
+                    f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_primary}; border: none; background: transparent; margin-bottom: 1px; padding: 0px;"
+                )
+                lbl.setAlignment(
+                    Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+                )
                 row_layout.addWidget(lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
                 pct_lbl = QLabel(f"{pb['percent']:.1f}%", row_f)
-                pct_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
-                pct_lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+                pct_lbl.setStyleSheet(
+                    "font-family: 'Segoe UI'; font-size: 11px; color: #64748B; border: none; background: transparent; margin-bottom: 1px; padding: 0px;"
+                )
+                pct_lbl.setAlignment(
+                    Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+                )
                 row_layout.addWidget(pct_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
                 row_layout.addStretch()
 
                 time_lbl = QLabel(pb["formatted"], row_f)
-                time_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: 500; color: {text_primary}; border: none; background: transparent; margin-bottom: 1px; padding: 0px;")
-                time_lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+                time_lbl.setStyleSheet(
+                    f"font-family: 'Segoe UI'; font-size: 11px; font-weight: 500; color: {text_primary}; border: none; background: transparent; margin-bottom: 1px; padding: 0px;"
+                )
+                time_lbl.setAlignment(
+                    Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
+                )
                 row_layout.addWidget(time_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             self.hist_legend_list_layout.addWidget(row_f)
@@ -770,6 +903,7 @@ class TrueHourDashboard(QDialog):
         # Update heatmap (always query past 365 days)
         try:
             from core.reporting.statistics import get_daily_summaries
+
             hm_start = today - timedelta(days=364)
             hm_start_str = hm_start.strftime("%Y-%m-%d")
             hm_end_str = datetime.now().strftime("%Y-%m-%d")

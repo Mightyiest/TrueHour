@@ -2,8 +2,7 @@
 TrueHour — Main Application UI (PyQt6).
 Lightweight Windows desktop time tracker with a clean Windows 11-style light theme.
 """
-import base64
-import hashlib
+
 import io
 import json
 import logging
@@ -17,34 +16,72 @@ from datetime import datetime
 from PyQt6.QtCore import QFileInfo, QObject, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QImage, QPixmap, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QFrame, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QScrollArea, QLineEdit, QDialog, QMenu, QMessageBox,
-    QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView, QSystemTrayIcon, QFileIconProvider
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QFrame,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QLineEdit,
+    QDialog,
+    QMenu,
+    QMessageBox,
+    QFileDialog,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QSystemTrayIcon,
+    QFileIconProvider,
 )
 
 from tracker import AppTracker
 from config import get_app_data_dir, open_file, get_app_data_root, DynamicPath
 from report import (
-    format_duration, format_duration_hms, build_report_data,
-    export_txt, save_to_autosave, save_to_history, generate_session_report_html,
+    format_duration,
+    format_duration_hms,
+    build_report_data,
+    export_txt,
+    save_to_autosave,
+    save_to_history,
+    generate_session_report_html,
 )
 from version import VERSION_FULL, INFO
-from assets import GITHUB_SVG, SUN_SVG, MOON_SVG, SOLID_MOON_SVG, PLAY_SVG, PAUSE_SVG, BUG_SVG, SHIELD_SVG
+from assets import (
+    GITHUB_SVG,
+    SUN_SVG,
+    SOLID_MOON_SVG,
+    PLAY_SVG,
+    PAUSE_SVG,
+    BUG_SVG,
+    SHIELD_SVG,
+)
 from debug_terminal import LogBufferCollector
 from widgets.custom_widgets import SegmentedAllocationBar, AppUsageRow
 from widgets.loading_dialog import LoadingDialog
 from widgets.update_label import FadingVersionLabel
 from workers.report_worker import ReportWorker
 from theme import (
-    FONT_FAMILY, get_tag_color, get_light_palette,
-    ensure_checkmark_icon, get_svg_icon, create_minimalist_icon, get_qss_style, get_dark_palette
+    FONT_FAMILY,
+    get_tag_color,
+    get_light_palette,
+    ensure_checkmark_icon,
+    get_svg_icon,
+    create_minimalist_icon,
+    get_qss_style,
+    get_dark_palette,
 )
 import ctypes
 
 # Global Constants & Paths
 ICON_DIR = os.path.dirname(os.path.abspath(__file__))
 ICON_PATH = os.path.join(ICON_DIR, "icon.ico")
-APP_SETTINGS_FILE = DynamicPath(lambda: os.path.join(get_app_data_dir(), "app_settings.json"))
+APP_SETTINGS_FILE = DynamicPath(
+    lambda: os.path.join(get_app_data_dir(), "app_settings.json")
+)
+
 
 def pil_to_pixmap(pil_img):
     """Convert a PIL Image safely to a QPixmap for PyQt6 icon rendering using QImage.fromData (independent memory)."""
@@ -52,7 +89,7 @@ def pil_to_pixmap(pil_img):
         return None
     try:
         byte_arr = io.BytesIO()
-        pil_img.save(byte_arr, format='PNG')
+        pil_img.save(byte_arr, format="PNG")
         png_bytes = byte_arr.getvalue()
         qim = QImage.fromData(png_bytes)
         return QPixmap.fromImage(qim)
@@ -60,11 +97,13 @@ def pil_to_pixmap(pil_img):
         logger.debug("pil_to_pixmap failed: %s", e)
         return None
 
+
 from crypto import _get_secure_key, _encrypt_string, _decrypt_string
 
 # ── Crypto Key Bindings (Moved to crypto.py) ──────────────────
 
 _ICON_PROVIDER = None
+
 
 def get_native_icon_pixmap(exe_path: str, size: int = 16):
     """Retrieve the native system icon for a file path using a shared QFileIconProvider."""
@@ -82,6 +121,7 @@ def get_native_icon_pixmap(exe_path: str, size: int = 16):
         logger.debug("Failed to get native icon for %s: %s", exe_path, e)
     return None
 
+
 # Start stdout/stderr log redirection immediately to catch early events
 log_collector = LogBufferCollector()
 log_collector.start_redirection()
@@ -92,27 +132,37 @@ logger.setLevel(logging.DEBUG)
 if not logger.handlers:
     # Stream (console) output handler
     stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    stream_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
     logger.addHandler(stream_handler)
 
     # File logging handler (saved to App Data Root Directory)
     try:
         log_file_path = os.path.join(get_app_data_root(), "truehour.log")
         file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
-        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        )
         logger.addHandler(file_handler)
         logger.info(f"[TrueHour] File logging initialized at: {log_file_path}")
     except Exception as log_err:
         logger.warning(f"Failed to initialize file logging: {log_err}")
+
 
 # Uncaught exception hook to capture all application crashes to the log file
 def handle_exception(exc_type, exc_value, exc_traceback):
     if issubclass(exc_type, KeyboardInterrupt):
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
         return
-    logger.critical("Uncaught application crash occurred:", exc_info=(exc_type, exc_value, exc_traceback))
+    logger.critical(
+        "Uncaught application crash occurred:",
+        exc_info=(exc_type, exc_value, exc_traceback),
+    )
+
 
 sys.excepthook = handle_exception
+
 
 # ── Force Windows to use Light Mode ──────────────────────────────────
 def _force_light_mode():
@@ -123,6 +173,7 @@ def _force_light_mode():
     except Exception:
         pass
 
+
 _force_light_mode()
 
 
@@ -130,10 +181,14 @@ _force_light_mode()
 class TrackerSignals(QObject):
     update_signal = pyqtSignal()
 
+
 # create_minimalist_icon moved to theme.py
 
+
 class HeaderBar(QFrame):
-    def __init__(self, parent, cmd_report, cmd_sessions, cmd_settings, cmd_toggle_theme):
+    def __init__(
+        self, parent, cmd_report, cmd_sessions, cmd_settings, cmd_toggle_theme
+    ):
         super().__init__(parent)
         self.setObjectName("HeaderBar")
         self.setFixedHeight(44)
@@ -184,23 +239,26 @@ class HeaderBar(QFrame):
             theme_style = "light"
         if isinstance(theme_style, bool):
             theme_style = "modern-dark" if theme_style else "light"
-        
-        is_dark = (theme_style in ["modern-dark", "classic-dark"])
-        
+
+        is_dark = theme_style in ["modern-dark", "classic-dark"]
+
         if theme_style == "classic-dark":
-            accent_color = "#d1d5db"
             neutral_color = "#aaa"
-            self.theme_btn.setIcon(get_svg_icon(SUN_SVG, QSize(16, 16), color_hex="#d1d5db"))
+            self.theme_btn.setIcon(
+                get_svg_icon(SUN_SVG, QSize(16, 16), color_hex="#d1d5db")
+            )
             self.theme_btn.setToolTip("Switch to Light Mode")
         elif theme_style == "modern-dark":
-            accent_color = "#2563EB"
             neutral_color = "#A3A3A3"
-            self.theme_btn.setIcon(get_svg_icon(SOLID_MOON_SVG, QSize(16, 16), color_hex="#475569"))
+            self.theme_btn.setIcon(
+                get_svg_icon(SOLID_MOON_SVG, QSize(16, 16), color_hex="#475569")
+            )
             self.theme_btn.setToolTip("Switch to Classic Dark Mode")
-        else: # light
-            accent_color = "#0078D4"
+        else:  # light
             neutral_color = "#475569"
-            self.theme_btn.setIcon(get_svg_icon(SOLID_MOON_SVG, QSize(16, 16), color_hex="#2563EB"))
+            self.theme_btn.setIcon(
+                get_svg_icon(SOLID_MOON_SVG, QSize(16, 16), color_hex="#2563EB")
+            )
             self.theme_btn.setToolTip("Switch to Modern Dark Mode")
 
         self.live_report_btn.setIcon(create_minimalist_icon("chart", neutral_color))
@@ -221,10 +279,12 @@ class HeaderBar(QFrame):
             }}
         """)
 
+
 # Custom paint bar and app list usage row widgets moved to widgets/custom_widgets.py
 
 # ── Unified Styled Window Palette (QSS) ──────────────────────────────
 # QSS_STYLE moved to theme.py
+
 
 # ── Main Application Window ──────────────────────────────────────────
 class TrueHourApp(QMainWindow):
@@ -233,6 +293,7 @@ class TrueHourApp(QMainWindow):
         # Initialize SQLite database (lightweight schema creation)
         try:
             from database.schema import init_db
+
             init_db()
         except Exception as e:
             print(f"[TrueHour] Failed database bootstrap: {e}")
@@ -242,7 +303,9 @@ class TrueHourApp(QMainWindow):
         self.notified_earnings_goal = None
         self._load_app_settings()
         self._init_posthog()
-        self._track_event("app_started", {"version": VERSION_FULL, "platform": sys.platform})
+        self._track_event(
+            "app_started", {"version": VERSION_FULL, "platform": sys.platform}
+        )
 
         self._check_vars = {}
         self._photo_refs = []
@@ -311,6 +374,7 @@ class TrueHourApp(QMainWindow):
         self.apply_theme(self.dark_mode)
 
         from tracker import ACTIVE_SESSION_FILE
+
         if os.path.exists(ACTIVE_SESSION_FILE):
             QTimer.singleShot(100, self._handle_interrupted_session)
 
@@ -318,12 +382,16 @@ class TrueHourApp(QMainWindow):
         try:
             import threading
             from core.reporting.aggregator import rebuild_all_summaries
+
             def run_rebuild():
                 try:
                     rebuild_all_summaries()
                 except Exception as ex:
                     print(f"[TrueHour] Background summary rebuild failed: {ex}")
-            QTimer.singleShot(2500, lambda: threading.Thread(target=run_rebuild, daemon=True).start())
+
+            QTimer.singleShot(
+                2500, lambda: threading.Thread(target=run_rebuild, daemon=True).start()
+            )
             QTimer.singleShot(3500, self._recalculate_weekly_base_focus_seconds)
         except Exception as e:
             print(f"[TrueHour] Failed to schedule summary rebuild: {e}")
@@ -332,45 +400,64 @@ class TrueHourApp(QMainWindow):
         def _deferred_start_web_server():
             try:
                 from core.reporting.web_server import WebServerManager
+
                 self.web_server_mgr = WebServerManager(self._get_web_goals_state, self)
-                self.web_server_mgr.signals.goals_updated.connect(self._on_web_goals_updated)
-                self.web_server_mgr.signals.alerts_toggled.connect(self._on_web_alerts_toggled)
-                self.web_server_mgr.signals.theme_toggled.connect(self._on_web_theme_toggled)
-                self.web_server_mgr.signals.test_notification_requested.connect(self._trigger_test_notification)
-                self.web_server_mgr.signals.reset_requested.connect(self._on_web_goals_reset)
+                self.web_server_mgr.signals.goals_updated.connect(
+                    self._on_web_goals_updated
+                )
+                self.web_server_mgr.signals.alerts_toggled.connect(
+                    self._on_web_alerts_toggled
+                )
+                self.web_server_mgr.signals.theme_toggled.connect(
+                    self._on_web_theme_toggled
+                )
+                self.web_server_mgr.signals.test_notification_requested.connect(
+                    self._trigger_test_notification
+                )
+                self.web_server_mgr.signals.reset_requested.connect(
+                    self._on_web_goals_reset
+                )
                 self.web_server_mgr.start()
             except Exception as ex:
                 print(f"[TrueHour] Failed to initialize web server: {ex}")
+
         QTimer.singleShot(4000, _deferred_start_web_server)
 
         # Schedule database optimization 3 seconds after startup to clean up database file
         try:
             import threading
             from database.schema import optimize_db
+
             def run_optimize():
                 try:
                     optimize_db()
                 except Exception as ex:
                     print(f"[TrueHour] Background database optimization failed: {ex}")
-            QTimer.singleShot(3000, lambda: threading.Thread(target=run_optimize, daemon=True).start())
+
+            QTimer.singleShot(
+                3000, lambda: threading.Thread(target=run_optimize, daemon=True).start()
+            )
         except Exception as e:
             print(f"[TrueHour] Failed to schedule database optimization: {e}")
-
 
         # ── Background update check ──────────────────────────────────
         # Runs 5 seconds after startup to avoid blocking the UI.
         from core.update_checker import UpdateCheckSignals, check_for_updates_async
         from version import __version__
+
         self._update_signals = UpdateCheckSignals()
         self._update_signals.update_found.connect(self._on_update_found)
-        QTimer.singleShot(5000, lambda: check_for_updates_async(__version__, self._update_signals))
+        QTimer.singleShot(
+            5000, lambda: check_for_updates_async(__version__, self._update_signals)
+        )
 
     def _toggle_debug_console(self):
         import subprocess
         import sys
+
         logger.info("[Action] Toggled Debug Console")
         try:
-            if getattr(sys, 'frozen', False):
+            if getattr(sys, "frozen", False):
                 subprocess.Popen([sys.executable, "--debug-console"])
             else:
                 subprocess.Popen([sys.executable, sys.argv[0], "--debug-console"])
@@ -384,8 +471,10 @@ class TrueHourApp(QMainWindow):
     def _on_update_found(self, new_version: str, release_url: str):
         """Callback from the background update checker when a newer release exists."""
         logger.info(f"[UpdateChecker] Notifying user: {new_version}")
-        if hasattr(self, 'ver_lbl'):
-            self.ver_lbl.set_update_available(True, new_version=new_version, release_url=release_url)
+        if hasattr(self, "ver_lbl"):
+            self.ver_lbl.set_update_available(
+                True, new_version=new_version, release_url=release_url
+            )
 
     def _on_version_clicked(self, event):
         if event.button() != Qt.MouseButton.LeftButton:
@@ -401,12 +490,27 @@ class TrueHourApp(QMainWindow):
 
         remaining = 7 - self._version_clicks
         if remaining > 0 and remaining <= 4:
-            self.active_label.setText(f"🛠️ You are now {remaining} steps away from being a developer.")
-            self.active_label.setStyleSheet("color: #ffffff; font-size: 10px;" if self.dark_mode else "color: #CA5010; font-size: 10px;")
+            self.active_label.setText(
+                f"🛠️ You are now {remaining} steps away from being a developer."
+            )
+            self.active_label.setStyleSheet(
+                "color: #ffffff; font-size: 10px;"
+                if self.dark_mode
+                else "color: #CA5010; font-size: 10px;"
+            )
             # Safely restore state label after 2.5 seconds
-            QTimer.singleShot(2500, lambda: self.active_label.setText(
-                f"Active: {self.tracker.get_current_app()}" if (self.tracker.running and not self.tracker.paused) else ("Ready to track" if not self.tracker.running else "⏸ Session paused")
-            ))
+            QTimer.singleShot(
+                2500,
+                lambda: self.active_label.setText(
+                    f"Active: {self.tracker.get_current_app()}"
+                    if (self.tracker.running and not self.tracker.paused)
+                    else (
+                        "Ready to track"
+                        if not self.tracker.running
+                        else "⏸ Session paused"
+                    )
+                ),
+            )
         elif remaining == 0:
             self.developer_mode = True
             self._save_app_settings()
@@ -415,16 +519,28 @@ class TrueHourApp(QMainWindow):
             QMessageBox.information(
                 self,
                 "Developer Options",
-                "Congratulations! You have enabled Developer Options.\nThe Debug Console and Test Logs button are now visible."
+                "Congratulations! You have enabled Developer Options.\nThe Debug Console and Test Logs button are now visible.",
             )
             self.active_label.setText("🛠️ Developer Options enabled!")
-            self.active_label.setStyleSheet("color: #ffffff; font-size: 10px;" if self.dark_mode else "color: #0F7B0F; font-size: 10px;")
+            self.active_label.setStyleSheet(
+                "color: #ffffff; font-size: 10px;"
+                if self.dark_mode
+                else "color: #0F7B0F; font-size: 10px;"
+            )
 
     def _trigger_diagnostic_logs(self):
-        logger.debug("[DEBUG] This is a diagnostic debug message to test console colorizing.")
-        logger.info("[INFO] This is a diagnostic info message to test console colorizing.")
-        logger.warning("[WARNING] This is a diagnostic warning message to test console colorizing.")
-        logger.error("[ERROR] This is a diagnostic error message to test console colorizing.")
+        logger.debug(
+            "[DEBUG] This is a diagnostic debug message to test console colorizing."
+        )
+        logger.info(
+            "[INFO] This is a diagnostic info message to test console colorizing."
+        )
+        logger.warning(
+            "[WARNING] This is a diagnostic warning message to test console colorizing."
+        )
+        logger.error(
+            "[ERROR] This is a diagnostic error message to test console colorizing."
+        )
 
     def _center_window(self, win, width, height):
         win.resize(width, height)
@@ -446,7 +562,7 @@ class TrueHourApp(QMainWindow):
             cmd_report=self._show_dashboard,
             cmd_sessions=self._show_session_manager,
             cmd_settings=self._show_settings,
-            cmd_toggle_theme=self._toggle_theme
+            cmd_toggle_theme=self._toggle_theme,
         )
         main_layout.addWidget(self.header)
 
@@ -465,17 +581,23 @@ class TrueHourApp(QMainWindow):
 
         self.clock_label = QLabel("00:00:00", self)
         self.clock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.clock_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 36px; font-weight: bold; color: #0F172A;")
+        self.clock_label.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 36px; font-weight: bold; color: #0F172A;"
+        )
         ctrl_layout.addWidget(self.clock_label)
 
         self.earnings_label = QLabel("", self)
         self.earnings_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.earnings_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: #16A34A;")
+        self.earnings_label.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: #16A34A;"
+        )
         ctrl_layout.addWidget(self.earnings_label)
 
         self.active_label = QLabel("Ready to track", self)
         self.active_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.active_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 10px; color: #475569;")
+        self.active_label.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 10px; color: #475569;"
+        )
         ctrl_layout.addWidget(self.active_label)
 
         btn_row = QHBoxLayout()
@@ -506,7 +628,9 @@ class TrueHourApp(QMainWindow):
         # ── App List Section ──────────────────────────────────────────
         app_sec_hdr = QHBoxLayout()
         app_sec_lbl = QLabel("Application usage", self)
-        app_sec_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 10px; color: #616161;")
+        app_sec_lbl.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 10px; color: #616161;"
+        )
         app_sec_hdr.addWidget(app_sec_lbl)
         body_layout.addLayout(app_sec_hdr)
 
@@ -517,7 +641,9 @@ class TrueHourApp(QMainWindow):
 
         self.scroll_area = QScrollArea(self.list_card)
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         self.scroll_widget = QWidget()
         self.scroll_widget.setObjectName("scroll_widget")
         self.scroll_layout = QVBoxLayout(self.scroll_widget)
@@ -527,12 +653,14 @@ class TrueHourApp(QMainWindow):
 
         self.scroll_area.setWidget(self.scroll_widget)
         list_card_layout.addWidget(self.scroll_area)
-        body_layout.addWidget(self.list_card, 1) # Expandable
+        body_layout.addWidget(self.list_card, 1)  # Expandable
 
         # Placeholder label
         self.placeholder_lbl = QLabel("Click Start to begin tracking", self)
         self.placeholder_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.placeholder_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; color: #ABABAB; margin: 40px;")
+        self.placeholder_lbl.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 13px; color: #ABABAB; margin: 40px;"
+        )
         self.scroll_layout.insertWidget(0, self.placeholder_lbl)
 
         # ── Footer ───────────────────────────────────────────────────
@@ -543,13 +671,17 @@ class TrueHourApp(QMainWindow):
         footer_layout.setContentsMargins(12, 0, 12, 0)
 
         total_lbl = QLabel("Total session time", self)
-        total_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 10px; color: #616161;")
+        total_lbl.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 10px; color: #616161;"
+        )
         footer_layout.addWidget(total_lbl)
 
         footer_layout.addStretch()
 
         self.total_label = QLabel("0h 00m 00s", self)
-        self.total_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #0078D4;")
+        self.total_label.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #0078D4;"
+        )
         footer_layout.addWidget(self.total_label, alignment=Qt.AlignmentFlag.AlignRight)
         body_layout.addWidget(self.footer_card)
 
@@ -575,7 +707,9 @@ class TrueHourApp(QMainWindow):
             }
         """)
         self.debug_btn.clicked.connect(self._toggle_debug_console)
-        bottom_bar_layout.addWidget(self.debug_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        bottom_bar_layout.addWidget(
+            self.debug_btn, alignment=Qt.AlignmentFlag.AlignLeft
+        )
 
         self.test_btn = QPushButton("⚡ Test Logs", self)
         self.test_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -600,17 +734,25 @@ class TrueHourApp(QMainWindow):
 
         self.ver_lbl = FadingVersionLabel(VERSION_FULL, self)
         self.ver_lbl.set_version_click_handler(self._on_version_clicked)
-        bottom_bar_layout.addWidget(self.ver_lbl, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+        bottom_bar_layout.addWidget(
+            self.ver_lbl,
+            alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+        )
 
         self.bug_btn = QPushButton(self)
         self.bug_btn.setFixedSize(16, 16)
         self.bug_btn.setIconSize(QSize(12, 12))
         self.bug_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.bug_btn.setToolTip("Report a Bug / Feedback")
-        self.bug_btn.setStyleSheet("QPushButton { background: none; border: none; padding: 0px; }")
+        self.bug_btn.setStyleSheet(
+            "QPushButton { background: none; border: none; padding: 0px; }"
+        )
         self.bug_btn.setIcon(get_svg_icon(BUG_SVG, QSize(12, 12)))
         self.bug_btn.clicked.connect(self._show_bug_report_menu)
-        bottom_bar_layout.addWidget(self.bug_btn, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+        bottom_bar_layout.addWidget(
+            self.bug_btn,
+            alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+        )
 
         body_layout.addLayout(bottom_bar_layout)
 
@@ -619,15 +761,28 @@ class TrueHourApp(QMainWindow):
 
     def closeEvent(self, event):
         if self.confirm_on_close:
-            msg = "A tracking session is active.\nAre you sure you want to stop tracking and exit?" if self.tracker.running else "Are you sure you want to close TrueHour?"
-            reply = QMessageBox.question(self, "Confirm Exit", msg, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msg = (
+                "A tracking session is active.\nAre you sure you want to stop tracking and exit?"
+                if self.tracker.running
+                else "Are you sure you want to close TrueHour?"
+            )
+            reply = QMessageBox.question(
+                self,
+                "Confirm Exit",
+                msg,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
             if reply != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
         if self.tracker.running:
             self.tracker.stop()
             try:
-                report = build_report_data(self.tracker, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol)
+                report = build_report_data(
+                    self.tracker,
+                    hourly_rate=self.hourly_rate,
+                    currency_symbol=self.currency_symbol,
+                )
                 save_to_autosave(report)
             except Exception as e:
                 print(f"[TrueHour] Closing autosave failed: {e}")
@@ -678,7 +833,11 @@ class TrueHourApp(QMainWindow):
 
         if self.hourly_rate > 0:
             self.earnings_label.setText(f"💰 {self.currency_symbol}0.00 earned")
-            self.earnings_label.setStyleSheet("color: #ffffff; font-size: 13px; font-weight: bold;" if self.dark_mode else "color: #0F7B0F; font-size: 13px; font-weight: bold;")
+            self.earnings_label.setStyleSheet(
+                "color: #ffffff; font-size: 13px; font-weight: bold;"
+                if self.dark_mode
+                else "color: #0F7B0F; font-size: 13px; font-weight: bold;"
+            )
         self.clock_timer.start(250)
 
     def _on_stop(self):
@@ -708,7 +867,9 @@ class TrueHourApp(QMainWindow):
         self._last_app_state_hash = None
         self.placeholder_lbl = QLabel("Waiting for app activity...", self)
         self.placeholder_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.placeholder_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; color: #ABABAB; margin: 20px;")
+        self.placeholder_lbl.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 13px; color: #ABABAB; margin: 20px;"
+        )
         self.scroll_layout.insertWidget(0, self.placeholder_lbl)
         self._showing_placeholder = True
 
@@ -722,33 +883,48 @@ class TrueHourApp(QMainWindow):
             hourly_rate=self.hourly_rate,
             currency_symbol=self.currency_symbol,
             stop_tracker=True,
-            parent=self
+            parent=self,
         )
 
         # Show Loading Feedback Dialog instantly, which automatically executes and handles the worker!
-        self._load_dlg = LoadingDialog("Compiling Report & Saving...", parent=self, is_dark=self.dark_mode, worker=worker)
+        self._load_dlg = LoadingDialog(
+            "Compiling Report & Saving...",
+            parent=self,
+            is_dark=self.dark_mode,
+            worker=worker,
+        )
         if self._load_dlg.exec() == QDialog.DialogCode.Accepted:
             self._show_compact_save_dialog(self._load_dlg.compiled_report)
             try:
                 rep = self._load_dlg.compiled_report
-                self._track_event("tracking_stopped", {
-                    "duration_seconds": rep.get("total_seconds", 0),
-                    "app_count": len(rep.get("items", [])),
-                    "amount_due": rep.get("total_amount_due", "")
-                })
+                self._track_event(
+                    "tracking_stopped",
+                    {
+                        "duration_seconds": rep.get("total_seconds", 0),
+                        "app_count": len(rep.get("items", [])),
+                        "amount_due": rep.get("total_amount_due", ""),
+                    },
+                )
             except Exception:
                 pass
         else:
-            if hasattr(self._load_dlg, "error_message") and self._load_dlg.error_message:
-                QMessageBox.critical(self, "Generation Error", f"Failed to generate report:\n{self._load_dlg.error_message}")
+            if (
+                hasattr(self._load_dlg, "error_message")
+                and self._load_dlg.error_message
+            ):
+                QMessageBox.critical(
+                    self,
+                    "Generation Error",
+                    f"Failed to generate report:\n{self._load_dlg.error_message}",
+                )
 
     def _update_pause_btn_ui(self):
-        if not hasattr(self, 'pause_btn'):
+        if not hasattr(self, "pause_btn"):
             return
         is_paused = self.tracker.paused
         is_dark = getattr(self, "dark_mode", False)
         icon_color = "#d1d5db" if is_dark else "#475569"
-        
+
         if is_paused:
             icon_color = "#ffffff"
             self.pause_btn.setIcon(get_svg_icon(PLAY_SVG, QSize(12, 12), icon_color))
@@ -760,13 +936,19 @@ class TrueHourApp(QMainWindow):
     def _on_pause(self):
         is_paused = self.tracker.toggle_pause()
         logger.info(f"[Action] Clicked {'Pause' if is_paused else 'Resume'}")
-        self.tray_pause_action.setText("Resume Tracking" if is_paused else "Pause Tracking")
+        self.tray_pause_action.setText(
+            "Resume Tracking" if is_paused else "Pause Tracking"
+        )
         if is_paused:
             if self.dark_mode:
-                self.pause_btn.setStyleSheet("color: #ffffff; background-color: #262626; font-weight: bold;")
+                self.pause_btn.setStyleSheet(
+                    "color: #ffffff; background-color: #262626; font-weight: bold;"
+                )
                 self.active_label.setStyleSheet("color: #ffffff; font-size: 10px;")
             else:
-                self.pause_btn.setStyleSheet("color: #ffffff; background-color: #1e293b; font-weight: bold;")
+                self.pause_btn.setStyleSheet(
+                    "color: #ffffff; background-color: #1e293b; font-weight: bold;"
+                )
                 self.active_label.setStyleSheet("color: #CA5010; font-size: 10px;")
             self.active_label.setText("⏸ Session paused")
         else:
@@ -779,22 +961,35 @@ class TrueHourApp(QMainWindow):
     def _show_live_report(self):
         logger.info("[Action] Opened Live Dashboard")
         if not self.tracker.running:
-            QMessageBox.information(self, "No Active Session", "Start tracking first to view a live report.")
+            QMessageBox.information(
+                self, "No Active Session", "Start tracking first to view a live report."
+            )
             return
 
         worker = ReportWorker(
             self.tracker,
             hourly_rate=self.hourly_rate,
             currency_symbol=self.currency_symbol,
-            parent=self
+            parent=self,
         )
 
-        self._load_dlg = LoadingDialog("Compiling Live Data...", parent=self, is_dark=self.dark_mode, worker=worker)
+        self._load_dlg = LoadingDialog(
+            "Compiling Live Data...", parent=self, is_dark=self.dark_mode, worker=worker
+        )
         if self._load_dlg.exec() == QDialog.DialogCode.Accepted:
-            self._show_report(self._load_dlg.compiled_report, is_new=False, is_live=True)
+            self._show_report(
+                self._load_dlg.compiled_report, is_new=False, is_live=True
+            )
         else:
-            if hasattr(self._load_dlg, "error_message") and self._load_dlg.error_message:
-                QMessageBox.critical(self, "Generation Error", f"Failed to generate report:\n{self._load_dlg.error_message}")
+            if (
+                hasattr(self._load_dlg, "error_message")
+                and self._load_dlg.error_message
+            ):
+                QMessageBox.critical(
+                    self,
+                    "Generation Error",
+                    f"Failed to generate report:\n{self._load_dlg.error_message}",
+                )
 
     def _tick_clock(self):
         if not self.tracker.running:
@@ -806,13 +1001,25 @@ class TrueHourApp(QMainWindow):
         if self.hourly_rate > 0:
             counted = self.tracker.get_counted_seconds()
             earned = (counted / 3600) * self.hourly_rate
-            display_symbol = self.currency_symbol.split()[0].split('(')[0].strip() if self.currency_symbol else "$"
+            display_symbol = (
+                self.currency_symbol.split()[0].split("(")[0].strip()
+                if self.currency_symbol
+                else "$"
+            )
             if self.tracker.paused:
-                self.earnings_label.setText(f"💰 {display_symbol}{earned:,.2f} earned (paused)")
-                self.earnings_label.setStyleSheet("color: #616161; font-size: 13px; font-weight: bold;")
+                self.earnings_label.setText(
+                    f"💰 {display_symbol}{earned:,.2f} earned (paused)"
+                )
+                self.earnings_label.setStyleSheet(
+                    "color: #616161; font-size: 13px; font-weight: bold;"
+                )
             else:
                 self.earnings_label.setText(f"💰 {display_symbol}{earned:,.2f} earned")
-                self.earnings_label.setStyleSheet("color: #ffffff; font-size: 13px; font-weight: bold;" if self.dark_mode else "color: #0F7B0F; font-size: 13px; font-weight: bold;")
+                self.earnings_label.setStyleSheet(
+                    "color: #ffffff; font-size: 13px; font-weight: bold;"
+                    if self.dark_mode
+                    else "color: #0F7B0F; font-size: 13px; font-weight: bold;"
+                )
         else:
             self.earnings_label.setText("")
 
@@ -820,16 +1027,23 @@ class TrueHourApp(QMainWindow):
             current = self.tracker.get_current_app()
             self.active_label.setText(f"Active: {current}" if current else " ")
             self.active_label.setStyleSheet("color: #616161; font-size: 10px;")
-        elif getattr(self.tracker, '_idle_paused', False):
+        elif getattr(self.tracker, "_idle_paused", False):
             self.active_label.setText("💤 Idle — auto paused")
-            self.active_label.setStyleSheet("color: #ffffff; font-size: 10px;" if self.dark_mode else "color: #CA5010; font-size: 10px;")
+            self.active_label.setStyleSheet(
+                "color: #ffffff; font-size: 10px;"
+                if self.dark_mode
+                else "color: #CA5010; font-size: 10px;"
+            )
 
         name = getattr(self.tracker, "session_name", "")
         self.setWindowTitle(f"TrueHour | {name}" if name else "TrueHour")
         self._check_weekly_goal_milestones()
 
     def _on_tray_icon_activated(self, reason):
-        if reason in (QSystemTrayIcon.ActivationReason.DoubleClick, QSystemTrayIcon.ActivationReason.Trigger):
+        if reason in (
+            QSystemTrayIcon.ActivationReason.DoubleClick,
+            QSystemTrayIcon.ActivationReason.Trigger,
+        ):
             if self.isVisible():
                 self.hide()
             else:
@@ -838,16 +1052,19 @@ class TrueHourApp(QMainWindow):
 
     def _show_tray_notification(self, title, message):
         if hasattr(self, "tray_icon") and self.tray_icon.isVisible():
-            self.tray_icon.showMessage(title, message, QSystemTrayIcon.MessageIcon.Information, 5000)
+            self.tray_icon.showMessage(
+                title, message, QSystemTrayIcon.MessageIcon.Information, 5000
+            )
 
     def _trigger_test_notification(self):
         self._show_tray_notification(
             "TrueHour Goals",
-            "This is a test notification from TrueHour! Tray alerts are functioning properly."
+            "This is a test notification from TrueHour! Tray alerts are functioning properly.",
         )
 
     def _recalculate_weekly_base_focus_seconds(self):
         from datetime import datetime, timedelta
+
         now = datetime.now()
         today = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -877,6 +1094,7 @@ class TrueHourApp(QMainWindow):
 
         try:
             from report import aggregate_history_data
+
             data = aggregate_history_data(start_date, now, exclude_key=exclude_key)
             self.weekly_base_focus_seconds = {}
             for item in data.get("project_breakdown", []):
@@ -901,12 +1119,14 @@ class TrueHourApp(QMainWindow):
 
         if not force:
             import time
+
             now_ts = time.time()
             if now_ts - getattr(self, "_last_goal_check", 0.0) < 30.0:
                 return
             self._last_goal_check = now_ts
 
         from datetime import datetime, timedelta
+
         now = datetime.now()
         today = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -928,10 +1148,17 @@ class TrueHourApp(QMainWindow):
 
         if self.tracker.running:
             from tracker import _is_auto_excluded
+
             with self.tracker._lock:
                 for app_name, secs in self.tracker.app_times.items():
-                    if self.tracker.app_included.get(app_name, True) and not _is_auto_excluded(self.tracker.app_exe_paths.get(app_name, "")):
-                        tag = self.tracker.tag_manager.get_tag(app_name, self.tracker.app_exe_paths.get(app_name, ""))
+                    if self.tracker.app_included.get(
+                        app_name, True
+                    ) and not _is_auto_excluded(
+                        self.tracker.app_exe_paths.get(app_name, "")
+                    ):
+                        tag = self.tracker.tag_manager.get_tag(
+                            app_name, self.tracker.app_exe_paths.get(app_name, "")
+                        )
                         project_seconds[tag] = project_seconds.get(tag, 0.0) + secs
 
         total_seconds = sum(project_seconds.values())
@@ -949,17 +1176,23 @@ class TrueHourApp(QMainWindow):
                     self.notified_earnings_goal.add(50)
             else:
                 curr_sym = getattr(self, "currency_symbol", "$")
-                if 50 not in self.notified_earnings_goal and total_earnings >= 0.5 * weekly_earnings_goal:
+                if (
+                    50 not in self.notified_earnings_goal
+                    and total_earnings >= 0.5 * weekly_earnings_goal
+                ):
                     self.notified_earnings_goal.add(50)
                     self._show_tray_notification(
                         "Earnings Goal Milestone",
-                        f"Reached 50% of your weekly earnings goal ({curr_sym}{total_earnings:.2f} / {curr_sym}{weekly_earnings_goal:.2f})!"
+                        f"Reached 50% of your weekly earnings goal ({curr_sym}{total_earnings:.2f} / {curr_sym}{weekly_earnings_goal:.2f})!",
                     )
-                if 100 not in self.notified_earnings_goal and total_earnings >= weekly_earnings_goal:
+                if (
+                    100 not in self.notified_earnings_goal
+                    and total_earnings >= weekly_earnings_goal
+                ):
                     self.notified_earnings_goal.add(100)
                     self._show_tray_notification(
                         "Earnings Goal Completed!",
-                        f"Congratulations! Reached 100% of your weekly earnings goal ({curr_sym}{total_earnings:.2f} / {curr_sym}{weekly_earnings_goal:.2f})!"
+                        f"Congratulations! Reached 100% of your weekly earnings goal ({curr_sym}{total_earnings:.2f} / {curr_sym}{weekly_earnings_goal:.2f})!",
                     )
 
         # Check project goals
@@ -987,37 +1220,50 @@ class TrueHourApp(QMainWindow):
                     if proj not in self.notified_goals:
                         self.notified_goals[proj] = set()
 
-                    if 50 not in self.notified_goals[proj] and curr_secs >= 0.5 * goal_secs:
+                    if (
+                        50 not in self.notified_goals[proj]
+                        and curr_secs >= 0.5 * goal_secs
+                    ):
                         self.notified_goals[proj].add(50)
                         self._show_tray_notification(
                             "Focus Goal Milestone",
-                            f"Reached 50% of your weekly goal for '{proj}' ({curr_secs/3600.0:.1f}h / {goal_hours:.1f}h)!"
+                            f"Reached 50% of your weekly goal for '{proj}' ({curr_secs / 3600.0:.1f}h / {goal_hours:.1f}h)!",
                         )
 
                     if 100 not in self.notified_goals[proj] and curr_secs >= goal_secs:
                         self.notified_goals[proj].add(100)
                         self._show_tray_notification(
                             "Focus Goal Completed!",
-                            f"Congratulations! Reached 100% of your weekly goal for '{proj}' ({curr_secs/3600.0:.1f}h / {goal_hours:.1f}h)!"
+                            f"Congratulations! Reached 100% of your weekly goal for '{proj}' ({curr_secs / 3600.0:.1f}h / {goal_hours:.1f}h)!",
                         )
 
     def _get_web_goals_state(self):
         active_seconds = {}
         if self.tracker.running:
             from tracker import _is_auto_excluded
+
             with self.tracker._lock:
                 for app_name, secs in self.tracker.app_times.items():
-                    if self.tracker.app_included.get(app_name, True) and not _is_auto_excluded(self.tracker.app_exe_paths.get(app_name, "")):
-                        tag = self.tracker.tag_manager.get_tag(app_name, self.tracker.app_exe_paths.get(app_name, ""))
+                    if self.tracker.app_included.get(
+                        app_name, True
+                    ) and not _is_auto_excluded(
+                        self.tracker.app_exe_paths.get(app_name, "")
+                    ):
+                        tag = self.tracker.tag_manager.get_tag(
+                            app_name, self.tracker.app_exe_paths.get(app_name, "")
+                        )
                         active_seconds[tag] = active_seconds.get(tag, 0.0) + secs
 
         from theme import PROJECT_COLORS
         from config import get_app_data_dir
         import os
+
         return {
             "weekly_goals": dict(getattr(self, "weekly_goals", {})),
             "enable_goal_tray_alerts": getattr(self, "enable_goal_tray_alerts", True),
-            "weekly_base_focus_seconds": dict(getattr(self, "weekly_base_focus_seconds", {})),
+            "weekly_base_focus_seconds": dict(
+                getattr(self, "weekly_base_focus_seconds", {})
+            ),
             "active_seconds": active_seconds,
             "project_colors": dict(PROJECT_COLORS),
             "dark_mode": getattr(self, "dark_mode", False),
@@ -1026,7 +1272,9 @@ class TrueHourApp(QMainWindow):
             "currency_symbol": getattr(self, "currency_symbol", "$"),
             "earnings_goal_period": getattr(self, "earnings_goal_period", "weekly"),
             "active_profile": os.path.basename(get_app_data_dir()),
-            "earnings_goal_reset_timestamp": getattr(self, "earnings_goal_reset_timestamp", "")
+            "earnings_goal_reset_timestamp": getattr(
+                self, "earnings_goal_reset_timestamp", ""
+            ),
         }
 
     def _on_web_goals_reset(self):
@@ -1045,7 +1293,10 @@ class TrueHourApp(QMainWindow):
         if tracker_was_running:
             self.tracker.start(session_name=session_name)
         for widget in QApplication.topLevelWidgets():
-            if widget.inherits("QDialog") and widget.metaObject().className() == "TrueHourDashboard":
+            if (
+                widget.inherits("QDialog")
+                and widget.metaObject().className() == "TrueHourDashboard"
+            ):
                 if hasattr(widget, "update_historical_data"):
                     widget.update_historical_data()
 
@@ -1068,7 +1319,10 @@ class TrueHourApp(QMainWindow):
 
         # Sync with open dashboard dialogs
         for widget in QApplication.topLevelWidgets():
-            if widget.inherits("QDialog") and widget.metaObject().className() == "TrueHourDashboard":
+            if (
+                widget.inherits("QDialog")
+                and widget.metaObject().className() == "TrueHourDashboard"
+            ):
                 if hasattr(widget, "update_historical_data"):
                     widget.update_historical_data()
 
@@ -1086,7 +1340,7 @@ class TrueHourApp(QMainWindow):
         # The background thread emits `update_signal`, which wakes this up in the main GUI thread!
         # Rate limit UI updates to max 2 Hz for better performance
         now = time.time()
-        if now - getattr(self, '_last_refresh_time', 0) < 0.5:
+        if now - getattr(self, "_last_refresh_time", 0) < 0.5:
             return
         self._last_refresh_time = now
         self._refresh_app_list()
@@ -1102,7 +1356,10 @@ class TrueHourApp(QMainWindow):
             )
 
             # Skip full rebuild if nothing meaningful changed
-            if app_state_key == self._last_app_state_hash and not self._showing_placeholder:
+            if (
+                app_state_key == self._last_app_state_hash
+                and not self._showing_placeholder
+            ):
                 # Fast path: update times only for visible rows
                 for app_name, secs, included in apps:
                     if app_name in self._row_widgets:
@@ -1122,7 +1379,9 @@ class TrueHourApp(QMainWindow):
                 self._row_widgets.clear()
                 self.placeholder_lbl = QLabel("Waiting for app activity...", self)
                 self.placeholder_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.placeholder_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 13px; color: #ABABAB; margin: 20px;")
+                self.placeholder_lbl.setStyleSheet(
+                    "font-family: 'Segoe UI'; font-size: 13px; color: #ABABAB; margin: 20px;"
+                )
                 self.scroll_layout.insertWidget(0, self.placeholder_lbl)
                 self._showing_placeholder = True
                 return
@@ -1158,11 +1417,15 @@ class TrueHourApp(QMainWindow):
                         row.exe_path = exe_path
                 else:
                     row = AppUsageRow(
-                        app_name, secs, included, tag, exe_path,
+                        app_name,
+                        secs,
+                        included,
+                        tag,
+                        exe_path,
                         on_toggle=self._toggle_include,
                         on_tag_click=self._show_tag_menu,
                         on_context_menu=self._show_app_context_menu,
-                        parent=self.scroll_widget
+                        parent=self.scroll_widget,
                     )
 
                 self.scroll_layout.addWidget(row)
@@ -1171,7 +1434,7 @@ class TrueHourApp(QMainWindow):
                 # Deferred non-blocking native system icon loading
                 if exe_path:
                     if exe_path in self._icon_cache:
-                        if not getattr(row, '_icon_loaded', False):
+                        if not getattr(row, "_icon_loaded", False):
                             row.set_icon(self._icon_cache[exe_path])
                             row._icon_loaded = True
                     else:
@@ -1208,18 +1471,18 @@ class TrueHourApp(QMainWindow):
         if not self._icons_to_load:
             self._icon_load_timer.stop()
             return
-        
+
         exe_path = self._icons_to_load.pop(0)
         try:
             pixmap = get_native_icon_pixmap(exe_path, size=16)
         except Exception:
             pixmap = None
-            
+
         self._icon_cache[exe_path] = pixmap
 
         # Update the UI rows having this exe_path
         for widget in self._row_widgets.values():
-            if getattr(widget, 'exe_path', None) == exe_path:
+            if getattr(widget, "exe_path", None) == exe_path:
                 widget.set_icon(pixmap)
                 widget._icon_loaded = True
 
@@ -1266,11 +1529,12 @@ class TrueHourApp(QMainWindow):
             self._save_app_settings()
 
     def _remove_distraction_app(self, target):
-        self.distraction_apps = [d for d in self.distraction_apps if d.lower() != target.lower()]
+        self.distraction_apps = [
+            d for d in self.distraction_apps if d.lower() != target.lower()
+        ]
         self.tracker.distraction_apps = self.distraction_apps
         self._save_app_settings()
         logger.info(f"[Action] Removed '{target}' from distracting apps")
-
 
     def _show_tag_menu(self, app_name, button):
         menu = QMenu(self)
@@ -1280,7 +1544,9 @@ class TrueHourApp(QMainWindow):
         for proj in projects:
             label = f"✓ {proj}" if proj == current_tag else proj
             action = menu.addAction(label)
-            action.triggered.connect(lambda checked, p=proj: self._set_app_tag_and_refresh(app_name, p))
+            action.triggered.connect(
+                lambda checked, p=proj: self._set_app_tag_and_refresh(app_name, p)
+            )
 
         menu.addSeparator()
         action_manage = menu.addAction("Manage Categories...")
@@ -1337,10 +1603,11 @@ class TrueHourApp(QMainWindow):
 
         # Connect signals
         dialog.resume_requested.connect(self._resume_session)
-        
+
         def _on_view_report_sm(rep):
             self._show_report(rep, is_new=False)
             dialog._refresh_all_lists()
+
         dialog.view_report_requested.connect(_on_view_report_sm)
 
         dialog.exec()
@@ -1359,7 +1626,11 @@ class TrueHourApp(QMainWindow):
             self._last_app_state_hash = None
 
             if not self.tracker.load_from_report(filepath):
-                QMessageBox.critical(self, "Error", "Failed to resume session. The file may be corrupted.")
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    "Failed to resume session. The file may be corrupted.",
+                )
                 self._on_stop()
                 return
 
@@ -1377,7 +1648,11 @@ class TrueHourApp(QMainWindow):
             if self.hourly_rate > 0:
                 self.earnings_label.setText(f"💰 {self.currency_symbol}0.00 earned")
             self.active_label.setText(f"▶ Resumed: {self.tracker.session_name}")
-            self.active_label.setStyleSheet("color: #ffffff; font-size: 10px;" if self.dark_mode else "color: #0F7B0F; font-size: 10px;")
+            self.active_label.setStyleSheet(
+                "color: #ffffff; font-size: 10px;"
+                if self.dark_mode
+                else "color: #0F7B0F; font-size: 10px;"
+            )
 
             self.clock_timer.start(250)
 
@@ -1385,13 +1660,23 @@ class TrueHourApp(QMainWindow):
             # so the UI paints the resumed state instantly without freezing
             session_name = self.tracker.session_name
             QTimer.singleShot(0, self._refresh_app_list)
-            QTimer.singleShot(50, lambda: QMessageBox.information(self, "Session Resumed", f"Resumed session: {session_name}\nTracking is now active."))
+            QTimer.singleShot(
+                50,
+                lambda: QMessageBox.information(
+                    self,
+                    "Session Resumed",
+                    f"Resumed session: {session_name}\nTracking is now active.",
+                ),
+            )
         except Exception as e:
-            QMessageBox.critical(self, "Resume Error", f"Could not resume session:\n{e}")
+            QMessageBox.critical(
+                self, "Resume Error", f"Could not resume session:\n{e}"
+            )
 
     def _handle_interrupted_session(self):
         """Prompt the user to recover a crashed or interrupted tracking session."""
         from tracker import ACTIVE_SESSION_FILE
+
         if not os.path.exists(ACTIVE_SESSION_FILE):
             return
 
@@ -1400,7 +1685,7 @@ class TrueHourApp(QMainWindow):
             "Recover Session?",
             "TrueHour detected an interrupted tracking session. Would you like to recover it?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes
+            QMessageBox.StandardButton.Yes,
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
@@ -1415,21 +1700,42 @@ class TrueHourApp(QMainWindow):
                     self.stop_btn.setObjectName("RedButton")
 
                     if self.hourly_rate > 0:
-                        self.earnings_label.setText(f"💰 {self.currency_symbol}0.00 earned")
-                    self.active_label.setText(f"▶ Recovered: {self.tracker.session_name}")
-                    self.active_label.setStyleSheet("color: #ffffff; font-size: 10px;" if self.dark_mode else "color: #0F7B0F; font-size: 10px;")
+                        self.earnings_label.setText(
+                            f"💰 {self.currency_symbol}0.00 earned"
+                        )
+                    self.active_label.setText(
+                        f"▶ Recovered: {self.tracker.session_name}"
+                    )
+                    self.active_label.setStyleSheet(
+                        "color: #ffffff; font-size: 10px;"
+                        if self.dark_mode
+                        else "color: #0F7B0F; font-size: 10px;"
+                    )
 
                     self.clock_timer.start(250)
 
                     # Defer heavy app list rebuild to next event loop tick
                     QTimer.singleShot(0, self._refresh_app_list)
-                    QTimer.singleShot(50, lambda: QMessageBox.information(self, "Recovered", "Previous session recovered successfully."))
+                    QTimer.singleShot(
+                        50,
+                        lambda: QMessageBox.information(
+                            self,
+                            "Recovered",
+                            "Previous session recovered successfully.",
+                        ),
+                    )
                 else:
-                    QMessageBox.critical(self, "Recovery Error", "Failed to recover the previous session.")
+                    QMessageBox.critical(
+                        self,
+                        "Recovery Error",
+                        "Failed to recover the previous session.",
+                    )
                     if os.path.exists(ACTIVE_SESSION_FILE):
                         os.remove(ACTIVE_SESSION_FILE)
             except Exception as e:
-                QMessageBox.critical(self, "Recovery Error", f"An error occurred during recovery:\n{e}")
+                QMessageBox.critical(
+                    self, "Recovery Error", f"An error occurred during recovery:\n{e}"
+                )
                 if os.path.exists(ACTIVE_SESSION_FILE):
                     try:
                         os.remove(ACTIVE_SESSION_FILE)
@@ -1458,8 +1764,8 @@ class TrueHourApp(QMainWindow):
         self.hourly_rate = 0.0
         self.idle_threshold_seconds_total = 120  # default: 2 min (0 = disabled)
         self.business_name = ""
-        self.business_emails = []   # NEW: list of business contact emails
-        self.business_email = ""    # LEGACY: kept for backward compat
+        self.business_emails = []  # NEW: list of business contact emails
+        self.business_email = ""  # LEGACY: kept for backward compat
         self.business_phone = ""
         self.business_address = ""
         self.business_payment = ""
@@ -1471,12 +1777,12 @@ class TrueHourApp(QMainWindow):
         self.bank_address = ""
         self.enable_bank_details = True
         self.client_name = ""
-        self.client_emails = []     # NEW: list of client contact emails
+        self.client_emails = []  # NEW: list of client contact emails
         self.client_address = ""
         self.business_logo_path = ""
         self.enable_business_logo = True
-        self.qr_code_paths = []     # NEW: list of payment QR code filenames
-        self.qr_code_links = {}     # NEW: mapping of QR code filenames to hyperlink URLs
+        self.qr_code_paths = []  # NEW: list of payment QR code filenames
+        self.qr_code_links = {}  # NEW: mapping of QR code filenames to hyperlink URLs
         self.mask_business_emails = False
         self.mask_business_phone = False
         self.mask_client_emails = False
@@ -1494,16 +1800,28 @@ class TrueHourApp(QMainWindow):
                     self.min_track_seconds = data.get("min_track_seconds", 2)
                     self.auto_save_seconds = data.get("auto_save_seconds", 10)
                     raw_curr = data.get("currency_symbol", "$")
-                    self.currency_symbol = str(raw_curr).split()[0].split('(')[0].strip() if raw_curr else "$"
+                    self.currency_symbol = (
+                        str(raw_curr).split()[0].split("(")[0].strip()
+                        if raw_curr
+                        else "$"
+                    )
                     self.hourly_rate = float(data.get("hourly_rate", 0.0))
                     self.tracker.min_track_seconds = self.min_track_seconds
                     self.tracker.save_interval = self.auto_save_seconds
                     _old_min = data.get("idle_threshold_minutes", 2) * 60
-                    self.idle_threshold_seconds_total = data.get("idle_threshold_seconds_total", _old_min)
-                    self.tracker.idle_threshold_seconds = self.idle_threshold_seconds_total
-                    self.enable_distraction_auto_pause = data.get("enable_distraction_auto_pause", False)
+                    self.idle_threshold_seconds_total = data.get(
+                        "idle_threshold_seconds_total", _old_min
+                    )
+                    self.tracker.idle_threshold_seconds = (
+                        self.idle_threshold_seconds_total
+                    )
+                    self.enable_distraction_auto_pause = data.get(
+                        "enable_distraction_auto_pause", False
+                    )
                     self.distraction_apps = data.get("distraction_apps", [])
-                    self.tracker.enable_distraction_auto_pause = self.enable_distraction_auto_pause
+                    self.tracker.enable_distraction_auto_pause = (
+                        self.enable_distraction_auto_pause
+                    )
                     self.tracker.distraction_apps = self.distraction_apps
 
                     self.business_name = data.get("business_name", "")
@@ -1516,12 +1834,24 @@ class TrueHourApp(QMainWindow):
                     self.enable_bank_details = data.get("enable_bank_details", True)
 
                     if "bank_holder_enc" in data:
-                        self.bank_holder = _decrypt_string(data.get("bank_holder_enc", ""), sec_key)
-                        self.bank_account = _decrypt_string(data.get("bank_account_enc", ""), sec_key)
-                        self.bank_routing = _decrypt_string(data.get("bank_routing_enc", ""), sec_key)
-                        self.bank_swift = _decrypt_string(data.get("bank_swift_enc", ""), sec_key)
-                        self.bank_name = _decrypt_string(data.get("bank_name_enc", ""), sec_key)
-                        self.bank_address = _decrypt_string(data.get("bank_address_enc", ""), sec_key)
+                        self.bank_holder = _decrypt_string(
+                            data.get("bank_holder_enc", ""), sec_key
+                        )
+                        self.bank_account = _decrypt_string(
+                            data.get("bank_account_enc", ""), sec_key
+                        )
+                        self.bank_routing = _decrypt_string(
+                            data.get("bank_routing_enc", ""), sec_key
+                        )
+                        self.bank_swift = _decrypt_string(
+                            data.get("bank_swift_enc", ""), sec_key
+                        )
+                        self.bank_name = _decrypt_string(
+                            data.get("bank_name_enc", ""), sec_key
+                        )
+                        self.bank_address = _decrypt_string(
+                            data.get("bank_address_enc", ""), sec_key
+                        )
                     else:
                         self.bank_holder = data.get("bank_holder", "")
                         self.bank_account = data.get("bank_account", "")
@@ -1541,7 +1871,9 @@ class TrueHourApp(QMainWindow):
                         old_email = data.get("business_email", "")
                         if old_email:
                             self.business_emails = [old_email]
-                    self.business_email = ", ".join(self.business_emails)  # legacy compat
+                    self.business_email = ", ".join(
+                        self.business_emails
+                    )  # legacy compat
 
                     self.client_emails = data.get("client_emails", [])
 
@@ -1549,24 +1881,41 @@ class TrueHourApp(QMainWindow):
                     self.qr_code_paths = data.get("qr_code_paths", [])
                     self.qr_code_links = data.get("qr_code_links", {})
                     legacy_mask = data.get("mask_sensitive_data", False)
-                    self.mask_business_emails = data.get("mask_business_emails", legacy_mask)
-                    self.mask_business_phone = data.get("mask_business_phone", legacy_mask)
-                    self.mask_client_emails = data.get("mask_client_emails", legacy_mask)
+                    self.mask_business_emails = data.get(
+                        "mask_business_emails", legacy_mask
+                    )
+                    self.mask_business_phone = data.get(
+                        "mask_business_phone", legacy_mask
+                    )
+                    self.mask_client_emails = data.get(
+                        "mask_client_emails", legacy_mask
+                    )
                     self.mask_sensitive_data = legacy_mask
                     self.developer_mode = data.get("developer_mode", False)
                     self.dark_mode = data.get("dark_mode", False)
-                    self.theme_style = data.get("theme_style", "modern-dark" if self.dark_mode else "light")
+                    self.theme_style = data.get(
+                        "theme_style", "modern-dark" if self.dark_mode else "light"
+                    )
                     self.weekly_goals = data.get("weekly_goals", {})
-                    self.weekly_earnings_goal = float(data.get("weekly_earnings_goal", 0.0))
-                    self.earnings_goal_period = data.get("earnings_goal_period", "weekly")
-                    self.enable_goal_tray_alerts = data.get("enable_goal_tray_alerts", True)
-                    self.earnings_goal_reset_timestamp = data.get("earnings_goal_reset_timestamp", "")
+                    self.weekly_earnings_goal = float(
+                        data.get("weekly_earnings_goal", 0.0)
+                    )
+                    self.earnings_goal_period = data.get(
+                        "earnings_goal_period", "weekly"
+                    )
+                    self.enable_goal_tray_alerts = data.get(
+                        "enable_goal_tray_alerts", True
+                    )
+                    self.earnings_goal_reset_timestamp = data.get(
+                        "earnings_goal_reset_timestamp", ""
+                    )
                     self.anonymous_user_id = data.get("anonymous_user_id", "")
             except Exception as e:
                 print(f"[TrueHour] Failed to load app settings: {e}")
 
         if not self.anonymous_user_id:
             import uuid
+
             self.anonymous_user_id = str(uuid.uuid4())
             self._save_app_settings()
 
@@ -1589,7 +1938,6 @@ class TrueHourApp(QMainWindow):
                 "business_phone": self.business_phone,
                 "business_address": self.business_address,
                 "business_payment": self.business_payment,
-
                 "enable_bank_details": self.enable_bank_details,
                 "bank_holder": "",
                 "bank_account": "",
@@ -1597,14 +1945,12 @@ class TrueHourApp(QMainWindow):
                 "bank_swift": "",
                 "bank_name": "",
                 "bank_address": "",
-
                 "bank_holder_enc": _encrypt_string(self.bank_holder, sec_key),
                 "bank_account_enc": _encrypt_string(self.bank_account, sec_key),
                 "bank_routing_enc": _encrypt_string(self.bank_routing, sec_key),
                 "bank_swift_enc": _encrypt_string(self.bank_swift, sec_key),
                 "bank_name_enc": _encrypt_string(self.bank_name, sec_key),
                 "bank_address_enc": _encrypt_string(self.bank_address, sec_key),
-
                 "client_name": self.client_name,
                 "client_emails": self.client_emails,
                 "client_address": self.client_address,
@@ -1615,7 +1961,9 @@ class TrueHourApp(QMainWindow):
                 "mask_business_emails": self.mask_business_emails,
                 "mask_business_phone": self.mask_business_phone,
                 "mask_client_emails": self.mask_client_emails,
-                "mask_sensitive_data": self.mask_business_emails or self.mask_business_phone or self.mask_client_emails,
+                "mask_sensitive_data": self.mask_business_emails
+                or self.mask_business_phone
+                or self.mask_client_emails,
                 "developer_mode": self.developer_mode,
                 "dark_mode": self.dark_mode,
                 "theme_style": self.theme_style,
@@ -1623,7 +1971,9 @@ class TrueHourApp(QMainWindow):
                 "weekly_earnings_goal": self.weekly_earnings_goal,
                 "earnings_goal_period": self.earnings_goal_period,
                 "enable_goal_tray_alerts": self.enable_goal_tray_alerts,
-                "earnings_goal_reset_timestamp": getattr(self, "earnings_goal_reset_timestamp", ""),
+                "earnings_goal_reset_timestamp": getattr(
+                    self, "earnings_goal_reset_timestamp", ""
+                ),
                 "anonymous_user_id": self.anonymous_user_id,
                 "enable_distraction_auto_pause": self.enable_distraction_auto_pause,
                 "distraction_apps": self.distraction_apps,
@@ -1646,12 +1996,13 @@ class TrueHourApp(QMainWindow):
 
         # Fallback to embedded credentials if running as a prebuilt release (frozen bundle)
         # and no specific API key was configured locally in .env.
-        is_frozen = getattr(sys, 'frozen', False)
+        is_frozen = getattr(sys, "frozen", False)
 
         telemetry_allowed = True
         try:
             # pyrefly: ignore [missing-import]
             import telemetry_config
+
             telemetry_allowed = getattr(telemetry_config, "TELEMETRY_ENABLED", True)
         except ImportError:
             pass
@@ -1663,6 +2014,7 @@ class TrueHourApp(QMainWindow):
         if api_key and api_key != "your_posthog_project_api_key_here":
             try:
                 from posthog import Posthog
+
                 self.posthog_client = Posthog(api_key, host=host)
                 self.posthog_enabled = True
                 logger.info("[PostHog] Initialized successfully.")
@@ -1670,13 +2022,17 @@ class TrueHourApp(QMainWindow):
                 logger.warning(f"[PostHog] Failed to import/initialize posthog: {e}")
 
     def _track_event(self, event_name, properties=None):
-        if not self.posthog_enabled or not self.posthog_client or not self.anonymous_user_id:
+        if (
+            not self.posthog_enabled
+            or not self.posthog_client
+            or not self.anonymous_user_id
+        ):
             return
         try:
             self.posthog_client.capture(
                 distinct_id=self.anonymous_user_id,
                 event=event_name,
-                properties=properties or {}
+                properties=properties or {},
             )
             self.posthog_client.flush()
         except Exception as e:
@@ -1685,42 +2041,56 @@ class TrueHourApp(QMainWindow):
     def apply_theme(self, theme_style):
         if isinstance(theme_style, bool):
             theme_style = "modern-dark" if theme_style else "light"
-        
+
         self.theme_style = theme_style
-        self.dark_mode = (theme_style in ["modern-dark", "classic-dark"])
+        self.dark_mode = theme_style in ["modern-dark", "classic-dark"]
         is_dark = self.dark_mode
 
         # Set stylesheet and system palette of the main application!
         app = QApplication.instance()
         if app:
             checkmark_path = ensure_checkmark_icon(self.theme_style)
-            qss = get_qss_style(self.theme_style).replace("CHECKMARK_PATH", checkmark_path)
+            qss = get_qss_style(self.theme_style).replace(
+                "CHECKMARK_PATH", checkmark_path
+            )
             app.setStyleSheet(qss)
-            app.setPalette(get_dark_palette(self.theme_style) if self.dark_mode else get_light_palette())
+            app.setPalette(
+                get_dark_palette(self.theme_style)
+                if self.dark_mode
+                else get_light_palette()
+            )
 
         # Update header bar button styles and icons!
-        if hasattr(self, 'header'):
+        if hasattr(self, "header"):
             self.header.update_theme(self.theme_style)
 
-        if hasattr(self, '_update_pause_btn_ui'):
+        if hasattr(self, "_update_pause_btn_ui"):
             self._update_pause_btn_ui()
 
         # Update clock label colors to fit the theme
-        if hasattr(self, 'clock_label'):
+        if hasattr(self, "clock_label"):
             if is_dark:
-                self.clock_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 36px; font-weight: bold; color: #F3F4F6;")
+                self.clock_label.setStyleSheet(
+                    "font-family: 'Segoe UI'; font-size: 36px; font-weight: bold; color: #F3F4F6;"
+                )
             else:
-                self.clock_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 36px; font-weight: bold; color: #0F172A;")
+                self.clock_label.setStyleSheet(
+                    "font-family: 'Segoe UI'; font-size: 36px; font-weight: bold; color: #0F172A;"
+                )
 
         # Update total label style to fit the theme
-        if hasattr(self, 'total_label'):
+        if hasattr(self, "total_label"):
             if is_dark:
-                self.total_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #d1d5db;")
+                self.total_label.setStyleSheet(
+                    "font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #d1d5db;"
+                )
             else:
-                self.total_label.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #0078D4;")
+                self.total_label.setStyleSheet(
+                    "font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #0078D4;"
+                )
 
         # Update debug and test button hover colors to fit the theme
-        if hasattr(self, 'debug_btn'):
+        if hasattr(self, "debug_btn"):
             debug_hover = "#ffffff" if is_dark else "#0078D4"
             self.debug_btn.setStyleSheet(f"""
                 QPushButton {{
@@ -1736,7 +2106,7 @@ class TrueHourApp(QMainWindow):
                     text-decoration: underline;
                 }}
             """)
-        if hasattr(self, 'test_btn'):
+        if hasattr(self, "test_btn"):
             test_hover = "#ffffff" if is_dark else "#F59E0B"
             self.test_btn.setStyleSheet(f"""
                 QPushButton {{
@@ -1754,7 +2124,7 @@ class TrueHourApp(QMainWindow):
             """)
 
         # Update version/update label theme
-        if hasattr(self, 'ver_lbl'):
+        if hasattr(self, "ver_lbl"):
             self.ver_lbl.update_theme(is_dark)
 
         # Trigger dynamic QSS style changes on custom list row widgets
@@ -1773,15 +2143,22 @@ class TrueHourApp(QMainWindow):
 
     def _show_bug_report_menu(self):
         import webbrowser
+
         logger.info("[Action] Opened Bug Report / Feedback Menu")
 
         msg = QMessageBox(self)
         msg.setWindowTitle("Report a Bug / Feedback")
         msg.setText("Would you like to report a bug or share feedback?")
-        msg.setInformativeText("If you have a GitHub account, you can open an issue on our GitHub repository. Otherwise, you can submit our feedback form.")
+        msg.setInformativeText(
+            "If you have a GitHub account, you can open an issue on our GitHub repository. Otherwise, you can submit our feedback form."
+        )
 
-        github_btn = msg.addButton("Open GitHub Issues", QMessageBox.ButtonRole.AcceptRole)
-        form_btn = msg.addButton("Open Feedback Form", QMessageBox.ButtonRole.AcceptRole)
+        github_btn = msg.addButton(
+            "Open GitHub Issues", QMessageBox.ButtonRole.AcceptRole
+        )
+        form_btn = msg.addButton(
+            "Open Feedback Form", QMessageBox.ButtonRole.AcceptRole
+        )
         msg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
 
         # Apply current stylesheet to the QMessageBox
@@ -1853,6 +2230,7 @@ class TrueHourApp(QMainWindow):
 
         def handle_reload():
             from tracker import reload_auto_excluded
+
             success = reload_auto_excluded()
             dialog.set_reload_status(success)
 
@@ -1865,7 +2243,9 @@ class TrueHourApp(QMainWindow):
             self.auto_save_seconds = new_settings["auto_save_seconds"]
             self.currency_symbol = new_settings["currency_symbol"]
             self.hourly_rate = new_settings["hourly_rate"]
-            self.idle_threshold_seconds_total = new_settings["idle_threshold_seconds_total"]
+            self.idle_threshold_seconds_total = new_settings[
+                "idle_threshold_seconds_total"
+            ]
 
             self.tracker.min_track_seconds = self.min_track_seconds
             self.tracker.save_interval = self.auto_save_seconds
@@ -1896,21 +2276,31 @@ class TrueHourApp(QMainWindow):
             self.mask_business_phone = new_settings["mask_business_phone"]
             self.mask_client_emails = new_settings["mask_client_emails"]
             self.mask_sensitive_data = (
-                self.mask_business_emails or
-                self.mask_business_phone or
-                self.mask_client_emails
+                self.mask_business_emails
+                or self.mask_business_phone
+                or self.mask_client_emails
             )
             self.developer_mode = new_settings["developer_mode"]
             self.dark_mode = new_settings["dark_mode"]
-            self.theme_style = new_settings.get("theme_style", "modern-dark" if self.dark_mode else "light")
+            self.theme_style = new_settings.get(
+                "theme_style", "modern-dark" if self.dark_mode else "light"
+            )
 
             self.weekly_goals = new_settings.get("weekly_goals", {})
             self.weekly_earnings_goal = new_settings.get("weekly_earnings_goal", 0.0)
-            self.earnings_goal_period = new_settings.get("earnings_goal_period", "weekly")
-            self.enable_goal_tray_alerts = new_settings.get("enable_goal_tray_alerts", True)
-            self.enable_distraction_auto_pause = new_settings.get("enable_distraction_auto_pause", False)
+            self.earnings_goal_period = new_settings.get(
+                "earnings_goal_period", "weekly"
+            )
+            self.enable_goal_tray_alerts = new_settings.get(
+                "enable_goal_tray_alerts", True
+            )
+            self.enable_distraction_auto_pause = new_settings.get(
+                "enable_distraction_auto_pause", False
+            )
             self.distraction_apps = new_settings.get("distraction_apps", [])
-            self.tracker.enable_distraction_auto_pause = self.enable_distraction_auto_pause
+            self.tracker.enable_distraction_auto_pause = (
+                self.enable_distraction_auto_pause
+            )
             self.tracker.distraction_apps = self.distraction_apps
             if self.notified_goals is not None:
                 self.notified_goals.clear()
@@ -1927,7 +2317,9 @@ class TrueHourApp(QMainWindow):
                 counted = self.tracker.get_counted_seconds()
                 earned = (counted / 3600) * self.hourly_rate
                 state_text = " (paused)" if self.tracker.paused else ""
-                self.earnings_label.setText(f"💰 {self.currency_symbol}{earned:,.2f} earned{state_text}")
+                self.earnings_label.setText(
+                    f"💰 {self.currency_symbol}{earned:,.2f} earned{state_text}"
+                )
 
         # Handle settings rejection/cancel to restore original theme
         def handle_rejected():
@@ -1937,19 +2329,31 @@ class TrueHourApp(QMainWindow):
         dialog.settings_saved.connect(handle_settings_saved)
         dialog.exec()
 
-
     def _show_about_dialog(self):
         import webbrowser
+
         dialog = QDialog(self)
         dialog.setWindowTitle("About TrueHour")
         self._center_window(dialog, 360, 310)
         dialog.setModal(True)
 
         # Apply stylesheet and palette on start
-        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(self.theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style))
+        from theme import (
+            get_qss_style,
+            get_dark_palette,
+            get_light_palette,
+            ensure_checkmark_icon,
+        )
+
+        qss = get_qss_style(self.theme_style).replace(
+            "CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style)
+        )
         dialog.setStyleSheet(qss)
-        dialog.setPalette(get_dark_palette(self.theme_style) if self.dark_mode else get_light_palette())
+        dialog.setPalette(
+            get_dark_palette(self.theme_style)
+            if self.dark_mode
+            else get_light_palette()
+        )
 
         # Dynamic theme colors based on theme_style
         if self.theme_style == "classic-dark":
@@ -1968,7 +2372,7 @@ class TrueHourApp(QMainWindow):
             btn_border = "#232329"
             btn_hover = "#2a2a32"
             btn_border_hover = "#353542"
-        else: # light
+        else:  # light
             text_primary = "#0F172A"
             text_secondary = "#64748B"
             border_color = "#E2E8F0"
@@ -1983,13 +2387,17 @@ class TrueHourApp(QMainWindow):
 
         # Title & Icon/Label
         title = QLabel("TrueHour", dialog)
-        title.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 22px; font-weight: bold; color: {text_primary};")
+        title.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 22px; font-weight: bold; color: {text_primary};"
+        )
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
         # Subtitle or description
         desc = QLabel("Automated Time Tracker & Productivity Assistant", dialog)
-        desc.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: {text_secondary}; font-weight: 500;")
+        desc.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 11px; color: {text_secondary}; font-weight: 500;"
+        )
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(desc)
 
@@ -1997,7 +2405,9 @@ class TrueHourApp(QMainWindow):
         divider = QFrame(dialog)
         divider.setFrameShape(QFrame.Shape.HLine)
         divider.setFrameShadow(QFrame.Shadow.Sunken)
-        divider.setStyleSheet(f"background-color: {border_color}; min-height: 1px; max-height: 1px; border: none;")
+        divider.setStyleSheet(
+            f"background-color: {border_color}; min-height: 1px; max-height: 1px; border: none;"
+        )
         layout.addWidget(divider)
 
         # Version & Build details
@@ -2005,12 +2415,16 @@ class TrueHourApp(QMainWindow):
         details_layout.setSpacing(4)
 
         ver_lbl = QLabel(f"Version: {INFO.version}", dialog)
-        ver_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_primary};")
+        ver_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 12px; color: {text_primary};"
+        )
         ver_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         details_layout.addWidget(ver_lbl)
 
         build_lbl = QLabel(f"Build: {INFO.build_number} ({INFO.build_date})", dialog)
-        build_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_secondary};")
+        build_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 12px; color: {text_secondary};"
+        )
         build_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         details_layout.addWidget(build_lbl)
 
@@ -2022,7 +2436,9 @@ class TrueHourApp(QMainWindow):
         links_row.setSpacing(12)
 
         github_btn = QPushButton(dialog)
-        github_btn.setIcon(get_svg_icon(GITHUB_SVG, QSize(20, 20), color_hex=text_primary))
+        github_btn.setIcon(
+            get_svg_icon(GITHUB_SVG, QSize(20, 20), color_hex=text_primary)
+        )
         github_btn.setIconSize(QSize(20, 20))
         github_btn.setToolTip("Visit TrueHour on GitHub")
         github_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -2039,7 +2455,9 @@ class TrueHourApp(QMainWindow):
                 border-color: {btn_border_hover};
             }}
         """)
-        github_btn.clicked.connect(lambda: webbrowser.open("https://mightyiest.github.io/TrueHour/"))
+        github_btn.clicked.connect(
+            lambda: webbrowser.open("https://mightyiest.github.io/TrueHour/")
+        )
         links_row.addWidget(github_btn)
 
         legal_btn = QPushButton("Terms && Notices", dialog)
@@ -2090,17 +2508,37 @@ class TrueHourApp(QMainWindow):
         self._center_window(dialog, 360, 440)
         dialog.setModal(True)
 
-        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(self.theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style))
+        from theme import (
+            get_qss_style,
+            get_dark_palette,
+            get_light_palette,
+            ensure_checkmark_icon,
+        )
+
+        qss = get_qss_style(self.theme_style).replace(
+            "CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style)
+        )
         dialog.setStyleSheet(qss)
-        dialog.setPalette(get_dark_palette(self.theme_style) if self.dark_mode else get_light_palette())
+        dialog.setPalette(
+            get_dark_palette(self.theme_style)
+            if self.dark_mode
+            else get_light_palette()
+        )
 
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(14, 12, 14, 12)
 
-        title_color = "#EDEDED" if self.theme_style == "modern-dark" else "#e0e0e0" if self.dark_mode else "#1A1A1A"
+        title_color = (
+            "#EDEDED"
+            if self.theme_style == "modern-dark"
+            else "#e0e0e0"
+            if self.dark_mode
+            else "#1A1A1A"
+        )
         title = QLabel("Manage Categories", dialog)
-        title.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 15px; font-weight: bold; color: {title_color};")
+        title.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 15px; font-weight: bold; color: {title_color};"
+        )
         layout.addWidget(title)
 
         scroll = QScrollArea(dialog)
@@ -2119,7 +2557,6 @@ class TrueHourApp(QMainWindow):
                     widget.setParent(None)
                     widget.deleteLater()
 
-
             projects = self.tracker.tag_manager.projects
             for proj in projects:
                 row = QFrame(scroll_content)
@@ -2130,12 +2567,22 @@ class TrueHourApp(QMainWindow):
 
                 color = get_tag_color(proj)
                 dot = QLabel("●", row)
-                dot.setStyleSheet(f"color: {color}; font-size: 14px; font-family: 'Segoe UI';")
+                dot.setStyleSheet(
+                    f"color: {color}; font-size: 14px; font-family: 'Segoe UI';"
+                )
                 row_layout.addWidget(dot, alignment=Qt.AlignmentFlag.AlignVCenter)
 
                 lbl = QLabel(proj, row)
-                lbl_color = "#EDEDED" if self.theme_style == "modern-dark" else "#e0e0e0" if self.dark_mode else "#1A1A1A"
-                lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; color: {lbl_color};")
+                lbl_color = (
+                    "#EDEDED"
+                    if self.theme_style == "modern-dark"
+                    else "#e0e0e0"
+                    if self.dark_mode
+                    else "#1A1A1A"
+                )
+                lbl.setStyleSheet(
+                    f"font-family: 'Segoe UI'; font-size: 13px; color: {lbl_color};"
+                )
                 row_layout.addWidget(lbl, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
 
                 if proj != "Unassigned":
@@ -2143,7 +2590,9 @@ class TrueHourApp(QMainWindow):
                     del_btn.setFixedSize(20, 20)
                     del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
                     del_btn_hover = "#333333" if self.dark_mode else "#E9E9E9"
-                    del_btn.setStyleSheet(f"QPushButton {{ background: none; border: none; font-size: 10px; }} QPushButton:hover {{ background-color: {del_btn_hover}; border-radius: 3px; }}")
+                    del_btn.setStyleSheet(
+                        f"QPushButton {{ background: none; border: none; font-size: 10px; }} QPushButton:hover {{ background-color: {del_btn_hover}; border-radius: 3px; }}"
+                    )
                     del_btn.clicked.connect(lambda checked, p=proj: delete_project(p))
                     row_layout.addWidget(del_btn)
 
@@ -2173,7 +2622,9 @@ class TrueHourApp(QMainWindow):
             if not name:
                 return
             if name in self.tracker.tag_manager.projects:
-                QMessageBox.critical(dialog, "Error", f"Category '{name}' already exists.")
+                QMessageBox.critical(
+                    dialog, "Error", f"Category '{name}' already exists."
+                )
                 return
             if self.tracker.tag_manager.add_project(name):
                 add_entry.clear()
@@ -2189,17 +2640,33 @@ class TrueHourApp(QMainWindow):
         dialog.exec()
 
     def _show_report(self, report, is_new=True, is_live=False):
-        logger.info(f"[Action] Displaying session report (is_new={is_new}, is_live={is_live})")
+        logger.info(
+            f"[Action] Displaying session report (is_new={is_new}, is_live={is_live})"
+        )
         dialog = QDialog(self)
-        dialog.setWindowTitle("TrueHour — Live Report" if is_live else "TrueHour — Session Report")
+        dialog.setWindowTitle(
+            "TrueHour — Live Report" if is_live else "TrueHour — Session Report"
+        )
         self._center_window(dialog, 720, 680)
         dialog.setMinimumSize(600, 500)
 
         # Apply stylesheet and palette on start
-        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(self.theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style))
+        from theme import (
+            get_qss_style,
+            get_dark_palette,
+            get_light_palette,
+            ensure_checkmark_icon,
+        )
+
+        qss = get_qss_style(self.theme_style).replace(
+            "CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style)
+        )
         dialog.setStyleSheet(qss)
-        dialog.setPalette(get_dark_palette(self.theme_style) if self.dark_mode else get_light_palette())
+        dialog.setPalette(
+            get_dark_palette(self.theme_style)
+            if self.dark_mode
+            else get_light_palette()
+        )
 
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -2224,7 +2691,7 @@ class TrueHourApp(QMainWindow):
             accent_lbl_color = "#2563EB"
             card_bg = "#232329"
             earned_fg = "#10B981"
-        else: # light
+        else:  # light
             bg_widget = "#FFFFFF"
             border_color = "#E0E0E0"
             border_f3 = "#F3F3F3"
@@ -2237,12 +2704,18 @@ class TrueHourApp(QMainWindow):
         # Header bar
         hdr = QFrame(dialog)
         hdr.setFixedHeight(44)
-        hdr.setStyleSheet(f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_color}; }}")
+        hdr.setStyleSheet(
+            f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_color}; }}"
+        )
         hdr_layout = QHBoxLayout(hdr)
         hdr_layout.setContentsMargins(14, 0, 14, 0)
 
-        title_lbl = QLabel("📊 Live Report (Preview)" if is_live else "📊 Session Report", hdr)
-        title_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 15px; font-weight: bold; color: {text_primary}; border: none;")
+        title_lbl = QLabel(
+            "📊 Live Report (Preview)" if is_live else "📊 Session Report", hdr
+        )
+        title_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 15px; font-weight: bold; color: {text_primary}; border: none;"
+        )
         hdr_layout.addWidget(title_lbl)
         hdr_layout.addStretch()
 
@@ -2263,7 +2736,9 @@ class TrueHourApp(QMainWindow):
         # Name Entry bar
         name_bar = QFrame(dialog)
         name_bar.setFixedHeight(40)
-        name_bar.setStyleSheet(f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_f3}; }}")
+        name_bar.setStyleSheet(
+            f"QFrame {{ background-color: {bg_widget}; border-bottom: 1px solid {border_f3}; }}"
+        )
         nb_layout = QHBoxLayout(name_bar)
         nb_layout.setContentsMargins(14, 0, 14, 0)
 
@@ -2275,8 +2750,13 @@ class TrueHourApp(QMainWindow):
 
         nb_layout.addStretch()
         if is_live:
-            live_lbl = QLabel(f"🕒 Snapshot: {datetime.now().strftime('%H:%M:%S')} • Tracking active", name_bar)
-            live_lbl.setStyleSheet("color: #CA5010; font-family: 'Segoe UI'; font-size: 11px;")
+            live_lbl = QLabel(
+                f"🕒 Snapshot: {datetime.now().strftime('%H:%M:%S')} • Tracking active",
+                name_bar,
+            )
+            live_lbl.setStyleSheet(
+                "color: #CA5010; font-family: 'Segoe UI'; font-size: 11px;"
+            )
             nb_layout.addWidget(live_lbl)
         layout.addWidget(name_bar)
 
@@ -2296,34 +2776,53 @@ class TrueHourApp(QMainWindow):
         c1_layout.setContentsMargins(14, 12, 14, 12)
         c1_layout.setSpacing(4)
 
-        date_lbl = QLabel(f"{report['date_display']}  ·  {report['start_display']} -> {report['end_display']}", card1)
-        date_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_sec};")
+        date_lbl = QLabel(
+            f"{report['date_display']}  ·  {report['start_display']} -> {report['end_display']}",
+            card1,
+        )
+        date_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 12px; color: {text_sec};"
+        )
         c1_layout.addWidget(date_lbl)
 
         total_lbl = QLabel(f"Total session:  {report['total_formatted']}", card1)
-        total_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; color: {text_primary};")
+        total_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 13px; color: {text_primary};"
+        )
         c1_layout.addWidget(total_lbl)
 
         counted_lbl = QLabel(f"Counted work:  {report['counted_formatted']}", card1)
-        counted_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: {accent_lbl_color};")
+        counted_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: {accent_lbl_color};"
+        )
         c1_layout.addWidget(counted_lbl)
 
         if report.get("total_earned", 0) > 0:
             earned_f = QFrame(card1)
-            earned_f.setStyleSheet(f"QFrame {{ background-color: {card_bg}; border-radius: 4px; }}")
+            earned_f.setStyleSheet(
+                f"QFrame {{ background-color: {card_bg}; border-radius: 4px; }}"
+            )
             ef_layout = QHBoxLayout(earned_f)
             ef_layout.setContentsMargins(10, 6, 10, 6)
 
             lbl_title = QLabel("💰 Total Earned: ", earned_f)
-            lbl_title.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_sec};")
+            lbl_title.setStyleSheet(
+                f"font-family: 'Segoe UI'; font-size: 12px; color: {text_sec};"
+            )
             ef_layout.addWidget(lbl_title)
 
             lbl_val = QLabel(report["total_earned_display"], earned_f)
-            lbl_val.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 18px; font-weight: bold; color: {earned_fg};")
+            lbl_val.setStyleSheet(
+                f"font-family: 'Segoe UI'; font-size: 18px; font-weight: bold; color: {earned_fg};"
+            )
             ef_layout.addWidget(lbl_val)
 
-            lbl_rate = QLabel(f"@ {report['currency_symbol']}{report['hourly_rate']:.2f}/hr", earned_f)
-            lbl_rate.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: {text_sec};")
+            lbl_rate = QLabel(
+                f"@ {report['currency_symbol']}{report['hourly_rate']:.2f}/hr", earned_f
+            )
+            lbl_rate.setStyleSheet(
+                f"font-family: 'Segoe UI'; font-size: 11px; color: {text_sec};"
+            )
             ef_layout.addWidget(lbl_rate)
 
             ef_layout.addStretch()
@@ -2335,7 +2834,9 @@ class TrueHourApp(QMainWindow):
         project_breakdown = report.get("project_breakdown", [])
         if project_breakdown:
             title_p = QLabel("Project & Category Allocation", scroll_widget)
-            title_p.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_sec};")
+            title_p.setStyleSheet(
+                f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_sec};"
+            )
             scroll_layout.addWidget(title_p)
 
             alloc_card = QFrame(scroll_widget)
@@ -2359,22 +2860,30 @@ class TrueHourApp(QMainWindow):
                 row_layout.addWidget(swatch)
 
                 lbl = QLabel(pb["project"], row_f)
-                lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {text_primary};")
+                lbl.setStyleSheet(
+                    f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {text_primary};"
+                )
                 row_layout.addWidget(lbl)
 
                 pct_lbl = QLabel(f"{pb['percent']:.1f}%", row_f)
-                pct_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_sec};")
+                pct_lbl.setStyleSheet(
+                    f"font-family: 'Segoe UI'; font-size: 12px; color: {text_sec};"
+                )
                 row_layout.addWidget(pct_lbl)
 
                 row_layout.addStretch()
 
                 if pb.get("earned_display"):
                     earned_lbl = QLabel(f"({pb['earned_display']})", row_f)
-                    earned_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {earned_fg};")
+                    earned_lbl.setStyleSheet(
+                        f"font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: {earned_fg};"
+                    )
                     row_layout.addWidget(earned_lbl)
 
                 time_lbl = QLabel(pb["formatted"], row_f)
-                time_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 12px; color: {text_primary};")
+                time_lbl.setStyleSheet(
+                    f"font-family: 'Segoe UI'; font-size: 12px; color: {text_primary};"
+                )
                 row_layout.addWidget(time_lbl)
 
                 ac_layout.addWidget(row_f)
@@ -2385,7 +2894,9 @@ class TrueHourApp(QMainWindow):
         apps_data = report.get("apps", [])
         if apps_data:
             title_b = QLabel("App Breakdown", scroll_widget)
-            title_b.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_sec};")
+            title_b.setStyleSheet(
+                f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_sec};"
+            )
             scroll_layout.addWidget(title_b)
 
             tbl_card = QFrame(scroll_widget)
@@ -2396,11 +2907,21 @@ class TrueHourApp(QMainWindow):
             table = QTableWidget(tbl_card)
             table.setColumnCount(5)
             table.setHorizontalHeaderLabels(["App", "Category", "Time", "%", "Status"])
-            table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-            table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-            table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-            table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-            table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+            table.horizontalHeader().setSectionResizeMode(
+                0, QHeaderView.ResizeMode.Stretch
+            )
+            table.horizontalHeader().setSectionResizeMode(
+                1, QHeaderView.ResizeMode.ResizeToContents
+            )
+            table.horizontalHeader().setSectionResizeMode(
+                2, QHeaderView.ResizeMode.ResizeToContents
+            )
+            table.horizontalHeader().setSectionResizeMode(
+                3, QHeaderView.ResizeMode.ResizeToContents
+            )
+            table.horizontalHeader().setSectionResizeMode(
+                4, QHeaderView.ResizeMode.ResizeToContents
+            )
             table.setRowCount(len(apps_data))
             table.verticalHeader().setVisible(False)
             table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -2419,13 +2940,21 @@ class TrueHourApp(QMainWindow):
                 table.setItem(i, 3, QTableWidgetItem(f"{app['percent']:.0f}%"))
 
                 st_text = "✓ Counted" if not app["excluded"] else "✗ Excluded"
-                st_color = (earned_fg if not app["excluded"] else ("#888888" if self.dark_mode else "#C42B1C"))
+                st_color = (
+                    earned_fg
+                    if not app["excluded"]
+                    else ("#888888" if self.dark_mode else "#C42B1C")
+                )
                 st_item = QTableWidgetItem(st_text)
                 st_item.setForeground(QColor(st_color))
                 table.setItem(i, 4, st_item)
 
             # Set exact height to table content to prevent scrollbar duplication
-            table.setFixedHeight(table.horizontalHeader().height() + sum(table.rowHeight(row) for row in range(len(apps_data))) + 4)
+            table.setFixedHeight(
+                table.horizontalHeader().height()
+                + sum(table.rowHeight(row) for row in range(len(apps_data)))
+                + 4
+            )
             tc_layout.addWidget(table)
             scroll_layout.addWidget(tbl_card)
 
@@ -2433,7 +2962,9 @@ class TrueHourApp(QMainWindow):
         timeline_data = report.get("timeline", [])
         if timeline_data:
             title_t = QLabel("Timeline", scroll_widget)
-            title_t.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_sec};")
+            title_t.setStyleSheet(
+                f"font-family: 'Segoe UI'; font-size: 13px; font-weight: bold; color: {text_sec};"
+            )
             scroll_layout.addWidget(title_t)
 
             tl_card = QFrame(scroll_widget)
@@ -2445,8 +2976,12 @@ class TrueHourApp(QMainWindow):
             tl_table = QTableWidget(tl_card)
             tl_table.setColumnCount(2)
             tl_table.setHorizontalHeaderLabels(["Duration Block", "Application"])
-            tl_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-            tl_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+            tl_table.horizontalHeader().setSectionResizeMode(
+                0, QHeaderView.ResizeMode.ResizeToContents
+            )
+            tl_table.horizontalHeader().setSectionResizeMode(
+                1, QHeaderView.ResizeMode.Stretch
+            )
             tl_table.verticalHeader().setVisible(False)
             tl_table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
@@ -2468,14 +3003,26 @@ class TrueHourApp(QMainWindow):
 
                 for i in range(current_limit):
                     tl = timeline_data[i]
-                    t_start = tl['start'].strftime("%H:%M:%S") if hasattr(tl['start'], 'strftime') else tl['start']
-                    t_end = tl['end'].strftime("%H:%M:%S") if hasattr(tl['end'], 'strftime') else tl['end']
+                    t_start = (
+                        tl["start"].strftime("%H:%M:%S")
+                        if hasattr(tl["start"], "strftime")
+                        else tl["start"]
+                    )
+                    t_end = (
+                        tl["end"].strftime("%H:%M:%S")
+                        if hasattr(tl["end"], "strftime")
+                        else tl["end"]
+                    )
 
                     tl_table.setItem(i, 0, QTableWidgetItem(f"{t_start} -> {t_end}"))
                     tl_table.setItem(i, 1, QTableWidgetItem(tl["app"]))
 
                 # Dynamically adjust height of table to exactly fit rows
-                header_h = tl_table.horizontalHeader().height() if tl_table.horizontalHeader().height() > 0 else 28
+                header_h = (
+                    tl_table.horizontalHeader().height()
+                    if tl_table.horizontalHeader().height() > 0
+                    else 28
+                )
                 row_sum = 0
                 for row in range(current_limit):
                     rh = tl_table.rowHeight(row)
@@ -2485,7 +3032,9 @@ class TrueHourApp(QMainWindow):
                 if current_limit < len(timeline_data):
                     more_btn.setVisible(True)
                     btn_container.setVisible(True)
-                    more_btn.setText(f"Show More (+{min(15, len(timeline_data) - current_limit)})")
+                    more_btn.setText(
+                        f"Show More (+{min(15, len(timeline_data) - current_limit)})"
+                    )
                 else:
                     more_btn.setVisible(False)
                     btn_container.setVisible(False)
@@ -2509,7 +3058,9 @@ class TrueHourApp(QMainWindow):
         # Export Actions Footer
         footer_f = QFrame(dialog)
         footer_f.setFixedHeight(50)
-        footer_f.setStyleSheet(f"QFrame {{ background-color: {bg_widget}; border-top: 1px solid {border_color}; }}")
+        footer_f.setStyleSheet(
+            f"QFrame {{ background-color: {bg_widget}; border-top: 1px solid {border_color}; }}"
+        )
         footer_layout = QHBoxLayout(footer_f)
         footer_layout.setContentsMargins(14, 0, 14, 0)
 
@@ -2517,7 +3068,7 @@ class TrueHourApp(QMainWindow):
             try:
                 new_name = report_name_entry.text().strip()
                 if new_name:
-                    report['session_name'] = new_name
+                    report["session_name"] = new_name
             except Exception:
                 pass
             self._export(report, fmt)
@@ -2541,16 +3092,22 @@ class TrueHourApp(QMainWindow):
         footer_layout.addWidget(close_btn)
 
         if not is_live and is_new:
+
             def _save_and_close():
                 try:
                     new_name = report_name_entry.text().strip()
-                    logger.info(f"[Action] Saving session to history with name: '{new_name}'")
+                    logger.info(
+                        f"[Action] Saving session to history with name: '{new_name}'"
+                    )
                     report["session_name"] = new_name if new_name else "Unnamed"
                     save_to_history(report)
-                    QMessageBox.information(dialog, "Saved", "Session saved to History.")
+                    QMessageBox.information(
+                        dialog, "Saved", "Session saved to History."
+                    )
                     dialog.accept()
                 except Exception as e:
                     QMessageBox.critical(dialog, "Error", f"Failed to save: {e}")
+
             save_btn.clicked.connect(_save_and_close)
 
         layout.addWidget(footer_f)
@@ -2562,10 +3119,22 @@ class TrueHourApp(QMainWindow):
         dialog.setWindowTitle("Session Summary Report")
         dialog.setFixedSize(380, 380)
 
-        from theme import get_qss_style, get_dark_palette, get_light_palette, ensure_checkmark_icon
-        qss = get_qss_style(self.theme_style).replace("CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style))
+        from theme import (
+            get_qss_style,
+            get_dark_palette,
+            get_light_palette,
+            ensure_checkmark_icon,
+        )
+
+        qss = get_qss_style(self.theme_style).replace(
+            "CHECKMARK_PATH", ensure_checkmark_icon(self.theme_style)
+        )
         dialog.setStyleSheet(qss)
-        dialog.setPalette(get_dark_palette(self.theme_style) if self.dark_mode else get_light_palette())
+        dialog.setPalette(
+            get_dark_palette(self.theme_style)
+            if self.dark_mode
+            else get_light_palette()
+        )
 
         # Theme-specific variables
         if self.theme_style == "classic-dark":
@@ -2588,7 +3157,7 @@ class TrueHourApp(QMainWindow):
             earned_fg = "#10B981"
             accent_btn_bg = "#2563EB"
             accent_btn_hover = "#3B82F6"
-        else: # light
+        else:  # light
             bg_widget = "#FFFFFF"
             border_color = "#E0E0E0"
             text_primary = "#1A1A1A"
@@ -2607,20 +3176,28 @@ class TrueHourApp(QMainWindow):
         # Title
         report_title = QLabel("Session Summary Report", dialog)
         report_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        report_title.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 18px; font-weight: 700; color: {text_primary};")
+        report_title.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 18px; font-weight: 700; color: {text_primary};"
+        )
         layout.addWidget(report_title)
 
         # Date
-        meta_lbl = QLabel(report.get("date_display", datetime.now().strftime("%B %d, %Y")), dialog)
+        meta_lbl = QLabel(
+            report.get("date_display", datetime.now().strftime("%B %d, %Y")), dialog
+        )
         meta_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        meta_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; color: {text_sec}; margin-top: -6px;")
+        meta_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 11px; color: {text_sec}; margin-top: -6px;"
+        )
         layout.addWidget(meta_lbl)
 
         # Session Name Entry Field
         name_input_layout = QVBoxLayout()
         name_input_layout.setSpacing(4)
         name_lbl = QLabel("Session Name", dialog)
-        name_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_sec};")
+        name_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 11px; font-weight: bold; color: {text_sec};"
+        )
         name_input_layout.addWidget(name_lbl)
 
         report_name_entry = QLineEdit(dialog)
@@ -2648,38 +3225,50 @@ class TrueHourApp(QMainWindow):
 
         # Tracked Focus Time Card
         card_time = QFrame(dialog)
-        card_time.setStyleSheet(f"QFrame {{ background-color: {earned_bg}; border: 1px solid {border_color}; border-radius: 8px; }}")
+        card_time.setStyleSheet(
+            f"QFrame {{ background-color: {earned_bg}; border: 1px solid {border_color}; border-radius: 8px; }}"
+        )
         ct_layout = QVBoxLayout(card_time)
         ct_layout.setContentsMargins(12, 12, 12, 12)
         ct_layout.setSpacing(4)
 
         time_val = QLabel(report.get("counted_formatted", "0s"), card_time)
         time_val.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        time_val.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 16px; font-weight: 700; color: {text_primary};")
+        time_val.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 16px; font-weight: 700; color: {text_primary};"
+        )
         ct_layout.addWidget(time_val)
 
         time_lbl = QLabel("Tracked Focus Time", card_time)
         time_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        time_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 10px; color: {text_sec}; font-weight: 500;")
+        time_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 10px; color: {text_sec}; font-weight: 500;"
+        )
         ct_layout.addWidget(time_lbl)
 
         stats_layout.addWidget(card_time)
 
         # Total Earned Card
         card_earned = QFrame(dialog)
-        card_earned.setStyleSheet(f"QFrame {{ background-color: {earned_bg}; border: 1px solid {border_color}; border-radius: 8px; }}")
+        card_earned.setStyleSheet(
+            f"QFrame {{ background-color: {earned_bg}; border: 1px solid {border_color}; border-radius: 8px; }}"
+        )
         ce_layout = QVBoxLayout(card_earned)
         ce_layout.setContentsMargins(12, 12, 12, 12)
         ce_layout.setSpacing(4)
 
         earned_val = QLabel(report.get("total_earned_display", "$0.00"), card_earned)
         earned_val.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        earned_val.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 16px; font-weight: 700; color: {earned_fg};")
+        earned_val.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 16px; font-weight: 700; color: {earned_fg};"
+        )
         ce_layout.addWidget(earned_val)
 
         earned_lbl = QLabel("Total Earned", card_earned)
         earned_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        earned_lbl.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 10px; color: {text_sec}; font-weight: 500;")
+        earned_lbl.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 10px; color: {text_sec}; font-weight: 500;"
+        )
         ce_layout.addWidget(earned_lbl)
 
         stats_layout.addWidget(card_earned)
@@ -2694,7 +3283,7 @@ class TrueHourApp(QMainWindow):
             badge_bg = "rgba(22, 163, 74, 0.1)"
             badge_border = "rgba(22, 163, 74, 0.3)"
             icon_color = "#4ade80"
-        else: # light
+        else:  # light
             badge_bg = "#f0fdf4"
             badge_border = "#bbf7d0"
             icon_color = "#16a34a"
@@ -2732,7 +3321,7 @@ class TrueHourApp(QMainWindow):
             }}
         """)
         badge_layout.addWidget(text_lbl)
-        
+
         layout.addWidget(badge_frame)
 
         # Save Session Button
@@ -2753,18 +3342,20 @@ class TrueHourApp(QMainWindow):
                 background-color: {accent_btn_hover};
             }}
         """)
-        
+
         def _save_and_close():
             try:
                 new_name = report_name_entry.text().strip()
-                logger.info(f"[Action] Saving session to history with name: '{new_name}'")
+                logger.info(
+                    f"[Action] Saving session to history with name: '{new_name}'"
+                )
                 report["session_name"] = new_name if new_name else "Unnamed"
                 save_to_history(report)
                 QMessageBox.information(dialog, "Saved", "Session saved successfully.")
                 dialog.accept()
             except Exception as e:
                 QMessageBox.critical(dialog, "Error", f"Failed to save: {e}")
-        
+
         primary_btn.clicked.connect(_save_and_close)
         layout.addWidget(primary_btn)
 
@@ -2773,7 +3364,12 @@ class TrueHourApp(QMainWindow):
     def _export(self, report, fmt):
         logger.info(f"[Action] Commencing report export to format: '{fmt}'")
         if fmt == "txt":
-            path, _ = QFileDialog.getSaveFileName(self, "Export TXT", f"truehour_{report['date']}.txt", "Text files (*.txt)")
+            path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Export TXT",
+                f"truehour_{report['date']}.txt",
+                "Text files (*.txt)",
+            )
             if not path:
                 return
             try:
@@ -2781,12 +3377,21 @@ class TrueHourApp(QMainWindow):
                 QMessageBox.information(self, "Exported", f"Report saved to:\n{path}")
             except Exception as e:
                 logger.error(f"Failed to export TXT report: {e}")
-                QMessageBox.critical(self, "Error", f"Failed to export TXT report:\n{str(e)}")
+                QMessageBox.critical(
+                    self, "Error", f"Failed to export TXT report:\n{str(e)}"
+                )
         else:
             try:
-                html_content = generate_session_report_html(report, hourly_rate=self.hourly_rate, currency_symbol=self.currency_symbol)
+                html_content = generate_session_report_html(
+                    report,
+                    hourly_rate=self.hourly_rate,
+                    currency_symbol=self.currency_symbol,
+                )
                 import tempfile
-                with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html', encoding='utf-8') as f:
+
+                with tempfile.NamedTemporaryFile(
+                    "w", delete=False, suffix=".html", encoding="utf-8"
+                ) as f:
                     f.write(html_content)
                     temp_path = f.name
 
@@ -2794,21 +3399,29 @@ class TrueHourApp(QMainWindow):
                     open_file(temp_path)
                 except Exception as e:
                     logger.error(f"Failed to open temp report in browser: {e}")
-                    QMessageBox.warning(self, "Failed to Open", f"Could not automatically open the report in your browser:\n{str(e)}")
+                    QMessageBox.warning(
+                        self,
+                        "Failed to Open",
+                        f"Could not automatically open the report in your browser:\n{str(e)}",
+                    )
             except Exception as e:
                 logger.error(f"Failed to generate HTML report: {e}")
-                QMessageBox.critical(self, "Error", f"Failed to generate HTML report:\n{str(e)}")
+                QMessageBox.critical(
+                    self, "Error", f"Failed to generate HTML report:\n{str(e)}"
+                )
 
     def _show_dashboard(self):
         from dialogs.dashboard_dialog import TrueHourDashboard
+
         dialog = TrueHourDashboard(self)
         dialog.exec()
 
     def _handle_profile_switched(self, profile_name):
         if self.tracker.running:
             QMessageBox.warning(
-                self, "Active Tracking Session",
-                "Please stop the current active tracking session before switching or modifying profiles."
+                self,
+                "Active Tracking Session",
+                "Please stop the current active tracking session before switching or modifying profiles.",
             )
             return False
 
@@ -2832,6 +3445,7 @@ class TrueHourApp(QMainWindow):
             # Re-initialize target database schema inside target profile directory
             try:
                 from database.schema import init_db
+
                 init_db()
             except Exception as e:
                 print(f"[TrueHour] Failed database bootstrap on profile switch: {e}")
@@ -2840,11 +3454,13 @@ class TrueHourApp(QMainWindow):
             self.tracker._load_settings()
             self.tracker.tag_manager._load_tags()
             from tracker import reload_auto_excluded
+
             reload_auto_excluded()
 
             # Reset security time integrity detector for the new profile
             try:
                 from secure_time import reset_detector
+
                 reset_detector()
             except Exception as e:
                 print(f"[TrueHour] Failed to reset security time detector: {e}")
@@ -2852,6 +3468,7 @@ class TrueHourApp(QMainWindow):
             # Reload name overrides for the new profile
             try:
                 from appinfo import _load_name_overrides
+
                 _load_name_overrides()
             except Exception as e:
                 print(f"[TrueHour] Failed to reload name overrides: {e}")
@@ -2874,19 +3491,23 @@ class TrueHourApp(QMainWindow):
                 self.earnings_label.setText(" ")
 
             QMessageBox.information(
-                self, "Profile Switched",
-                f"Successfully switched to profile '{profile_name}'."
+                self,
+                "Profile Switched",
+                f"Successfully switched to profile '{profile_name}'.",
             )
             return True
         except Exception as e:
-            QMessageBox.critical(self, "Switch Failed", f"Failed to switch to profile:\n{e}")
+            QMessageBox.critical(
+                self, "Switch Failed", f"Failed to switch to profile:\n{e}"
+            )
             return False
 
     def _handle_profile_renamed(self, old_name, new_name):
         if self.tracker.running:
             QMessageBox.warning(
-                self, "Active Tracking Session",
-                "Please stop the current active tracking session before switching or modifying profiles."
+                self,
+                "Active Tracking Session",
+                "Please stop the current active tracking session before switching or modifying profiles.",
             )
             return False
 
@@ -2899,6 +3520,7 @@ class TrueHourApp(QMainWindow):
             # Force GC to release SQLite database connection handles
             import gc
             import time
+
             gc.collect()
 
             # Retry rename loop in case of temporary OS indexer/anti-virus locks on Windows
@@ -2914,7 +3536,9 @@ class TrueHourApp(QMainWindow):
                     gc.collect()
 
             if not rename_success:
-                raise PermissionError(f"Could not rename profile folder '{old_name}' because it is currently locked by another process.")
+                raise PermissionError(
+                    f"Could not rename profile folder '{old_name}' because it is currently locked by another process."
+                )
 
             profiles_file = os.path.join(root_dir, "profiles.json")
             with open(profiles_file, "r", encoding="utf-8") as f:
@@ -2922,24 +3546,31 @@ class TrueHourApp(QMainWindow):
 
             # Update values
             pdata["active_profile"] = new_name
-            pdata["profiles"] = [new_name if p == old_name else p for p in pdata.get("profiles", ["Default"])]
+            pdata["profiles"] = [
+                new_name if p == old_name else p
+                for p in pdata.get("profiles", ["Default"])
+            ]
 
             with open(profiles_file, "w", encoding="utf-8") as f:
                 json.dump(pdata, f, indent=4)
 
             self._handle_profile_switched(new_name)
             QMessageBox.information(
-                self, "Profile Renamed",
-                f"Successfully renamed profile from '{old_name}' to '{new_name}'."
+                self,
+                "Profile Renamed",
+                f"Successfully renamed profile from '{old_name}' to '{new_name}'.",
             )
         except Exception as e:
-            QMessageBox.critical(self, "Rename Failed", f"Failed to rename profile directory:\n{e}")
+            QMessageBox.critical(
+                self, "Rename Failed", f"Failed to rename profile directory:\n{e}"
+            )
 
     def _handle_profile_deleted(self, profile_name):
         if self.tracker.running:
             QMessageBox.warning(
-                self, "Active Tracking Session",
-                "Please stop the current active tracking session before switching or modifying profiles."
+                self,
+                "Active Tracking Session",
+                "Please stop the current active tracking session before switching or modifying profiles.",
             )
             return False
 
@@ -2952,6 +3583,7 @@ class TrueHourApp(QMainWindow):
                 import gc
                 import stat
                 import time
+
                 gc.collect()
 
                 # Helper to clear read-only flag on Windows
@@ -2997,7 +3629,9 @@ class TrueHourApp(QMainWindow):
                 pdata = json.load(f)
 
             # Filter from list
-            pdata["profiles"] = [p for p in pdata.get("profiles", ["Default"]) if p != profile_name]
+            pdata["profiles"] = [
+                p for p in pdata.get("profiles", ["Default"]) if p != profile_name
+            ]
 
             # Switch active to first available profile
             new_active = pdata["profiles"][0] if pdata["profiles"] else "Default"
@@ -3008,11 +3642,14 @@ class TrueHourApp(QMainWindow):
 
             self._handle_profile_switched(new_active)
             QMessageBox.information(
-                self, "Profile Deleted",
-                f"Permanently deleted profile '{profile_name}'."
+                self,
+                "Profile Deleted",
+                f"Permanently deleted profile '{profile_name}'.",
             )
         except Exception as e:
-            QMessageBox.critical(self, "Delete Failed", f"Failed to delete profile:\n{e}")
+            QMessageBox.critical(
+                self, "Delete Failed", f"Failed to delete profile:\n{e}"
+            )
 
     def _handle_settings_imported(self, profile_name):
         # Trigger dynamic switch to imported profile
@@ -3021,17 +3658,19 @@ class TrueHourApp(QMainWindow):
     def run(self):
         self.show()
 
-# TrueHourDashboard removed - now imported from dialogs.dashboard_dialog
 
+# TrueHourDashboard removed - now imported from dialogs.dashboard_dialog
 
 
 if __name__ == "__main__":
     # Load environment variables from .env file
     try:
         from dotenv import load_dotenv
+
         load_dotenv()
     except Exception as e:
         print(f"[TrueHour] Failed to load .env: {e}")
+
     # Install global exception hook to catch unhandled Python exceptions
     def exception_hook(exctype, value, tb):
         """Global hook to intercept catastrophic failures and redirect them into logs."""
@@ -3051,8 +3690,11 @@ if __name__ == "__main__":
 
     # Check for standalone Debug Console argument first to bypass single instance lock
     if "--debug-console" in sys.argv:
-        app.setStyleSheet(get_qss_style(False).replace("CHECKMARK_PATH", checkmark_path))
+        app.setStyleSheet(
+            get_qss_style(False).replace("CHECKMARK_PATH", checkmark_path)
+        )
         from debug_terminal import DebugTerminalWindow
+
         window = DebugTerminalWindow()
         window.show()
         sys.exit(app.exec())
@@ -3067,6 +3709,7 @@ if __name__ == "__main__":
 
     # Single instance lock using QLockFile to prevent multiple running instances
     from PyQt6.QtCore import QLockFile
+
     lock_file_path = os.path.join(get_app_data_root(), "truehour.lock")
     lock_file = QLockFile(lock_file_path)
 
@@ -3074,12 +3717,16 @@ if __name__ == "__main__":
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Warning)
         msg.setWindowTitle("TrueHour Already Running")
-        msg.setText("Another instance of TrueHour is already running.\nOnly one instance of TrueHour can be active at a time.")
+        msg.setText(
+            "Another instance of TrueHour is already running.\nOnly one instance of TrueHour can be active at a time."
+        )
         msg.setStandardButtons(QMessageBox.StandardButton.Ok)
 
         # Load style on message box to match app theme
         msg.setStyle(app.style())
-        msg.setStyleSheet(get_qss_style(False).replace("CHECKMARK_PATH", checkmark_path))
+        msg.setStyleSheet(
+            get_qss_style(False).replace("CHECKMARK_PATH", checkmark_path)
+        )
         msg_font = msg.font()
         msg_font.setFamily(FONT_FAMILY)
         msg_font.setPointSize(10)
