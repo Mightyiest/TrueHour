@@ -153,6 +153,7 @@ def resolve_name(exe_path, base_name):
     return friendly
 
 
+@lru_cache(maxsize=512)
 def _get_file_description(exe_path):
     """Extract FileDescription from an executable's version info."""
     if SYSTEM != "Windows":
@@ -170,6 +171,7 @@ def _get_file_description(exe_path):
     return None
 
 
+@lru_cache(maxsize=512)
 def get_company_name(exe_path):
     """Extract CompanyName from an executable's version info."""
     if SYSTEM != "Windows":
@@ -187,6 +189,7 @@ def get_company_name(exe_path):
     return None
 
 
+@lru_cache(maxsize=512)
 def get_product_name(exe_path):
     """Extract ProductName from an executable's version info."""
     if SYSTEM != "Windows":
@@ -204,7 +207,7 @@ def get_product_name(exe_path):
     return None
 
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=512)
 def get_icon_image(exe_path: str, size: int = 16):
     if not exe_path:
         return None

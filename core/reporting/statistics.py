@@ -1,9 +1,19 @@
+from contextlib import contextmanager
 from database.schema import get_connection
 
 
-def get_daily_summaries(start_date_str: str, end_date_str: str):
+@contextmanager
+def db_session():
     conn = get_connection()
     try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
+
+
+def get_daily_summaries(start_date_str: str, end_date_str: str):
+    with db_session() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -16,8 +26,6 @@ def get_daily_summaries(start_date_str: str, end_date_str: str):
         )
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
-    finally:
-        conn.close()
 
 
 def calculate_total_hours(days):

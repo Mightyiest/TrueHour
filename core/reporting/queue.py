@@ -2,8 +2,20 @@ import threading
 import uuid
 from datetime import datetime
 from queue import Queue
+from contextlib import contextmanager
 from database.schema import get_connection
 from core.reporting.models import ReportJob, ReportStatus
+
+
+@contextmanager
+def db_session():
+    conn = get_connection()
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
+
 
 report_queue = Queue()
 
@@ -14,8 +26,7 @@ def add_report_job(
     job_id = str(uuid.uuid4())
     created_at = datetime.now().isoformat()
 
-    conn = get_connection()
-    try:
+    with db_session() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -34,17 +45,13 @@ def add_report_job(
                 created_at,
             ),
         )
-        conn.commit()
-    finally:
-        conn.close()
 
     report_queue.put(job_id)
     return job_id
 
 
 def get_report_job(job_id: str) -> ReportJob | None:
-    conn = get_connection()
-    try:
+    with db_session() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -65,8 +72,6 @@ def get_report_job(job_id: str) -> ReportJob | None:
                 output_path=row["output_path"],
                 error_message=row["error_message"],
             )
-    finally:
-        conn.close()
     return None
 
 
@@ -77,8 +82,7 @@ def update_job(
     error_message: str = None,
     output_path: str = None,
 ):
-    conn = get_connection()
-    try:
+    with db_session() as conn:
         cursor = conn.cursor()
         completed_at = (
             datetime.now().isoformat()
@@ -104,9 +108,6 @@ def update_job(
             """,
                 (status, progress, error_message, completed_at, job_id),
             )
-        conn.commit()
-    finally:
-        conn.close()
 
 
 def process_reports():

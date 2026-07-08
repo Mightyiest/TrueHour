@@ -2,8 +2,19 @@ import os
 import glob
 import json
 from datetime import datetime
+from contextlib import contextmanager
 from database.schema import get_connection
 from config import get_app_data_dir
+
+
+@contextmanager
+def db_session():
+    conn = get_connection()
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
 
 
 def get_sessions_for_date(date_str: str):
@@ -93,8 +104,7 @@ def update_daily_summary(session_or_date):
     active_projects = len(active_projects_set)
     updated_at = datetime.now().isoformat()
 
-    conn = get_connection()
-    try:
+    with db_session() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -116,9 +126,6 @@ def update_daily_summary(session_or_date):
                 updated_at,
             ),
         )
-        conn.commit()
-    finally:
-        conn.close()
 
 
 def rebuild_all_summaries(force=False):
@@ -129,28 +136,26 @@ def rebuild_all_summaries(force=False):
 
     # Check if we even need to rebuild: if daily_summary already has records, skip!
     # (Unless force=True or we are in a unit test mock environment)
-    conn = get_connection()
     try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM daily_summary")
-        row = cursor.fetchone()
+        with db_session() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM daily_summary")
+            row = cursor.fetchone()
 
-        # Detect MagicMock (unittest environment)
-        is_mock = "mock" in type(row).__name__.lower() or hasattr(
-            row, "_mock_return_value"
-        )
+            # Detect MagicMock (unittest environment)
+            is_mock = "mock" in type(row).__name__.lower() or hasattr(
+                row, "_mock_return_value"
+            )
 
-        if row is not None and not is_mock:
-            count = row[0]
-            if count > 0 and not force:
-                logger.info(
-                    "Daily summary database already populated. Skipping rebuild."
-                )
-                return
+            if row is not None and not is_mock:
+                count = row[0]
+                if count > 0 and not force:
+                    logger.info(
+                        "Daily summary database already populated. Skipping rebuild."
+                    )
+                    return
     except Exception as e:
         logger.warning(f"Failed to query daily_summary count: {e}")
-    finally:
-        conn.close()
 
     sessions_folder = os.path.join(get_app_data_dir(), "sessions")
     autosave_folder = os.path.join(get_app_data_dir(), "autosave")
@@ -208,53 +213,50 @@ def rebuild_all_summaries(force=False):
                 continue
 
     # Update the database in a single O(N) transaction
-    conn = get_connection()
     try:
-        cursor = conn.cursor()
-        updated_at = datetime.now().isoformat()
+        with db_session() as conn:
+            cursor = conn.cursor()
+            updated_at = datetime.now().isoformat()
 
-        for date_str, unique_sessions in sessions_by_date.items():
-            sessions = list(unique_sessions.values())
-            total_seconds = 0
-            session_count = len(sessions)
-            active_projects_set = set()
-            longest_session = 0
+            for date_str, unique_sessions in sessions_by_date.items():
+                sessions = list(unique_sessions.values())
+                total_seconds = 0
+                session_count = len(sessions)
+                active_projects_set = set()
+                longest_session = 0
 
-            for s in sessions:
-                total_seconds += s.get("total_seconds", 0)
-                longest_session = max(longest_session, s.get("total_seconds", 0))
-                for app in s.get("apps", []):
-                    if not app.get("excluded", False):
-                        active_projects_set.add(app.get("tag", "Unassigned"))
+                for s in sessions:
+                    total_seconds += s.get("total_seconds", 0)
+                    longest_session = max(longest_session, s.get("total_seconds", 0))
+                    for app in s.get("apps", []):
+                        if not app.get("excluded", False):
+                            active_projects_set.add(app.get("tag", "Unassigned"))
 
-            active_projects = len(active_projects_set)
+                active_projects = len(active_projects_set)
 
-            cursor.execute(
-                """
-                INSERT INTO daily_summary (date, total_seconds, session_count, active_projects, longest_session, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(date) DO UPDATE SET
-                    total_seconds=excluded.total_seconds,
-                    session_count=excluded.session_count,
-                    active_projects=excluded.active_projects,
-                    longest_session=excluded.longest_session,
-                    updated_at=excluded.updated_at
-            """,
-                (
-                    date_str,
-                    total_seconds,
-                    session_count,
-                    active_projects,
-                    longest_session,
-                    updated_at,
-                ),
+                cursor.execute(
+                    """
+                    INSERT INTO daily_summary (date, total_seconds, session_count, active_projects, longest_session, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(date) DO UPDATE SET
+                        total_seconds=excluded.total_seconds,
+                        session_count=excluded.session_count,
+                        active_projects=excluded.active_projects,
+                        longest_session=excluded.longest_session,
+                        updated_at=excluded.updated_at
+                """,
+                    (
+                        date_str,
+                        total_seconds,
+                        session_count,
+                        active_projects,
+                        longest_session,
+                        updated_at,
+                    ),
+                )
+
+            logger.info(
+                f"Successfully rebuilt summaries for {len(sessions_by_date)} dates."
             )
-
-        conn.commit()
-        logger.info(
-            f"Successfully rebuilt summaries for {len(sessions_by_date)} dates."
-        )
     except Exception as e:
         logger.error(f"Failed to rebuild summaries in database: {e}")
-    finally:
-        conn.close()

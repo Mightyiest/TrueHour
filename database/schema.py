@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from contextlib import contextmanager
 from config import get_app_data_dir
 
 
@@ -16,6 +17,16 @@ def get_connection():
         pass
     conn.row_factory = sqlite3.Row
     return conn
+
+
+@contextmanager
+def db_session():
+    conn = get_connection()
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
 
 
 def init_db():
@@ -97,8 +108,7 @@ def save_invoice(
     from datetime import datetime
 
     now = datetime.now().isoformat()
-    conn = get_connection()
-    try:
+    with db_session() as conn:
         conn.execute(
             """
         INSERT OR REPLACE INTO invoices (
@@ -119,87 +129,63 @@ def save_invoice(
                 now,
             ),
         )
-        conn.commit()
-    finally:
-        conn.close()
 
 
 def get_all_invoices():
-    conn = get_connection()
-    try:
+    with db_session() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM invoices ORDER BY created_at DESC;")
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
-    finally:
-        conn.close()
 
 
 def get_invoices_list():
-    conn = get_connection()
-    try:
+    with db_session() as conn:
         cursor = conn.cursor()
         cursor.execute(
             "SELECT invoice_no, client_name, amount, currency, status, created_at FROM invoices ORDER BY created_at DESC;"
         )
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
-    finally:
-        conn.close()
 
 
 def get_invoice_by_no(invoice_no):
-    conn = get_connection()
-    try:
+    with db_session() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM invoices WHERE invoice_no = ?;", (invoice_no,))
         row = cursor.fetchone()
         return dict(row) if row else None
-    finally:
-        conn.close()
 
 
 def update_invoice_status(invoice_no, status):
     from datetime import datetime
 
     now = datetime.now().isoformat()
-    conn = get_connection()
-    try:
+    with db_session() as conn:
         conn.execute(
             """
         UPDATE invoices SET status = ?, updated_at = ? WHERE invoice_no = ?;
         """,
             (status, now, invoice_no),
         )
-        conn.commit()
-    finally:
-        conn.close()
 
 
 def delete_invoice(invoice_no):
-    conn = get_connection()
-    try:
+    with db_session() as conn:
         conn.execute("DELETE FROM invoices WHERE invoice_no = ?;", (invoice_no,))
-        conn.commit()
-    finally:
-        conn.close()
 
 
 def rename_invoice(old_no, new_no):
     from datetime import datetime
 
     now = datetime.now().isoformat()
-    conn = get_connection()
-    try:
+    with db_session() as conn:
         conn.execute(
             """
         UPDATE invoices SET invoice_no = ?, updated_at = ? WHERE invoice_no = ?;
         """,
             (new_no, now, old_no),
         )
-        conn.commit()
-    finally:
-        conn.close()
 
 
 def optimize_db():
