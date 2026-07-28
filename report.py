@@ -213,6 +213,7 @@ def build_report_data(
         "timeline": timeline,
         "is_recovered": getattr(tracker, "is_recovered", False),
         "is_resumed": is_resumed,
+        "resumed_filepath": getattr(tracker, "resumed_filepath", None),
         "new_activity": new_activity,
         "session_name": getattr(tracker, "session_name", ""),
         "app_exe_paths": getattr(tracker, "app_exe_paths", {}),
@@ -382,12 +383,21 @@ def save_to_history(report):
     """Save session to sessions/ folder (User Manual Save)."""
     folder = os.path.join(get_app_data_dir(), "sessions")
     os.makedirs(folder, exist_ok=True)
-    start_dt = datetime.strptime(
-        report["date"] + " " + report["start"], "%Y-%m-%d %H:%M:%S"
-    )
-    filename = f"session_{start_dt.strftime('%Y-%m-%d_%H-%M-%S')}.json"
-    filepath = os.path.join(folder, filename)
+    resumed_filepath = report.get("resumed_filepath")
+    if (
+        resumed_filepath
+        and os.path.exists(resumed_filepath)
+        and os.path.abspath(os.path.dirname(resumed_filepath)) == os.path.abspath(folder)
+    ):
+        filepath = resumed_filepath
+    else:
+        start_dt = datetime.strptime(
+            report["date"] + " " + report["start"], "%Y-%m-%d %H:%M:%S"
+        )
+        filename = f"session_{start_dt.strftime('%Y-%m-%d_%H-%M-%S')}.json"
+        filepath = os.path.join(folder, filename)
     export_json(report, filepath, is_internal=True)
+    report["resumed_filepath"] = filepath
     try:
         from core.reporting.aggregator import update_daily_summary
 
@@ -725,21 +735,10 @@ def merge_sessions_for_invoice(
             with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            date_str = data.get("date")
-            start_str = data.get("start")
-            if not date_str or not start_str:
-                continue
-
-            key = (date_str, start_str)
-            total_secs = data.get("total_seconds", 0)
-
-            # Deduplicate sessions: keep the one with higher tracked duration
-            if key in unique_sessions:
-                existing_total = unique_sessions[key].get("total_seconds", 0)
-                if total_secs > existing_total:
-                    unique_sessions[key] = data
-            else:
-                unique_sessions[key] = data
+            date_str = data.get("date", "")
+            start_str = data.get("start", "")
+            key = (date_str, start_str, filepath)
+            unique_sessions[key] = data
         except Exception:
             continue
 
@@ -804,6 +803,189 @@ def merge_sessions_for_invoice(
         "project_breakdown": breakdown,
         "session_count": len(unique_sessions),
     }
+
+
+def merge_session_files(
+    filepaths: List[str], merged_name: str, output_folder: str
+) -> str:
+    """
+    Combines/merges multiple session JSON files into a single session file,
+    saves the merged session with `merged_name`, and returns the output filepath.
+    """
+    if not filepaths or len(filepaths) < 2:
+        raise ValueError("At least 2 session files are required to merge.")
+
+    sessions = []
+    for path in filepaths:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                sessions.append((path, data))
+        except Exception:
+            continue
+
+    if len(sessions) < 2:
+        raise ValueError("At least 2 valid session files are required to merge.")
+
+    def _get_session_start_dt(sess_tuple):
+        path, data = sess_tuple
+        d_str = data.get("date", "")
+        s_str = data.get("start", "")
+        if d_str and s_str:
+            try:
+                return datetime.strptime(f"{d_str} {s_str}", "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                pass
+        return datetime.fromtimestamp(os.path.getmtime(path))
+
+    def _get_session_end_dt(sess_tuple):
+        path, data = sess_tuple
+        d_str = data.get("date", "")
+        e_str = data.get("end", "")
+        if d_str and e_str:
+            try:
+                return datetime.strptime(f"{d_str} {e_str}", "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                pass
+        return datetime.fromtimestamp(os.path.getmtime(path))
+
+    sessions.sort(key=_get_session_start_dt)
+
+    earliest_start_dt = _get_session_start_dt(sessions[0])
+    latest_end_dt = max(_get_session_end_dt(s) for s in sessions)
+    if latest_end_dt <= earliest_start_dt:
+        latest_end_dt = earliest_start_dt + timedelta(seconds=sum(s[1].get("total_seconds", 0) for s in sessions))
+
+    merged_app_exe_paths = {}
+    merged_apps_map = {}
+    merged_new_activity = []
+    merged_timeline = []
+    total_seconds = 0
+    counted_seconds = 0
+    hourly_rate = 0.0
+    currency_symbol = "$"
+
+    for _, data in sessions:
+        total_seconds += data.get("total_seconds", 0)
+        counted_seconds += data.get("counted_seconds", 0)
+
+        if not hourly_rate and data.get("hourly_rate"):
+            hourly_rate = data.get("hourly_rate", 0.0)
+        if data.get("currency_symbol"):
+            currency_symbol = data.get("currency_symbol", "$")
+
+        for k, v in data.get("app_exe_paths", {}).items():
+            if k not in merged_app_exe_paths and v:
+                merged_app_exe_paths[k] = v
+
+        for app in data.get("apps", []):
+            name = app.get("name", "Unknown")
+            secs = app.get("seconds", 0)
+            tag = app.get("tag", "Unassigned")
+            is_excluded = app.get("excluded", False)
+
+            if name not in merged_apps_map:
+                merged_apps_map[name] = {
+                    "seconds": secs,
+                    "tag": tag,
+                    "excluded": is_excluded,
+                }
+            else:
+                merged_apps_map[name]["seconds"] += secs
+                if not is_excluded:
+                    merged_apps_map[name]["excluded"] = False
+                if tag != "Unassigned" and merged_apps_map[name]["tag"] == "Unassigned":
+                    merged_apps_map[name]["tag"] = tag
+
+        for act in data.get("new_activity", []):
+            if act not in merged_new_activity:
+                merged_new_activity.append(act)
+
+        for entry in data.get("timeline", []):
+            merged_timeline.append(entry)
+
+    def _get_timeline_start(t):
+        if isinstance(t, dict):
+            return t.get("start", "")
+        return ""
+
+    merged_timeline.sort(key=_get_timeline_start)
+
+    apps_list = []
+    project_times = {}
+    for name, ainfo in merged_apps_map.items():
+        secs = ainfo["seconds"]
+        tag = ainfo["tag"]
+        is_ex = ainfo["excluded"]
+        pct = (secs / total_seconds * 100) if total_seconds > 0 else 0.0
+
+        apps_list.append(
+            {
+                "name": name,
+                "seconds": secs,
+                "formatted": format_duration(secs),
+                "percent": round(pct, 1),
+                "excluded": is_ex,
+                "tag": tag,
+            }
+        )
+        if not is_ex:
+            project_times[tag] = project_times.get(tag, 0) + secs
+
+    recalculated_counted = sum(project_times.values())
+    if recalculated_counted > 0:
+        counted_seconds = recalculated_counted
+
+    breakdown = []
+    total_earned = 0.0
+    for proj, secs in project_times.items():
+        proj_pct = (secs / counted_seconds * 100) if counted_seconds > 0 else 0.0
+        proj_earned = (secs / 3600.0) * hourly_rate
+        total_earned += proj_earned
+        breakdown.append(
+            {
+                "project": proj,
+                "seconds": int(secs),
+                "formatted": format_duration(secs),
+                "percent": round(proj_pct, 1),
+                "earned": round(proj_earned, 2),
+                "earned_display": f"{currency_symbol}{proj_earned:,.2f}",
+                "color": get_project_color(proj),
+            }
+        )
+    breakdown.sort(key=lambda x: x["seconds"], reverse=True)
+
+    date_str = earliest_start_dt.strftime("%Y-%m-%d")
+    start_str = earliest_start_dt.strftime("%H:%M:%S")
+    end_str = latest_end_dt.strftime("%H:%M:%S")
+
+    export = {
+        "session_name": merged_name.strip(),
+        "app_exe_paths": merged_app_exe_paths,
+        "date": date_str,
+        "start": start_str,
+        "end": end_str,
+        "total_seconds": total_seconds,
+        "counted_seconds": counted_seconds,
+        "is_resumed": False,
+        "new_activity": merged_new_activity,
+        "apps": apps_list,
+        "project_breakdown": breakdown,
+        "timeline": merged_timeline,
+        "hourly_rate": hourly_rate,
+        "currency_symbol": currency_symbol,
+        "total_earned": round(total_earned, 2),
+    }
+
+    os.makedirs(output_folder, exist_ok=True)
+    filename = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    dest_path = os.path.join(output_folder, filename)
+
+    with open(dest_path, "w", encoding="utf-8") as f:
+        json.dump(export, f, indent=2, ensure_ascii=False)
+
+    return dest_path
+
 
 
 def mask_email(email: str) -> str:
@@ -1492,7 +1674,7 @@ def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
 
 
 def generate_invoice_html(
-    billing_data, settings_data, status="unpaid", invoice_no=None
+    billing_data, settings_data, status="unpaid", invoice_no=None, additional_items=None
 ) -> str:
     """
     Generates a stunning, premium, modern A4 HTML invoice.
@@ -2544,12 +2726,13 @@ def generate_invoice_html(
     html = html.replace("{{CLIENT_EMAILS_HTML}}", client_emails_html)
     html = html.replace("{{HOURS_COUNTED}}", f"{hours_counted:.2f}")
 
+    curr_sym = settings_data.get("currency_symbol", "$")
+    add_items = additional_items or billing_data.get("additional_items", [])
+    add_total = sum(item.get("amount", 0.0) for item in add_items)
+
     # Safely get total_earned_display with fallback calculation
-    total_earned_display = billing_data.get("total_earned_display")
-    if not total_earned_display:
-        total_earned = billing_data.get("total_earned", 0.0)
-        curr_sym = settings_data.get("currency_symbol", "$")
-        total_earned_display = f"{curr_sym}{total_earned:,.2f}"
+    total_earned = billing_data.get("total_earned", 0.0) + add_total
+    total_earned_display = f"{curr_sym}{total_earned:,.2f}"
 
     html = html.replace("{{TOTAL_AMOUNT_DUE}}", _esc(total_earned_display))
     html = html.replace("{{GRAND_TOTAL}}", _esc(total_earned_display))
@@ -2640,6 +2823,19 @@ def generate_invoice_html(
                     <td>{cat_hours:.2f}</td>
                     <td>{curr_sym}{hourly_rate:.2f}/hr</td>
                     <td>{pb["earned_display"]}</td>
+                </tr>
+        """
+
+    for item in add_items:
+        amt = item.get("amount", 0.0)
+        desc = _esc(item.get("description", "Additional Payment"))
+        items_html += f"""
+                <tr>
+                    <td style="font-weight: 600;"><span class="tag-pill" style="background-color: rgba(37, 99, 235, 0.12); color: #2563EB;">➕ {desc}</span></td>
+                    <td>Manual Line Item</td>
+                    <td>1.00</td>
+                    <td>{curr_sym}{amt:.2f}</td>
+                    <td>{curr_sym}{amt:.2f}</td>
                 </tr>
         """
 

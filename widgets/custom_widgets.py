@@ -474,8 +474,8 @@ class InvoicePrivacyOptionsDialog(QDialog):
         is_dark=None,
     ):
         super().__init__(parent)
-        self.setWindowTitle("Invoice Privacy Options")
-        self.setFixedSize(380, 240)
+        self.setWindowTitle("Invoice Options & Custom Charges")
+        self.setFixedSize(380, 370)
 
         # Robust theme detection
         self.theme_style = "light"
@@ -518,13 +518,14 @@ class InvoicePrivacyOptionsDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setSpacing(10)
 
-        self.title = QLabel("Privacy & Masking Options", self)
+        self.title = QLabel("Invoice Options & Custom Charges", self)
+        self.title.setStyleSheet("font-weight: bold; font-size: 14px;")
         layout.addWidget(self.title)
 
         self.desc = QLabel(
-            "Select which sensitive details you would like to mask on this invoice:",
+            "Configure privacy masking and optional manual line items:",
             self,
         )
         self.desc.setWordWrap(True)
@@ -556,6 +557,31 @@ class InvoicePrivacyOptionsDialog(QDialog):
 
         layout.addWidget(self.options_box)
 
+        # Additional Payment Group
+        self.add_payment_box = QFrame(self)
+        add_layout = QVBoxLayout(self.add_payment_box)
+        add_layout.setContentsMargins(12, 8, 12, 8)
+        add_layout.setSpacing(6)
+
+        add_title = QLabel("Additional Payment / Custom Fee (Optional):", self.add_payment_box)
+        add_title.setStyleSheet("font-weight: bold; font-size: 11px;")
+        add_layout.addWidget(add_title)
+
+        fields_row = QHBoxLayout()
+        fields_row.setSpacing(6)
+
+        self.additional_amount_input = QLineEdit(self.add_payment_box)
+        self.additional_amount_input.setPlaceholderText("Amount ($)")
+        self.additional_amount_input.setFixedWidth(90)
+        fields_row.addWidget(self.additional_amount_input)
+
+        self.additional_desc_input = QLineEdit(self.add_payment_box)
+        self.additional_desc_input.setPlaceholderText("Description (e.g. Bonus, Setup Fee)")
+        fields_row.addWidget(self.additional_desc_input)
+
+        add_layout.addLayout(fields_row)
+        layout.addWidget(self.add_payment_box)
+
         # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
@@ -574,7 +600,24 @@ class InvoicePrivacyOptionsDialog(QDialog):
         btn_layout.addWidget(gen_btn)
         layout.addLayout(btn_layout)
 
-        self._apply_theme()
+    def get_additional_payment(self):
+        txt_amount = (
+            self.additional_amount_input.text()
+            .strip()
+            .replace("$", "")
+            .replace(",", "")
+        )
+        txt_desc = self.additional_desc_input.text().strip()
+        if not txt_amount:
+            return None
+        try:
+            val = float(txt_amount)
+            if val > 0:
+                desc = txt_desc if txt_desc else "Additional Payment"
+                return (desc, val)
+        except ValueError:
+            pass
+        return None
 
     def changeEvent(self, event):
         if event.type() in (event.Type.PaletteChange, event.Type.StyleChange):

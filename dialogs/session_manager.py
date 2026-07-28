@@ -26,7 +26,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from config import get_app_data_dir, open_file, send_to_trash
 
 logger = logging.getLogger(__name__)
-from report import load_session_json, merge_sessions_for_invoice, generate_invoice_html
+from report import load_session_json, merge_sessions_for_invoice, generate_invoice_html, merge_session_files
 from theme import get_svg_icon
 from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG
 from widgets.custom_widgets import InvoicePrivacyOptionsDialog
@@ -324,6 +324,13 @@ class SessionManagerDialog(QDialog):
         layout.addWidget(self.tab_widget)
 
         footer = QHBoxLayout()
+        merge_btn = QPushButton("🔀 Merge Sessions", self)
+        merge_btn.setObjectName("NormalButton")
+        merge_btn.setToolTip("Combine selected sessions into one and move original sessions to Trash")
+        merge_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        merge_btn.clicked.connect(self._merge_selected_sessions)
+        footer.addWidget(merge_btn)
+
         html_invoice_btn = QPushButton("📄 View Invoice in Browser", self)
         html_invoice_btn.setObjectName("AccentButton")
         html_invoice_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -408,9 +415,10 @@ class SessionManagerDialog(QDialog):
             row_layout.setContentsMargins(8, 8, 8, 8)
 
             is_trash = folder == self.trash_folder
-            if not is_recoveries and not is_trash:
+            if not is_trash:
                 cb_select = QCheckBox(row_frame)
                 cb_select.setFixedWidth(20)
+                cb_select.setChecked(filepath in self.selected_sessions)
 
                 def make_cb_connector(path):
                     return lambda state: (
@@ -1267,6 +1275,12 @@ class SessionManagerDialog(QDialog):
             mask_biz_email = privacy_dialog.cb_biz_email.isChecked()
             mask_biz_phone = privacy_dialog.cb_biz_phone.isChecked()
             mask_client_email = privacy_dialog.cb_client_email.isChecked()
+            add_item_tuple = privacy_dialog.get_additional_payment()
+            additional_items = (
+                [{"description": add_item_tuple[0], "amount": add_item_tuple[1]}]
+                if add_item_tuple
+                else []
+            )
 
             billing_data = merge_sessions_for_invoice(
                 list(self.selected_sessions),
@@ -1274,6 +1288,8 @@ class SessionManagerDialog(QDialog):
                 self.settings.get("hourly_rate", 0.0),
                 self.settings.get("currency_symbol", "$"),
             )
+            if additional_items:
+                billing_data["additional_items"] = additional_items
 
             settings_data = {
                 "business_name": self.settings.get("business_name", ""),
@@ -1347,7 +1363,7 @@ class SessionManagerDialog(QDialog):
             self._stop_preview_server()
 
             html_content = generate_invoice_html(
-                billing_data, settings_data, status="unpaid", invoice_no=inv_no
+                billing_data, settings_data, status="unpaid", invoice_no=inv_no, additional_items=additional_items
             )
             session_filenames = [
                 os.path.basename(path) for path in self.selected_sessions
@@ -1403,3 +1419,75 @@ class SessionManagerDialog(QDialog):
             QMessageBox.critical(
                 self, "Error", f"Failed to generate invoice HTML:\n{str(e)}"
             )
+
+    def _merge_selected_sessions(self):
+        if not self.selected_sessions or len(self.selected_sessions) < 2:
+            QMessageBox.information(
+                self,
+                "Merge Sessions",
+                "Please select at least 2 sessions to merge.",
+            )
+            return
+
+        selected_paths = list(self.selected_sessions)
+
+        default_name = "Merged Session"
+        try:
+            with open(selected_paths[0], "r", encoding="utf-8") as f:
+                data = json.load(f)
+                s_name = data.get("session_name", "").strip()
+                if s_name:
+                    default_name = f"{s_name} Merged"
+        except Exception:
+            pass
+
+        new_name, ok = QInputDialog.getText(
+            self,
+            "Merge Sessions",
+            f"Enter a name for the merged session ({len(selected_paths)} selected):",
+            QLineEdit.EchoMode.Normal,
+            default_name,
+        )
+
+        if not ok or not new_name.strip():
+            return
+
+        confirm = QMessageBox.question(
+            self,
+            "Confirm Session Merge",
+            f"Merge {len(selected_paths)} session(s) into '{new_name.strip()}'?\n\nNote: The original session(s) will be moved to Trash.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            merged_filepath = merge_session_files(
+                selected_paths, new_name.strip(), self.history_folder
+            )
+
+            import shutil
+            for path in selected_paths:
+                if os.path.exists(path):
+                    filename = os.path.basename(path)
+                    dest_path = os.path.join(self.trash_folder, filename)
+                    if os.path.exists(dest_path):
+                        base, ext = os.path.splitext(filename)
+                        dest_path = os.path.join(
+                            self.trash_folder, f"{base}_{int(time.time())}{ext}"
+                        )
+                    shutil.move(path, dest_path)
+
+            self.selected_sessions.clear()
+            self._refresh_all_lists()
+
+            QMessageBox.information(
+                self,
+                "Success",
+                f"Successfully merged {len(selected_paths)} session(s) into '{new_name.strip()}'.\nOriginal sessions have been moved to Trash.",
+            )
+        except Exception as e:
+            logger.error(f"Error merging sessions: {e}", exc_info=True)
+            QMessageBox.critical(self, "Merge Error", f"Failed to merge sessions:\n{e}")
+

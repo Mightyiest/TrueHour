@@ -854,6 +854,7 @@ class AppTracker:
         self._last_save_time = 0
         self.is_recovered = False
         self.session_name = ""
+        self.resumed_filepath = None
         self.save_interval = 10  # Default backup interval
 
         # {app_name: total_seconds}
@@ -964,6 +965,7 @@ class AppTracker:
         self._current_block_active = 0
         self.integrity_warnings.clear()
         self.resume_snapshot = None  # Fresh start — no previous session
+        self.resumed_filepath = None
         self._thread = threading.Thread(target=self._poll_loop, daemon=True)
         self._thread.start()
 
@@ -1197,6 +1199,7 @@ class AppTracker:
             # Snapshot current app_times BEFORE the poll thread starts adding new time.
             # Anything beyond these values at stop time = new activity from this resume.
             self.resume_snapshot = dict(self.app_times)
+            self.resumed_filepath = filepath
             self._last_save_time = time.time()
             self._thread = threading.Thread(target=self._poll_loop, daemon=True)
             self._thread.start()
