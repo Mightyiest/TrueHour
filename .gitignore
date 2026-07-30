@@ -57,3 +57,10 @@ worker-invoke.sh
 codebase-memory-mcp
 PROJECT_INDEX.md
 sample_report.html
+
+# Google OAuth secrets & tokens
+client_secret.json
+token.pickle
+token.json
+*.token
+

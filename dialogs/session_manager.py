@@ -370,6 +370,29 @@ class SessionManagerDialog(QDialog):
             return f"{int(diff / 3600)}h ago"
         return datetime.fromtimestamp(timestamp).strftime("%b %d, %Y")
 
+    def _get_session_timestamp(self, filepath):
+        """Extract exact session date/timestamp from file data or fallback to modification time."""
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            date_str = data.get("date", "")
+            start_str = data.get("start", "")
+            if date_str:
+                full_str = f"{date_str} {start_str}".strip()
+                try:
+                    return datetime.fromisoformat(full_str).timestamp()
+                except Exception:
+                    try:
+                        return datetime.strptime(full_str, "%Y-%m-%d %H:%M:%S").timestamp()
+                    except Exception:
+                        try:
+                            return datetime.strptime(date_str, "%Y-%m-%d").timestamp()
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+        return os.path.getmtime(filepath)
+
     def _render_list(self, layout_container, folder, is_recoveries):
         while layout_container.count() > 0:
             item = layout_container.takeAt(0)
@@ -379,7 +402,7 @@ class SessionManagerDialog(QDialog):
                     w.deleteLater()
 
         files = glob.glob(os.path.join(folder, "*.json"))
-        files.sort(key=os.path.getmtime, reverse=True)
+        files.sort(key=self._get_session_timestamp, reverse=True)
         if not files:
             if folder == self.trash_folder:
                 label_txt = "No trashed sessions found."

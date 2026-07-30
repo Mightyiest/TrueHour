@@ -69,7 +69,7 @@ def backup_settings(
                             with open(full_path, "r", encoding="utf-8") as f:
                                 settings_data = json.load(f)
 
-                            # Clean plaintext fields (they should already be empty, but enforce it)
+                            # Ensure bank details are preserved for backup and restore
                             bank_fields = [
                                 "bank_holder",
                                 "bank_account",
@@ -78,9 +78,6 @@ def backup_settings(
                                 "bank_name",
                                 "bank_address",
                             ]
-                            for fld in bank_fields:
-                                settings_data[fld] = ""
-
                             enc_fields = [
                                 "bank_holder_enc",
                                 "bank_account_enc",
@@ -90,9 +87,10 @@ def backup_settings(
                                 "bank_address_enc",
                             ]
 
+                            local_key = _get_secure_key(anonymous_user_id)
+
                             if password:
                                 # Decrypt using local machine key, then encrypt using portable password key
-                                local_key = _get_secure_key(anonymous_user_id)
                                 pwd_key = _get_password_key(password)
 
                                 for fld in enc_fields:
@@ -102,10 +100,17 @@ def backup_settings(
                                     settings_data[fld] = _encrypt_string(
                                         decrypted, pwd_key
                                     )
+                                    plain_fld = fld.replace("_enc", "")
+                                    if decrypted:
+                                        settings_data[plain_fld] = decrypted
                             else:
-                                # Standard backup: strip encrypted fields
-                                for fld in enc_fields:
-                                    settings_data.pop(fld, None)
+                                # Standard / Cloud Backup: Ensure plaintext bank details are present and preserved
+                                for fld_name in bank_fields:
+                                    enc_fld = fld_name + "_enc"
+                                    if not settings_data.get(fld_name) and settings_data.get(enc_fld):
+                                        settings_data[fld_name] = _decrypt_string(
+                                            settings_data.get(enc_fld, ""), local_key
+                                        )
 
                             # Write sanitized settings to ZIP
                             zipf.writestr(
@@ -238,11 +243,16 @@ def import_settings(
             for fld in enc_fields:
                 decrypted_val = _decrypt_string(settings_data.get(fld, ""), pwd_key)
                 settings_data[fld] = _encrypt_string(decrypted_val, target_local_key)
+                plain_fld = fld.replace("_enc", "")
+                if decrypted_val:
+                    settings_data[plain_fld] = decrypted_val
         else:
-            # Legacy or standard backup: strip local-only machine-bound encrypted details
+            # Standard / Cloud backup: Preserve bank details and generate local machine encrypted fields
             for fld in enc_fields:
-                settings_data.pop(fld, None)
-            status = "banking_stripped"
+                plain_fld = fld.replace("_enc", "")
+                plain_val = settings_data.get(plain_fld, "")
+                if plain_val:
+                    settings_data[fld] = _encrypt_string(plain_val, target_local_key)
 
         # Write corrected app_settings.json back to temp
         try:
@@ -259,18 +269,10 @@ def import_settings(
             except Exception:
                 pass
 
-        # Ensure target profile directory exists and is empty/ready to overwrite
-        if os.path.exists(target_profile_dir):
-            try:
-                shutil.rmtree(target_profile_dir)
-            except Exception as e:
-                logger.warning(
-                    f"Could not clear target profile directory before writing: {e}"
-                )
-
+        # Ensure target profile directory exists
         os.makedirs(target_profile_dir, exist_ok=True)
 
-        # Copy everything from tmpdir to target_profile_dir
+        # Copy everything from tmpdir to target_profile_dir safely
         try:
             # Re-base any absolute paths in app_settings.json if a business logo was extracted
             logo_dir = os.path.join(tmpdir, "logo")
@@ -283,7 +285,7 @@ def import_settings(
                         target_profile_dir, "logo", logo_file
                     )
 
-            # Copy all files recursively
+            # Copy all files recursively with safe exception handling for active/locked database files
             for root, _, files in os.walk(tmpdir):
                 rel_dir = os.path.relpath(root, tmpdir)
                 target_dir = (
@@ -294,9 +296,18 @@ def import_settings(
                 os.makedirs(target_dir, exist_ok=True)
 
                 for file in files:
+                    # Skip temporary SQLite write-ahead log files to prevent Windows access violations
+                    if file.endswith(("-wal", "-shm")):
+                        continue
+
                     src_file = os.path.join(root, file)
                     dst_file = os.path.join(target_dir, file)
-                    shutil.copy2(src_file, dst_file)
+                    try:
+                        shutil.copy2(src_file, dst_file)
+                    except Exception as copy_err:
+                        logger.warning(
+                            f"Skipped copying locked file '{file}' during profile restore: {copy_err}"
+                        )
 
             # If we restored a logo, update its path in target app_settings.json to be absolute on the target machine
             if extracted_logo_path:

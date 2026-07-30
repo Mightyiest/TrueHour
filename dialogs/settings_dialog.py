@@ -30,6 +30,13 @@ from tracker import AUTO_EXCLUDE_FILE, create_auto_excluded_if_missing
 from appinfo import OVERRIDES_FILE
 from assets import INFO_SVG, LOCK_SVG
 
+import drive_sync
+from workers.drive_sync_worker import (
+    DriveAuthWorker,
+    DriveSyncWorker,
+    DriveRestoreWorker,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -760,6 +767,54 @@ class SettingsDialog(QDialog):
         backup_layout.addWidget(btn_browse, 1)
 
         tg_layout.addWidget(backup_box)
+
+        # Google Drive Cloud Sync Group
+        drive_box = QGroupBox("Google Drive Cloud Sync", scroll_general_content)
+        drive_layout = QVBoxLayout(drive_box)
+        drive_layout.setContentsMargins(8, 8, 8, 8)
+        drive_layout.setSpacing(6)
+
+        self.drive_status_lbl = QLabel("Checking status...", drive_box)
+        self.drive_status_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px;")
+        drive_layout.addWidget(self.drive_status_lbl)
+
+        drive_btn_row = QHBoxLayout()
+        drive_btn_row.setSpacing(6)
+
+        self.btn_drive_auth = QPushButton("Sign In with Google", drive_box)
+        self.btn_drive_auth.setObjectName("AccentButton")
+        self.btn_drive_auth.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_drive_auth.clicked.connect(self._on_drive_auth_clicked)
+        drive_btn_row.addWidget(self.btn_drive_auth, 1)
+
+        self.btn_drive_sync = QPushButton("Sync Now", drive_box)
+        self.btn_drive_sync.setObjectName("NormalButton")
+        self.btn_drive_sync.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_drive_sync.clicked.connect(self._on_drive_sync_clicked)
+        drive_btn_row.addWidget(self.btn_drive_sync, 1)
+
+        self.btn_drive_restore = QPushButton("Restore from Cloud", drive_box)
+        self.btn_drive_restore.setObjectName("NormalButton")
+        self.btn_drive_restore.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_drive_restore.clicked.connect(self._on_drive_restore_clicked)
+        drive_btn_row.addWidget(self.btn_drive_restore, 1)
+
+        self.btn_drive_signout = QPushButton("Sign Out", drive_box)
+        self.btn_drive_signout.setObjectName("NormalButton")
+        self.btn_drive_signout.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_drive_signout.clicked.connect(self._on_drive_signout_clicked)
+        drive_btn_row.addWidget(self.btn_drive_signout, 1)
+
+        drive_layout.addLayout(drive_btn_row)
+
+        self.cb_drive_auto = QCheckBox("Automatically backup settings and sessions on startup", drive_box)
+        self.cb_drive_auto.setChecked(self.settings.get("google_drive_auto_sync", True))
+        self.cb_drive_auto.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px;")
+        self.cb_drive_auto.toggled.connect(lambda val: self.settings.__setitem__("google_drive_auto_sync", val))
+        drive_layout.addWidget(self.cb_drive_auto)
+
+        tg_layout.addWidget(drive_box)
+        self._update_drive_ui()
 
         tg_layout.addStretch()
 
@@ -1493,3 +1548,123 @@ class SettingsDialog(QDialog):
             open_file(get_app_data_dir())
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not open data directory:\n{e}")
+
+    # ── Google Drive Sync Handlers ─────────────────────────────────────
+    def _update_drive_ui(self):
+        authenticated = drive_sync.is_authenticated()
+        if authenticated:
+            creds, user_info = drive_sync.get_google_credentials(interactive=False)
+            email = user_info.get("email", "Google Account")
+            self.drive_status_lbl.setText(f"Connected: {email}")
+            self.btn_drive_auth.setVisible(False)
+            self.btn_drive_sync.setVisible(True)
+            self.btn_drive_restore.setVisible(True)
+            self.btn_drive_signout.setVisible(True)
+            self.cb_drive_auto.setEnabled(True)
+        else:
+            self.drive_status_lbl.setText("Status: Not connected to Google Drive")
+            self.btn_drive_auth.setVisible(True)
+            self.btn_drive_sync.setVisible(False)
+            self.btn_drive_restore.setVisible(False)
+            self.btn_drive_signout.setVisible(False)
+            self.cb_drive_auto.setEnabled(False)
+
+    def _on_drive_auth_clicked(self):
+        self.drive_status_lbl.setText("Opening browser to authorize with Google...")
+        self.btn_drive_auth.setEnabled(False)
+        self._auth_worker = DriveAuthWorker(self)
+        self._auth_worker.finished.connect(self._on_drive_auth_finished)
+        self._auth_worker.start()
+
+    def _on_drive_auth_finished(self, success, user_info, err_msg):
+        self.btn_drive_auth.setEnabled(True)
+        if success:
+            self.settings["google_drive_auto_sync"] = True
+            self.cb_drive_auto.setChecked(True)
+            self._update_drive_ui()
+            QMessageBox.information(
+                self,
+                "Google Drive Connected",
+                f"Successfully signed in as {user_info.get('email', 'Google Account')}!",
+            )
+        else:
+            self._update_drive_ui()
+            QMessageBox.warning(
+                self,
+                "Google Login Failed",
+                f"Could not sign in with Google:\n{err_msg}",
+            )
+
+    def _on_drive_sync_clicked(self):
+        self.drive_status_lbl.setText(f"Compressing & uploading profile '{self.active_profile}' archive...")
+        self.btn_drive_sync.setEnabled(False)
+        self._sync_worker = DriveSyncWorker(self.active_profile, self)
+        self._sync_worker.progress.connect(
+            lambda msg: self.drive_status_lbl.setText(msg)
+        )
+        self._sync_worker.finished.connect(self._on_drive_sync_finished)
+        self._sync_worker.start()
+
+    def _on_drive_sync_finished(self, success, result, err_msg):
+        self.btn_drive_sync.setEnabled(True)
+        self._update_drive_ui()
+        if success:
+            archive_name = result.get("archive_name", "backup archive")
+            self.drive_status_lbl.setText(
+                f"✓ Uploaded {archive_name} at {result.get('last_sync', '')}"
+            )
+            QMessageBox.information(
+                self,
+                "Cloud Sync Complete",
+                f"Successfully backed up entire profile '{self.active_profile}' as a single archive ({archive_name}) to Google Drive!",
+            )
+        else:
+            QMessageBox.warning(self, "Cloud Sync Failed", f"Sync error:\n{err_msg}")
+
+    def _on_drive_restore_clicked(self):
+        confirm = QMessageBox.question(
+            self,
+            "Restore Profile from Cloud?",
+            f"Restoring from Google Drive will download the latest .truehour backup archive and overwrite your current local profile ('{self.active_profile}').\n\nDo you want to proceed?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+
+        self.drive_status_lbl.setText("Downloading cloud backup archive...")
+        self.btn_drive_restore.setEnabled(False)
+        self._restore_worker = DriveRestoreWorker(
+            profile_name=self.active_profile, parent=self
+        )
+        self._restore_worker.progress.connect(
+            lambda msg: self.drive_status_lbl.setText(msg)
+        )
+        self._restore_worker.finished.connect(self._on_drive_restore_finished)
+        self._restore_worker.start()
+
+    def _on_drive_restore_finished(self, success, result, err_msg):
+        self.btn_drive_restore.setEnabled(True)
+        self._update_drive_ui()
+        if success:
+            QMessageBox.information(
+                self,
+                "Cloud Restore Successful",
+                f"Successfully restored profile '{self.active_profile}' from Google Drive cloud backup!\n\nAll settings, sessions, QR codes, and assets have been updated.",
+            )
+            self.settings_imported.emit(self.active_profile)
+            self.accept()
+        else:
+            QMessageBox.critical(
+                self,
+                "Cloud Restore Failed",
+                f"Failed to restore profile from Google Drive:\n{err_msg}",
+            )
+
+    def _on_drive_signout_clicked(self):
+        drive_sync.sign_out()
+        self._update_drive_ui()
+        QMessageBox.information(
+            self, "Signed Out", "Successfully signed out of Google Drive."
+        )
+

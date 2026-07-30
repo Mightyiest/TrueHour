@@ -451,6 +451,29 @@ class TrueHourApp(QMainWindow):
             5000, lambda: check_for_updates_async(__version__, self._update_signals)
         )
 
+        # ── Background Google Drive Sync ──────────────────────────────
+        QTimer.singleShot(6000, self._trigger_deferred_drive_sync)
+
+    def _trigger_deferred_drive_sync(self):
+        try:
+            import drive_sync
+            from workers.drive_sync_worker import DriveSyncWorker
+
+            if drive_sync.is_authenticated() and getattr(self, "app_settings", {}).get(
+                "google_drive_auto_sync", True
+            ):
+                logger.info("[DriveSync] Triggering background startup cloud sync...")
+                profile = getattr(self, "active_profile", "Default")
+                self._app_drive_worker = DriveSyncWorker(profile_name=profile, parent=self)
+                self._app_drive_worker.finished.connect(
+                    lambda success, result, err: logger.info(
+                        f"[DriveSync] Startup sync finished: success={success}, archive={result.get('archive_name', '')}"
+                    )
+                )
+                self._app_drive_worker.start()
+        except Exception as e:
+            logger.warning(f"[DriveSync] Startup sync trigger failed: {e}")
+
     def _toggle_debug_console(self):
         import subprocess
         import sys
@@ -2328,6 +2351,36 @@ class TrueHourApp(QMainWindow):
         dialog.rejected.connect(handle_rejected)
         dialog.settings_saved.connect(handle_settings_saved)
         dialog.exec()
+
+    def _handle_settings_imported(self, profile_name=None):
+        logger.info(f"[Action] Settings/profile imported: {profile_name}. Reloading configuration...")
+        self._load_app_settings()
+        self.apply_theme(self.theme_style)
+        self._update_developer_ui()
+        self._recalculate_weekly_base_focus_seconds()
+        self._refresh_app_list()
+
+    def _handle_profile_switched(self, new_profile_name):
+        logger.info(f"[Action] Profile switched to: {new_profile_name}")
+        self.active_profile = new_profile_name
+        self._load_app_settings()
+        self.apply_theme(self.theme_style)
+        self._update_developer_ui()
+        self._recalculate_weekly_base_focus_seconds()
+        self._refresh_app_list()
+
+    def _handle_profile_renamed(self, old_name, new_name):
+        logger.info(f"[Action] Profile renamed from '{old_name}' to '{new_name}'")
+        if getattr(self, "active_profile", "Default") == old_name:
+            self.active_profile = new_name
+            self._load_app_settings()
+
+    def _handle_profile_deleted(self, deleted_name):
+        logger.info(f"[Action] Profile deleted: {deleted_name}")
+        if getattr(self, "active_profile", "Default") == deleted_name:
+            self.active_profile = "Default"
+            self._load_app_settings()
+            self.apply_theme(self.theme_style)
 
     def _show_about_dialog(self):
         import webbrowser

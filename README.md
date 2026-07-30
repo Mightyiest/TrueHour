@@ -1,4 +1,4 @@
-# True Hours v3.3.2
+# True Hours v4.0.0-beta.1
 
 > **A lightweight, privacy-first desktop time tracker with a modern Fluent Design UI, supporting Windows & macOS.**
 
@@ -14,11 +14,12 @@ True Hours automatically monitors your active window to track productivity, calc
 
 | | Feature | Description |
 |---|---|---|
+| ☁️ | **Google Drive Sync** | Single-archive (`.truehour`) cloud backup & 1-click restore via OAuth 2.0 PKCE. |
 | 🕒 | **Time Tracking** | Detects the foreground app and logs usage with second-level precision. Features retroactive idle deduction. |
 | 📊 | **Analytics Dashboard** | Interactive PyQt6 donut & bar charts with live and historical category breakdowns. |
 | 📄 | **HTML Templates** | Editable invoice and session report templates in `templates/` — easy to customize externally. |
 | 🩺 | **Self-Healing Templates** | Missing template files are auto-regenerated at runtime, preventing crashes. |
-| 🧾 | **Invoice Builder** | Dynamic invoicing with multi-email chip inputs, masked addresses, QR code graphics, and A4 PDF printing. |
+| 🧾 | **Invoice Builder** | Dynamic invoicing with multi-email chip inputs, bank transfer details, QR codes, and A4 PDF printing. |
 | 💰 | **Earnings Calculator** | Set an hourly rate and watch earnings accumulate live during active sessions. |
 | 🛡️ | **Smart Exclusions** | Auto-ignores system processes, manually exclude apps, and automatically ignores TrueHour itself via PID matching. |
 | 🔒 | **Anti-Tamper Security** | Monotonic clock protection, NTP validation, and SHA-256 hash chaining with real-time integrity scoring. |
