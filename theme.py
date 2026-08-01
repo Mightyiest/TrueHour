@@ -871,3 +871,74 @@ QMessageBox QPushButton {{
 """
     _QSS_STYLE_CACHE[style_name] = qss_content
     return qss_content
+
+
+def apply_dialog_theme(dialog, theme_style: str):
+    """Apply unified QSS stylesheet and system palette to a QDialog instance."""
+    is_dark = theme_style in ["modern-dark", "classic-dark"]
+    qss = get_qss_style(theme_style).replace(
+        "CHECKMARK_PATH", ensure_checkmark_icon(theme_style)
+    )
+    dialog.setStyleSheet(qss)
+    dialog.setPalette(
+        get_dark_palette(theme_style) if is_dark else get_light_palette()
+    )
+
+
+def get_theme_colors(theme_style: str) -> dict:
+    """Return dictionary of theme color tokens for classic-dark, modern-dark, or light mode."""
+    if theme_style == "classic-dark":
+        return {
+            "bg_widget": "#1e1e1e",
+            "border_color": "#333333",
+            "border_f3": "#333333",
+            "text_primary": "#e0e0e0",
+            "text_secondary": "#888888",
+            "accent_lbl_color": "#d1d5db",
+            "card_bg": "#262626",
+            "earned_fg": "#ffffff",
+            "earned_bg": "#262626",
+            "btn_bg": "#262626",
+            "btn_border": "#333333",
+            "btn_hover": "#333333",
+            "btn_border_hover": "#444444",
+            "accent_btn_bg": "#262626",
+            "accent_btn_hover": "#383838",
+        }
+    elif theme_style == "modern-dark":
+        return {
+            "bg_widget": "#16161A",
+            "border_color": "#232329",
+            "border_f3": "#232329",
+            "text_primary": "#EDEDED",
+            "text_secondary": "#A3A3A3",
+            "accent_lbl_color": "#2563EB",
+            "card_bg": "#232329",
+            "earned_fg": "#10B981",
+            "earned_bg": "#232329",
+            "btn_bg": "#232329",
+            "btn_border": "#232329",
+            "btn_hover": "#2a2a32",
+            "btn_border_hover": "#353542",
+            "accent_btn_bg": "#2563EB",
+            "accent_btn_hover": "#3B82F6",
+        }
+    else:  # light
+        return {
+            "bg_widget": "#FFFFFF",
+            "border_color": "#E0E0E0",
+            "border_f3": "#F3F3F3",
+            "text_primary": "#0F172A",
+            "text_secondary": "#64748B",
+            "accent_lbl_color": "#0078D4",
+            "card_bg": "#E8F1FB",
+            "earned_fg": "#0F7B0F",
+            "earned_bg": "#E8F1FB",
+            "btn_bg": "#F8FAFC",
+            "btn_border": "#E2E8F0",
+            "btn_hover": "#F1F5F9",
+            "btn_border_hover": "#CBD5E1",
+            "accent_btn_bg": "#1e293b",
+            "accent_btn_hover": "#334155",
+        }
+

@@ -719,8 +719,9 @@
 
         // Initialize App
         function init() {
-            // Apply Dark/Light mode depending on settings
-            if (state.dark_mode) {
+            const localTheme = localStorage.getItem("goals_dashboard_theme");
+            const isDark = localTheme !== null ? localTheme === "dark" : Boolean(state.dark_mode);
+            if (isDark) {
                 document.body.classList.add("dark");
             } else {
                 document.body.classList.remove("dark");
@@ -1008,25 +1009,16 @@
             }
         }
 
-        async function toggleTheme() {
+        function toggleTheme() {
             const isDark = !document.body.classList.contains("dark");
             if (isDark) {
                 document.body.classList.add("dark");
             } else {
                 document.body.classList.remove("dark");
             }
+            localStorage.setItem("goals_dashboard_theme", isDark ? "dark" : "light");
             state.dark_mode = isDark;
             render();
-            
-            try {
-                await fetch("/api/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "X-TrueHour-Token": window.SERVER_TOKEN || "" },
-                    body: JSON.stringify({ dark_mode: isDark })
-                });
-            } catch (e) {
-                console.error("Failed to update theme setting", e);
-            }
         }
 
         async function sendTestAlert() {
