@@ -18,6 +18,13 @@ from theme import get_tag_color
 from dashboard_widgets import DonutChartWidget, BarChartWidget, ContributionMapWidget
 
 
+class NoWheelComboBox(QComboBox):
+    """QComboBox subclass that ignores wheel events to prevent accidental option changes while scrolling container layouts."""
+
+    def wheelEvent(self, event):
+        event.ignore()
+
+
 class TrueHourDashboard(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -357,7 +364,7 @@ class TrueHourDashboard(QDialog):
         )
         period_bar.addWidget(period_lbl)
 
-        self.period_combo = QComboBox(self.history_tab)
+        self.period_combo = NoWheelComboBox(self.history_tab)
         self.period_combo.addItems(["Today", "Last 7 Days", "This Month"])
         self.period_combo.currentTextChanged.connect(self.update_history_range)
         self.period_combo.setFixedWidth(140)

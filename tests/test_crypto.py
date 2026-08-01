@@ -36,8 +36,8 @@ class TestCrypto(unittest.TestCase):
         plain = "My legacy bank information"
         legacy_cipher = legacy_encrypt(plain, key)
         
-        # Decrypting legacy cipher should fallback and work correctly
-        decrypted = _decrypt_string(legacy_cipher, key)
+        # Decrypting legacy cipher should fallback and work correctly when explicitly allowed
+        decrypted = _decrypt_string(legacy_cipher, key, allow_legacy_xor=True)
         self.assertEqual(decrypted, plain)
         
         # Re-encrypting should upgrade it to v2

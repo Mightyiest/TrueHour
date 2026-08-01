@@ -1651,7 +1651,7 @@ def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
     final_receipt_no = (
         invoice_no if invoice_no else f"REC-{datetime.now().strftime('%Y%m%d%H%M')}"
     )
-    html = html.replace("{{RECEIPT_NO}}", final_receipt_no)
+    html = html.replace("{{RECEIPT_NO}}", _esc(final_receipt_no))
     html = html.replace("{{DATE}}", datetime.now().strftime("%B %d, %Y"))
     html = html.replace(
         "{{CLIENT_NAME}}", _esc(settings_data.get("client_name", "Valued Client"))
@@ -2709,7 +2709,7 @@ def generate_invoice_html(
         "{{BUSINESS_ADDRESS}}", _esc(settings_data.get("business_address", ""))
     )
     html = html.replace("{{BUSINESS_CONTACT}}", biz_contact_html)
-    html = html.replace("{{INVOICE_NO}}", final_invoice_no)
+    html = html.replace("{{INVOICE_NO}}", _esc(final_invoice_no))
     html = html.replace("{{INVOICE_BADGE}}", invoice_badge)
     html = html.replace("{{TOTAL_DUE_LABEL}}", total_due_label)
     html = html.replace("{{PAYMENT_CONFIRMATION_STAMP}}", stamp_html)

@@ -972,7 +972,7 @@
             try {
                 await fetch("/api/goals", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { "Content-Type": "application/json", "X-TrueHour-Token": window.SERVER_TOKEN || "" },
                     body: JSON.stringify({ 
                         earnings_goal_period: period,
                         weekly_earnings_goal: 0.0
@@ -987,7 +987,7 @@
             try {
                 await fetch("/api/goals", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { "Content-Type": "application/json", "X-TrueHour-Token": window.SERVER_TOKEN || "" },
                     body: JSON.stringify({ weekly_earnings_goal: state.weekly_earnings_goal })
                 });
             } catch (e) {
@@ -1000,7 +1000,7 @@
             try {
                 await fetch("/api/settings", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { "Content-Type": "application/json", "X-TrueHour-Token": window.SERVER_TOKEN || "" },
                     body: JSON.stringify({ enable_goal_tray_alerts: enabled })
                 });
             } catch (e) {
@@ -1021,7 +1021,7 @@
             try {
                 await fetch("/api/settings", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { "Content-Type": "application/json", "X-TrueHour-Token": window.SERVER_TOKEN || "" },
                     body: JSON.stringify({ dark_mode: isDark })
                 });
             } catch (e) {
@@ -1031,7 +1031,10 @@
 
         async function sendTestAlert() {
             try {
-                await fetch("/api/test-notification", { method: "POST" });
+                await fetch("/api/test-notification", {
+                    method: "POST",
+                    headers: { "X-TrueHour-Token": window.SERVER_TOKEN || "" }
+                });
             } catch (e) {
                 console.error("Failed to send test alert", e);
             }
@@ -1043,7 +1046,10 @@
                 return;
             }
             try {
-                const res = await fetch("/api/goals/reset", { method: "POST" });
+                const res = await fetch("/api/goals/reset", {
+                    method: "POST",
+                    headers: { "X-TrueHour-Token": window.SERVER_TOKEN || "" }
+                });
                 if (res.ok) {
                     await fetchUpdates();
                 } else {

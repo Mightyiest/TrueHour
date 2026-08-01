@@ -16,6 +16,34 @@ from crypto import (
 
 logger = logging.getLogger(__name__)
 
+BANK_FIELDS = [
+    "bank_holder",
+    "bank_account",
+    "bank_routing",
+    "bank_swift",
+    "bank_name",
+    "bank_address",
+]
+
+BANK_ENC_FIELDS = [
+    "bank_holder_enc",
+    "bank_account_enc",
+    "bank_routing_enc",
+    "bank_swift_enc",
+    "bank_name_enc",
+    "bank_address_enc",
+]
+
+
+def _derive_password_key(
+    password: str, key_derivation: str = "pbkdf2", salt: bytes = None
+) -> str:
+    return (
+        _get_password_key(password, salt=salt)
+        if key_derivation == "pbkdf2"
+        else _get_password_key_legacy(password)
+    )
+
 
 def backup_settings(
     dest_zip_path: str,
@@ -28,8 +56,9 @@ def backup_settings(
     (settings, SQLite pre-aggregation db, QR codes, logos, historical sessions, and autosaves)
     into a compressed .truehour ZIP archive.
 
-    If password is provided, re-encrypts the banking details with a password-derived key.
-    If no password is provided, strips banking details from the settings file inside the backup.
+    If password is provided, re-encrypts banking details with a password-derived key.
+    If no password is provided, encrypts banking details with the machine key and excludes
+    plaintext banking details from app_settings.json inside the ZIP archive.
     """
     try:
         root_dir = get_app_data_root()
@@ -39,6 +68,7 @@ def backup_settings(
             return False
 
         # Prepare metadata
+        salt_bytes = os.urandom(16) if password else None
         meta = {
             "version": 2,
             "key_derivation": "pbkdf2",
@@ -47,12 +77,15 @@ def backup_settings(
             "source_machine": os.environ.get("COMPUTERNAME", "")
             or os.environ.get("HOSTNAME", "unknown"),
         }
+        if salt_bytes:
+            meta["salt_hex"] = salt_bytes.hex()
 
         if password:
-            pwd_key = _get_password_key(password)
+            pwd_key = _get_password_key(password, salt=salt_bytes)
             meta["verification_enc"] = _encrypt_string(
-                "truehour_backup_verify", pwd_key
+                "truehour_backup_verify", pwd_key, salt=salt_bytes
             )
+
 
         with zipfile.ZipFile(dest_zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             # Write metadata file first
@@ -69,48 +102,39 @@ def backup_settings(
                             with open(full_path, "r", encoding="utf-8") as f:
                                 settings_data = json.load(f)
 
-                            # Ensure bank details are preserved for backup and restore
-                            bank_fields = [
-                                "bank_holder",
-                                "bank_account",
-                                "bank_routing",
-                                "bank_swift",
-                                "bank_name",
-                                "bank_address",
-                            ]
-                            enc_fields = [
-                                "bank_holder_enc",
-                                "bank_account_enc",
-                                "bank_routing_enc",
-                                "bank_swift_enc",
-                                "bank_name_enc",
-                                "bank_address_enc",
-                            ]
-
-                            local_key = _get_secure_key(anonymous_user_id)
+                            anon_id = anonymous_user_id or settings_data.get("anonymous_user_id", "")
+                            local_key = _get_secure_key(anon_id)
 
                             if password:
                                 # Decrypt using local machine key, then encrypt using portable password key
-                                pwd_key = _get_password_key(password)
+                                pwd_key = _get_password_key(password, salt=salt_bytes)
 
-                                for fld in enc_fields:
+                                for fld in BANK_ENC_FIELDS:
+                                    plain_fld = fld.replace("_enc", "")
                                     decrypted = _decrypt_string(
                                         settings_data.get(fld, ""), local_key
                                     )
+                                    if not decrypted:
+                                        # Fall back to the plaintext field if this profile
+                                        # never got encrypted (older settings files).
+                                        decrypted = settings_data.get(plain_fld, "")
                                     settings_data[fld] = _encrypt_string(
-                                        decrypted, pwd_key
+                                        decrypted, pwd_key, salt=salt_bytes
                                     )
-                                    plain_fld = fld.replace("_enc", "")
-                                    if decrypted:
-                                        settings_data[plain_fld] = decrypted
+                                    # Never ship cleartext bank details in the archive;
+                                    # import_settings reconstructs them locally after the
+                                    # password check succeeds.
+                                    settings_data.pop(plain_fld, None)
                             else:
-                                # Standard / Cloud Backup: Ensure plaintext bank details are present and preserved
-                                for fld_name in bank_fields:
+                                # Standard / Cloud Backup: Re-encrypt to local_key if plain fields present, but strip plaintext bank fields from archive
+                                for fld_name in BANK_FIELDS:
                                     enc_fld = fld_name + "_enc"
-                                    if not settings_data.get(fld_name) and settings_data.get(enc_fld):
-                                        settings_data[fld_name] = _decrypt_string(
-                                            settings_data.get(enc_fld, ""), local_key
-                                        )
+                                    plain_val = settings_data.get(fld_name, "")
+                                    if plain_val:
+                                        settings_data[enc_fld] = _encrypt_string(plain_val, local_key)
+                                        del settings_data[fld_name]
+                                    elif enc_fld in settings_data and fld_name in settings_data:
+                                        del settings_data[fld_name]
 
                             # Write sanitized settings to ZIP
                             zipf.writestr(
@@ -120,8 +144,23 @@ def backup_settings(
                             logger.error(
                                 f"Failed to process app_settings.json for backup: {e}"
                             )
-                            # Fallback: write as-is if processed fails
-                            zipf.write(full_path, arcname=rel_path)
+                            # Fallback: never write the file as-is, it may still hold
+                            # cleartext bank details. Strip every bank field (plaintext
+                            # and encrypted) and write that instead.
+                            try:
+                                with open(full_path, "r", encoding="utf-8") as f:
+                                    raw_data = json.load(f)
+                                for fld_name in BANK_FIELDS:
+                                    raw_data.pop(fld_name, None)
+                                    raw_data.pop(fld_name + "_enc", None)
+                                zipf.writestr(
+                                    "app_settings.json", json.dumps(raw_data, indent=4)
+                                )
+                            except Exception as inner:
+                                logger.error(
+                                    f"Could not write sanitized fallback settings, "
+                                    f"omitting app_settings.json from backup: {inner}"
+                                )
                     else:
                         zipf.write(full_path, arcname=rel_path)
         return True
@@ -160,9 +199,13 @@ def import_settings(
         try:
             with zipfile.ZipFile(src_zip_path, "r") as zipf:
                 # Zip Slip prevention: validate all member target paths
+                target_dir = os.path.abspath(tmpdir)
+                if not target_dir.endswith(os.path.sep):
+                    target_dir += os.path.sep
+
                 for member in zipf.namelist():
                     target_path = os.path.abspath(os.path.join(tmpdir, member))
-                    if not target_path.startswith(os.path.abspath(tmpdir)):
+                    if not (target_path == os.path.abspath(tmpdir) or target_path.startswith(target_dir)):
                         logger.error(
                             f"Security Alert: Unsafe zip entry prevented (path traversal): {member}"
                         )
@@ -184,6 +227,7 @@ def import_settings(
         verification_token = ""
         key_derivation = "legacy"
 
+        salt_bytes = None
         if os.path.exists(temp_meta_path):
             try:
                 with open(temp_meta_path, "r", encoding="utf-8") as f:
@@ -191,6 +235,9 @@ def import_settings(
                 is_encrypted = meta_data.get("encrypted", False)
                 verification_token = meta_data.get("verification_enc", "")
                 key_derivation = meta_data.get("key_derivation", "legacy")
+                salt_hex = meta_data.get("salt_hex")
+                if salt_hex:
+                    salt_bytes = bytes.fromhex(salt_hex)
             except Exception:
                 pass
 
@@ -205,12 +252,8 @@ def import_settings(
                     return "password_required"
 
             if is_encrypted:
-                pwd_key = (
-                    _get_password_key(password)
-                    if key_derivation == "pbkdf2"
-                    else _get_password_key_legacy(password)
-                )
-                decrypted_verify = _decrypt_string(verification_token, pwd_key)
+                pwd_key = _derive_password_key(password, key_derivation, salt=salt_bytes)
+                decrypted_verify = _decrypt_string(verification_token, pwd_key, salt=salt_bytes)
                 if decrypted_verify != "truehour_backup_verify":
                     return "wrong_password"
 
@@ -222,37 +265,30 @@ def import_settings(
             return "error"
 
         # Clean/Re-encrypt fields based on standard vs encrypted
-        enc_fields = [
-            "bank_holder_enc",
-            "bank_account_enc",
-            "bank_routing_enc",
-            "bank_swift_enc",
-            "bank_name_enc",
-            "bank_address_enc",
-        ]
         anon_id = settings_data.get("anonymous_user_id", "")
         target_local_key = _get_secure_key(anon_id)
 
         if is_encrypted:
             # We verified the password above. Now decrypt and re-encrypt for target machine.
-            pwd_key = (
-                _get_password_key(password)
-                if key_derivation == "pbkdf2"
-                else _get_password_key_legacy(password)
-            )
-            for fld in enc_fields:
-                decrypted_val = _decrypt_string(settings_data.get(fld, ""), pwd_key)
+            pwd_key = _derive_password_key(password, key_derivation, salt=salt_bytes)
+            for fld in BANK_ENC_FIELDS:
+                decrypted_val = _decrypt_string(settings_data.get(fld, ""), pwd_key, salt=salt_bytes)
                 settings_data[fld] = _encrypt_string(decrypted_val, target_local_key)
                 plain_fld = fld.replace("_enc", "")
                 if decrypted_val:
                     settings_data[plain_fld] = decrypted_val
         else:
             # Standard / Cloud backup: Preserve bank details and generate local machine encrypted fields
-            for fld in enc_fields:
+            for fld in BANK_ENC_FIELDS:
                 plain_fld = fld.replace("_enc", "")
                 plain_val = settings_data.get(plain_fld, "")
                 if plain_val:
                     settings_data[fld] = _encrypt_string(plain_val, target_local_key)
+                elif settings_data.get(fld):
+                    decrypted_val = _decrypt_string(settings_data.get(fld, ""), target_local_key)
+                    if decrypted_val:
+                        settings_data[plain_fld] = decrypted_val
+                        settings_data[fld] = _encrypt_string(decrypted_val, target_local_key)
 
         # Write corrected app_settings.json back to temp
         try:

@@ -1,7 +1,11 @@
 import os
 import base64
+import html
+import re
 from core.reporting.exporters import BaseExporter
 from report import format_duration
+
+COLOR_REGEX = re.compile(r"^#[0-9A-Fa-f]{3,8}$")
 
 
 class HTMLExporter(BaseExporter):
@@ -34,9 +38,12 @@ class HTMLExporter(BaseExporter):
 
             project_rows = ""
             for item in report_data.get("project_breakdown", []):
+                raw_color = str(item.get("color", "#64748B"))
+                color = raw_color if COLOR_REGEX.match(raw_color) else "#64748B"
+                project_name = html.escape(str(item.get("project", "")))
                 project_rows += f"""
                 <tr>
-                    <td><span class="project-dot" style="background: {item.get("color", "#64748B")}"></span>{item.get("project", "")}</td>
+                    <td><span class="project-dot" style="background: {color}"></span>{project_name}</td>
                     <td>{format_duration(item.get("seconds", 0))}</td>
                     <td>{item.get("percent", 0)}%</td>
                 </tr>
@@ -44,12 +51,17 @@ class HTMLExporter(BaseExporter):
 
             trend_rows = ""
             for item in report_data.get("daily_trend", []):
+                label = html.escape(str(item.get("label", "")))
                 trend_rows += f"""
                 <tr>
-                    <td>{item.get("label", "")}</td>
+                    <td>{label}</td>
                     <td>{item.get("value", 0.0)} hrs</td>
                 </tr>
                 """
+
+            report_type = html.escape(str(report_data.get("report_type", "")))
+            start_date = html.escape(str(report_data.get("start_date", "")))
+            end_date = html.escape(str(report_data.get("end_date", "")))
 
             html_content = f"""<!DOCTYPE html>
 <html>
@@ -154,10 +166,10 @@ class HTMLExporter(BaseExporter):
         <div class="header">
             <div>
                 <h1>TrueHour Performance Report</h1>
-                <div style="font-size: 14px; color: var(--text-sec); margin-top: 4px;">Type: {report_data.get("report_type", "")}</div>
+                <div style="font-size: 14px; color: var(--text-sec); margin-top: 4px;">Type: {report_type}</div>
             </div>
             <div class="meta">
-                <div><strong>Range:</strong> {report_data.get("start_date", "")} to {report_data.get("end_date", "")}</div>
+                <div><strong>Range:</strong> {start_date} to {end_date}</div>
                 <div><strong>Total Time:</strong> {format_duration(report_data.get("total_seconds", 0))}</div>
             </div>
         </div>

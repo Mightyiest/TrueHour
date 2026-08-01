@@ -4,11 +4,9 @@ Handles OAuth 2.0 PKCE desktop authentication and synchronization of settings,
 session history, and logs with a private 'TrueHour_UserData' folder on Google Drive.
 """
 
-import io
 import json
 import logging
 import os
-import pickle
 import tempfile
 from datetime import datetime
 
@@ -26,6 +24,13 @@ SCOPES = [
 APP_FOLDER_NAME = "TrueHour_UserData"
 
 
+def _escape_query_param(val: str) -> str:
+    """Escapes special characters for Google Drive API query strings."""
+    if not val:
+        return ""
+    return val.replace("\\", "\\\\").replace("'", "\\'")
+
+
 def get_client_secrets_path() -> str:
     """Return path to client_secret.json (in app root or appdata)."""
     root_dir = os.path.dirname(os.path.abspath(__file__))
@@ -37,22 +42,93 @@ def get_client_secrets_path() -> str:
 
 
 def get_token_path() -> str:
-    """Return path to token.pickle stored in appdata directory."""
+    """Return path to token.json stored in appdata directory."""
+    return os.path.join(get_app_data_dir(), "token.json")
+
+
+def get_legacy_token_path() -> str:
+    """Return path to legacy token.pickle stored in appdata directory."""
     return os.path.join(get_app_data_dir(), "token.pickle")
 
 
-def is_authenticated() -> bool:
-    """Check if token.pickle exists and contains valid/refreshable credentials."""
+def _load_credentials_from_file():
+    """Helper to load credentials from JSON (with legacy pickle fallback/migration)."""
+    from google.oauth2.credentials import Credentials
+
     token_path = get_token_path()
-    if not os.path.exists(token_path):
-        return False
+    legacy_path = get_legacy_token_path()
+
+    if os.path.exists(token_path):
+        try:
+            with open(token_path, "r", encoding="utf-8") as f:
+                info = json.load(f)
+            return Credentials.from_authorized_user_info(info, SCOPES)
+        except Exception as e:
+            logger.warning("Error reading token.json: %s", e)
+
+    # Clean up legacy pickle token file if present without unpickling
+    if os.path.exists(legacy_path):
+        try:
+            os.remove(legacy_path)
+            logger.info("Removed legacy token.pickle file.")
+        except Exception as e:
+            logger.warning("Failed removing legacy token.pickle: %s", e)
+
+    return None
+
+
+def _save_credentials_to_file(creds, user_info=None):
+    """Helper to save credentials and user info to token.json."""
+    if not creds:
+        return
+    token_path = get_token_path()
     try:
-        with open(token_path, "rb") as f:
-            creds = pickle.load(f)
+        data = json.loads(creds.to_json())
+        if not user_info and os.path.exists(token_path):
+            try:
+                with open(token_path, "r", encoding="utf-8") as f:
+                    existing = json.load(f)
+                    user_info = existing.get("user_info")
+            except Exception:
+                pass
+
+        if user_info and isinstance(user_info, dict):
+            data["user_info"] = user_info
+
+        with open(token_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+
+        try:
+            os.chmod(token_path, 0o600)
+        except Exception:
+            pass
+    except Exception as e:
+        logger.error("Failed saving token.json: %s", e)
+
+
+def get_stored_user_info() -> dict:
+    """Return user info cached in token.json if present."""
+    token_path = get_token_path()
+    if os.path.exists(token_path):
+        try:
+            with open(token_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            info = data.get("user_info")
+            if isinstance(info, dict):
+                return info
+        except Exception as e:
+            logger.warning("Error reading stored user_info from token.json: %s", e)
+    return {}
+
+
+def is_authenticated() -> bool:
+    """Check if token credentials exist and are valid/refreshable."""
+    try:
+        creds = _load_credentials_from_file()
         if creds and (creds.valid or creds.refresh_token):
             return True
     except Exception as e:
-        logger.warning("Failed reading token.pickle: %s", e)
+        logger.warning("Failed checking authentication state: %s", e)
     return False
 
 
@@ -64,22 +140,13 @@ def get_google_credentials(interactive: bool = True):
     from google.auth.transport.requests import Request
     from google_auth_oauthlib.flow import InstalledAppFlow
 
-    token_path = get_token_path()
-    creds = None
-
-    if os.path.exists(token_path):
-        try:
-            with open(token_path, "rb") as f:
-                creds = pickle.load(f)
-        except Exception as e:
-            logger.warning("Error reading existing token file: %s", e)
-            creds = None
+    creds = _load_credentials_from_file()
+    user_info = get_stored_user_info()
 
     if creds and creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
-            with open(token_path, "wb") as f:
-                pickle.dump(creds, f)
+            _save_credentials_to_file(creds, user_info)
         except Exception as e:
             logger.warning("Token refresh failed: %s", e)
             creds = None
@@ -91,14 +158,16 @@ def get_google_credentials(interactive: bool = True):
 
         flow = InstalledAppFlow.from_client_secrets_file(secrets_path, SCOPES)
         creds = flow.run_local_server(port=0, prompt="select_account")
-        with open(token_path, "wb") as f:
-            pickle.dump(creds, f)
-
-    user_info = {}
-    if creds and creds.valid:
         user_info = fetch_user_profile(creds)
+        _save_credentials_to_file(creds, user_info)
 
-    return creds, user_info
+    if creds and creds.valid:
+        if not user_info or not user_info.get("email"):
+            user_info = fetch_user_profile(creds)
+            if user_info and user_info.get("email"):
+                _save_credentials_to_file(creds, user_info)
+
+    return creds, user_info or {}
 
 
 def fetch_user_profile(creds) -> dict:
@@ -129,9 +198,11 @@ def get_drive_service(creds=None):
 
 def get_or_create_app_folder(service) -> str:
     """Locate or create the 'TrueHour_UserData' root folder in user's Drive."""
+    escaped_folder_name = _escape_query_param(APP_FOLDER_NAME)
     query = (
-        f"name = '{APP_FOLDER_NAME}' and "
+        f"name = '{escaped_folder_name}' and "
         f"mimeType = 'application/vnd.google-apps.folder' and "
+        f"'root' in parents and "
         f"trashed = false"
     )
     results = service.files().list(q=query, spaces="drive", fields="files(id, name)").execute()
@@ -155,7 +226,9 @@ def upload_file_to_drive(service, local_filepath: str, folder_id: str, remote_fi
         return None
 
     filename = remote_filename or os.path.basename(local_filepath)
-    query = f"name = '{filename}' and '{folder_id}' in parents and trashed = false"
+    escaped_filename = _escape_query_param(filename)
+    escaped_folder_id = _escape_query_param(folder_id)
+    query = f"name = '{escaped_filename}' and '{escaped_folder_id}' in parents and trashed = false"
     results = service.files().list(q=query, spaces="drive", fields="files(id, name)").execute()
     files = results.get("files", [])
 
@@ -193,7 +266,8 @@ def list_cloud_backups(service=None) -> list:
     if not service:
         service = get_drive_service()
     folder_id = get_or_create_app_folder(service)
-    query = f"'{folder_id}' in parents and name contains '.truehour' and trashed = false"
+    escaped_folder_id = _escape_query_param(folder_id)
+    query = f"'{escaped_folder_id}' in parents and name contains '.truehour' and trashed = false"
     results = service.files().list(
         q=query,
         spaces="drive",
@@ -202,7 +276,11 @@ def list_cloud_backups(service=None) -> list:
     return results.get("files", [])
 
 
-def sync_to_cloud(profile_name: str = "Default", progress_callback=None) -> dict:
+def sync_to_cloud(
+    profile_name: str = "Default",
+    progress_callback=None,
+    anonymous_user_id: str = "",
+) -> dict:
     """
     Packs all profile data (settings, active sessions, history, QR codes, logos, logs, database)
     into a single compressed .truehour archive using backup_manager and uploads it to Google Drive.
@@ -214,6 +292,19 @@ def sync_to_cloud(profile_name: str = "Default", progress_callback=None) -> dict
     service = get_drive_service(creds)
     folder_id = get_or_create_app_folder(service)
 
+    if not anonymous_user_id:
+        try:
+            root_dir = get_app_data_root()
+            settings_path = os.path.join(
+                root_dir, "profiles", profile_name, "app_settings.json"
+            )
+            if os.path.exists(settings_path):
+                with open(settings_path, "r", encoding="utf-8") as f:
+                    sdata = json.load(f)
+                    anonymous_user_id = sdata.get("anonymous_user_id", "")
+        except Exception as e:
+            logger.warning("Could not read anonymous_user_id from profile settings: %s", e)
+
     if progress_callback:
         progress_callback(f"Compressing profile data for '{profile_name}'...")
 
@@ -221,7 +312,9 @@ def sync_to_cloud(profile_name: str = "Default", progress_callback=None) -> dict
         archive_name = f"backup_{profile_name}.truehour"
         tmp_zip_path = os.path.join(tmp_dir, archive_name)
 
-        success = backup_settings(tmp_zip_path, profile_name)
+        success = backup_settings(
+            tmp_zip_path, profile_name, anonymous_user_id=anonymous_user_id
+        )
         if not success:
             raise RuntimeError(f"Failed to build local backup archive for profile '{profile_name}'.")
 
@@ -237,10 +330,14 @@ def sync_to_cloud(profile_name: str = "Default", progress_callback=None) -> dict
         "status": "success",
         "archive_name": archive_name,
         "file_id": file_id,
-        "files_synced": 1,
+        "files_synced": 1 if file_id else 0,
         "last_sync": sync_time,
         "user": user_info.get("email", ""),
     }
+
+
+# Alias upload_to_cloud for backward compatibility and clearer intent (R5)
+upload_to_cloud = sync_to_cloud
 
 
 def restore_from_cloud(profile_name: str = "Default", file_id: str = None, password: str = None, progress_callback=None) -> dict:
@@ -259,10 +356,10 @@ def restore_from_cloud(profile_name: str = "Default", file_id: str = None, passw
         matched = [b for b in backups if b.get("name") == target_name]
         if matched:
             file_id = matched[0]["id"]
-        elif backups:
-            file_id = backups[0]["id"]
         else:
-            raise FileNotFoundError("No cloud backup (.truehour) found in TrueHour_UserData on Google Drive.")
+            raise FileNotFoundError(
+                f"No cloud backup (.truehour) found for profile '{profile_name}' on Google Drive."
+            )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_zip_path = os.path.join(tmp_dir, "cloud_restore.truehour")
@@ -289,14 +386,34 @@ def restore_from_cloud(profile_name: str = "Default", file_id: str = None, passw
 
 
 def sign_out() -> bool:
-    """Remove local token.pickle file to log user out."""
-    token_path = get_token_path()
-    if os.path.exists(token_path):
+    """Revoke token with Google and remove local token files to log user out."""
+    creds = _load_credentials_from_file()
+    if creds:
         try:
-            os.remove(token_path)
-            logger.info("Removed Google OAuth token file.")
-            return True
+            import requests
+            token_to_revoke = getattr(creds, "token", None) or getattr(creds, "refresh_token", None)
+            if token_to_revoke:
+                requests.post(
+                    "https://oauth2.googleapis.com/revoke",
+                    params={"token": token_to_revoke},
+                    headers={"content-type": "application/x-www-form-urlencoded"},
+                    timeout=5,
+                )
+                logger.info("Revoked OAuth token with Google.")
         except Exception as e:
-            logger.error("Failed deleting token file: %s", e)
-            return False
-    return True
+            logger.warning("Could not revoke OAuth token with Google: %s", e)
+
+    token_path = get_token_path()
+    legacy_path = get_legacy_token_path()
+    success = True
+
+    for tp in (token_path, legacy_path):
+        if os.path.exists(tp):
+            try:
+                os.remove(tp)
+                logger.info("Removed token file: %s", tp)
+            except Exception as e:
+                logger.error("Failed deleting token file '%s': %s", tp, e)
+                success = False
+
+    return success

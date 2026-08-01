@@ -28,7 +28,7 @@ from config import get_app_data_dir, open_file, send_to_trash
 logger = logging.getLogger(__name__)
 from report import load_session_json, merge_sessions_for_invoice, generate_invoice_html, merge_session_files
 from theme import get_svg_icon
-from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG
+from assets import RENAME_SVG, TRASH_SVG, RESTORE_SVG, REFRESH_SVG
 from widgets.custom_widgets import InvoicePrivacyOptionsDialog
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
@@ -188,6 +188,10 @@ class SessionManagerDialog(QDialog):
             self.accent_hover = "#106EBE"
 
         self.selected_sessions = set()
+        # layout_container -> list[(widget, visible_when_edit_on)].
+        # Lets the Edit button flip button visibility in place instead of
+        # rebuilding every row (see _apply_edit_mode).
+        self._edit_toggles = {}
         self._build_ui()
         self.preview_server = None
         self.invoice_saved_signal.connect(self._on_invoice_saved_from_browser)
@@ -240,6 +244,33 @@ class SessionManagerDialog(QDialog):
         accent = self.accent
         accent_hover = self.accent_hover
 
+        corner_widget = QWidget(self)
+        corner_layout = QHBoxLayout(corner_widget)
+        corner_layout.setContentsMargins(0, 0, 0, 0)
+        corner_layout.setSpacing(6)
+
+        refresh_icon = get_svg_icon(REFRESH_SVG, QSize(14, 14), text_sec)
+        self.refresh_btn = QPushButton("Refresh", self)
+        self.refresh_btn.setIcon(refresh_icon)
+        self.refresh_btn.setIconSize(QSize(14, 14))
+        self.refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.refresh_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {bg_widget};
+                border: 1px solid {border_color};
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-family: 'Segoe UI';
+                font-size: 12px;
+                font-weight: bold;
+                color: {text_sec};
+            }}
+            QPushButton:hover {{
+                background-color: {bg_hover};
+            }}
+        """)
+        self.refresh_btn.clicked.connect(self._refresh_all_lists)
+
         self.edit_btn = QPushButton("Edit", self)
         self.edit_btn.setCheckable(True)
         self.edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -266,7 +297,10 @@ class SessionManagerDialog(QDialog):
                 background-color: {accent_hover};
             }}
         """)
-        self.tab_widget.setCornerWidget(self.edit_btn, Qt.Corner.TopRightCorner)
+
+        corner_layout.addWidget(self.refresh_btn)
+        corner_layout.addWidget(self.edit_btn)
+        self.tab_widget.setCornerWidget(corner_widget, Qt.Corner.TopRightCorner)
 
         self.sessions_scroll = QScrollArea()
         self.sessions_scroll.setWidgetResizable(True)
@@ -309,7 +343,7 @@ class SessionManagerDialog(QDialog):
 
         self._refresh_all_lists()
 
-        self.edit_btn.clicked.connect(self._refresh_all_lists)
+        self.edit_btn.toggled.connect(self._apply_edit_mode)
 
         self.sessions_scroll.setWidget(self.sessions_widget)
         self.recoveries_scroll.setWidget(self.recoveries_widget)
@@ -401,8 +435,11 @@ class SessionManagerDialog(QDialog):
                 if w:
                     w.deleteLater()
 
+        # Drop references to the rows we just scheduled for deletion, then
+        # collect this container's new ones as they are built below.
+        toggles = self._edit_toggles[layout_container] = []
+
         files = glob.glob(os.path.join(folder, "*.json"))
-        files.sort(key=self._get_session_timestamp, reverse=True)
         if not files:
             if folder == self.trash_folder:
                 label_txt = "No trashed sessions found."
@@ -419,9 +456,41 @@ class SessionManagerDialog(QDialog):
             layout_container.addStretch()
             return
 
-        for i, filepath in enumerate(files):
-            filename = os.path.basename(filepath)
+        # Single-pass read & parse to eliminate double JSON file opening
+        parsed_files = []
+        for filepath in files:
             mtime = os.path.getmtime(filepath)
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if not isinstance(data, dict):
+                        data = {}
+            except Exception:
+                data = {}
+            parsed_files.append((filepath, data, mtime))
+
+        def _get_sort_key(item):
+            filepath, data, mtime = item
+            date_str = data.get("date", "")
+            start_str = data.get("start", "")
+            if date_str:
+                full_str = f"{date_str} {start_str}".strip()
+                try:
+                    return datetime.fromisoformat(full_str).timestamp()
+                except Exception:
+                    try:
+                        return datetime.strptime(full_str, "%Y-%m-%d %H:%M:%S").timestamp()
+                    except Exception:
+                        try:
+                            return datetime.strptime(date_str, "%Y-%m-%d").timestamp()
+                        except Exception:
+                            pass
+            return mtime
+
+        parsed_files.sort(key=_get_sort_key, reverse=True)
+
+        for i, (filepath, data, mtime) in enumerate(parsed_files):
+            filename = os.path.basename(filepath)
             rel_time = self._get_relative_time(mtime)
 
             bg_widget = self.bg_widget
@@ -453,13 +522,9 @@ class SessionManagerDialog(QDialog):
                 cb_select.stateChanged.connect(make_cb_connector(filepath))
                 row_layout.addWidget(cb_select)
 
-            try:
-                with open(filepath, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                session_name = data.get("session_name", "").strip()
-                date_str = data.get("date", "")
-            except Exception:
-                session_name = ""
+            session_name = data.get("session_name", "").strip() if data else ""
+            date_str = data.get("date", "") if data else ""
+            if not session_name and not date_str:
                 date_str = (
                     filename.replace("session_", "")
                     .replace("auto_", "")
@@ -774,6 +839,9 @@ class SessionManagerDialog(QDialog):
 
                 restore_btn.setVisible(is_edit_active)
                 delete_btn.setVisible(is_edit_active)
+
+                toggles.append((restore_btn, True))
+                toggles.append((delete_btn, True))
             else:
                 ren_icon = get_svg_icon(RENAME_SVG, QSize(16, 16), rename_color)
                 del_icon = get_svg_icon(TRASH_SVG, QSize(18, 18), trash_color)
@@ -849,18 +917,38 @@ class SessionManagerDialog(QDialog):
                 rename_btn.setVisible(is_edit_active)
                 delete_btn.setVisible(is_edit_active)
 
+                toggles.append((res_btn, False))
+                toggles.append((view_btn, False))
+                toggles.append((rename_btn, True))
+                toggles.append((delete_btn, True))
+
             row_layout.addLayout(btn_layout)
             layout_container.addWidget(row_frame)
 
         layout_container.addStretch()
 
+    def _apply_edit_mode(self, is_edit_active: bool):
+        """Show/hide the per-row buttons in place.
+
+        The Edit button only changes which buttons are visible, so there is no
+        reason to re-read the session files and rebuild every row for it.
+        """
+        for toggles in self._edit_toggles.values():
+            for widget, visible_when_edit_on in toggles:
+                try:
+                    widget.setVisible(visible_when_edit_on == is_edit_active)
+                except RuntimeError:
+                    # Row was torn down by a refresh; the stale list gets
+                    # replaced the next time that container renders.
+                    pass
+
     def _refresh_all_lists(self):
         from core.reporting.aggregator import rebuild_all_summaries
 
         try:
-            rebuild_all_summaries(force=True)
+            rebuild_all_summaries(force=False)
         except Exception as e:
-            print(f"[TrueHour] Failed to rebuild summaries on list refresh: {e}")
+            logger.error(f"Failed to rebuild summaries on list refresh: {e}")
         self._render_list(self.sessions_layout, self.history_folder, False)
         self._render_list(self.recoveries_layout, self.autosave_folder, True)
         self._render_list(self.trash_layout, self.trash_folder, False)

@@ -12,6 +12,14 @@ import drive_sync
 logger = logging.getLogger("TrueHour.DriveSyncWorker")
 
 
+class BaseDriveWorker(QThread):
+    """Base background worker providing common progress signaling for Drive tasks."""
+    progress = pyqtSignal(str)
+
+    def _emit_progress(self, msg: str):
+        self.progress.emit(msg)
+
+
 class DriveAuthWorker(QThread):
     """Background worker for interactive Google OAuth 2.0 PKCE browser login."""
     # Signal arguments: (success: bool, user_info: dict, error_message: str)
@@ -32,9 +40,8 @@ class DriveAuthWorker(QThread):
             self.finished.emit(False, {}, str(e))
 
 
-class DriveSyncWorker(QThread):
+class DriveSyncWorker(BaseDriveWorker):
     """Background worker for Google Drive single .truehour archive cloud sync."""
-    progress = pyqtSignal(str)
     # Signal arguments: (success: bool, result_dict: dict, error_message: str)
     finished = pyqtSignal(bool, dict, str)
 
@@ -47,18 +54,18 @@ class DriveSyncWorker(QThread):
             result = drive_sync.sync_to_cloud(
                 profile_name=self.profile_name, progress_callback=self._emit_progress
             )
-            self.finished.emit(True, result, "")
+            status = result.get("status") if isinstance(result, dict) else None
+            if status == "error":
+                self.finished.emit(False, result, "Cloud sync failed.")
+            else:
+                self.finished.emit(True, result, "")
         except Exception as e:
             logger.error("DriveSyncWorker error: %s", e, exc_info=True)
             self.finished.emit(False, {}, str(e))
 
-    def _emit_progress(self, msg: str):
-        self.progress.emit(msg)
 
-
-class DriveRestoreWorker(QThread):
+class DriveRestoreWorker(BaseDriveWorker):
     """Background worker for restoring profile from Google Drive .truehour archive."""
-    progress = pyqtSignal(str)
     # Signal arguments: (success: bool, result_dict: dict, error_message: str)
     finished = pyqtSignal(bool, dict, str)
 
@@ -76,10 +83,16 @@ class DriveRestoreWorker(QThread):
                 password=self.password,
                 progress_callback=self._emit_progress,
             )
-            self.finished.emit(True, result, "")
+            status = result.get("status") if isinstance(result, dict) else None
+            if status in ["password_required", "wrong_password", "error"]:
+                err_msg = (
+                    "Password required to restore encrypted backup."
+                    if status == "password_required"
+                    else ("Incorrect password provided." if status == "wrong_password" else "Restore failed.")
+                )
+                self.finished.emit(False, result, err_msg)
+            else:
+                self.finished.emit(True, result, "")
         except Exception as e:
             logger.error("DriveRestoreWorker error: %s", e, exc_info=True)
             self.finished.emit(False, {}, str(e))
-
-    def _emit_progress(self, msg: str):
-        self.progress.emit(msg)

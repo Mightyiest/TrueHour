@@ -6,6 +6,7 @@ acknowledges or dismisses the update.
 """
 
 import webbrowser
+from urllib.parse import urlparse
 
 from PyQt6.QtWidgets import QLabel, QGraphicsOpacityEffect, QMessageBox
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
@@ -187,7 +188,12 @@ class FadingVersionLabel(QLabel):
         result = msg.exec()
 
         if result == QMessageBox.StandardButton.Yes:
-            webbrowser.open(self._release_url)
+            parsed = urlparse(self._release_url)
+            if parsed.scheme == "https" and parsed.netloc.lower() == "github.com":
+                target_url = self._release_url
+            else:
+                target_url = GITHUB_RELEASES_URL
+            webbrowser.open(target_url)
             # After opening, keep the label static on version text
             self._update_available = False
             self._showing_update = False

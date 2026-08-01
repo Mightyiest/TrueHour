@@ -5,6 +5,7 @@ Houses colors, global stylesheets, palette configurations, and SVG paint utiliti
 
 import os
 import math
+from functools import lru_cache
 from PyQt6.QtCore import Qt, QSize, QPointF, QRectF
 from PyQt6.QtGui import QColor, QPalette, QIcon, QPixmap, QPainter, QPen, QPainterPath
 
@@ -445,6 +446,25 @@ def ensure_checkmark_icon(theme_style_or_is_dark=False) -> str:
 
 
 # ── Icon Painters ──────────────────────────────────────────────────
+@lru_cache(maxsize=128)
+def _get_svg_icon_cached(svg_bytes: bytes, width: int, height: int, color_hex: str) -> QIcon:
+    pixmap = QPixmap(width, height)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    try:
+        from PyQt6.QtSvg import QSvgRenderer
+        from PyQt6.QtCore import QByteArray
+
+        renderer = QSvgRenderer(QByteArray(svg_bytes))
+        renderer.render(painter, QRectF(pixmap.rect()))
+    except Exception:
+        painter.setPen(QPen(QColor(color_hex or "#0078D4"), 2))
+        painter.drawEllipse(2, 2, 16, 16)
+    painter.end()
+    return QIcon(pixmap)
+
+
 def get_svg_icon(svg_content, size=QSize(20, 20), color_hex=None) -> QIcon:
     if color_hex:
         if isinstance(svg_content, bytes):
@@ -454,23 +474,13 @@ def get_svg_icon(svg_content, size=QSize(20, 20), color_hex=None) -> QIcon:
         for default_color in ["#0078D4", "#0F7B0F", "#FF0000"]:
             content_str = content_str.replace(default_color, color_hex)
             content_str = content_str.replace(default_color.lower(), color_hex.lower())
-        svg_content = content_str.encode("utf-8")
+        svg_bytes = content_str.encode("utf-8")
+    else:
+        svg_bytes = svg_content if isinstance(svg_content, bytes) else svg_content.encode("utf-8")
 
-    pixmap = QPixmap(size)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    try:
-        from PyQt6.QtSvg import QSvgRenderer
-        from PyQt6.QtCore import QByteArray
-
-        renderer = QSvgRenderer(QByteArray(svg_content))
-        renderer.render(painter, QRectF(pixmap.rect()))
-    except Exception:
-        painter.setPen(QPen(QColor(color_hex or "#0078D4"), 2))
-        painter.drawEllipse(2, 2, 16, 16)
-    painter.end()
-    return QIcon(pixmap)
+    w = size.width() if isinstance(size, QSize) else size[0]
+    h = size.height() if isinstance(size, QSize) else size[1]
+    return _get_svg_icon_cached(svg_bytes, w, h, color_hex or "")
 
 
 def create_minimalist_icon(icon_type, color_hex, size=16) -> QIcon:

@@ -28,7 +28,7 @@ from theme import get_svg_icon
 from config import get_app_data_dir, open_file, get_app_data_root
 from tracker import AUTO_EXCLUDE_FILE, create_auto_excluded_if_missing
 from appinfo import OVERRIDES_FILE
-from assets import INFO_SVG, LOCK_SVG
+from assets import INFO_SVG, LOCK_SVG, GOOGLE_G_SVG
 
 import drive_sync
 from workers.drive_sync_worker import (
@@ -38,6 +38,13 @@ from workers.drive_sync_worker import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class NoWheelComboBox(QComboBox):
+    """QComboBox subclass that ignores wheel events to prevent accidental option changes while scrolling container layouts."""
+
+    def wheelEvent(self, event):
+        event.ignore()
 
 
 class DistractionAppsDialog(QDialog):
@@ -436,7 +443,7 @@ class SettingsDialog(QDialog):
         profile_layout.setContentsMargins(8, 8, 8, 8)
         profile_layout.setSpacing(6)
 
-        self.profile_combo = QComboBox(scroll_general_content)
+        self.profile_combo = NoWheelComboBox(scroll_general_content)
         self.profile_combo.addItems(self.profiles_list)
         self.profile_combo.setCurrentText(self.active_profile)
         self.profile_combo.currentTextChanged.connect(self._on_profile_combo_changed)
@@ -485,7 +492,7 @@ class SettingsDialog(QDialog):
         )
         theme_row.addWidget(theme_lbl)
 
-        self.theme_combo = QComboBox(scroll_general_content)
+        self.theme_combo = NoWheelComboBox(scroll_general_content)
         self.theme_combo.addItems(["Light", "Modern Dark", "Classic Dark"])
 
         current_style = self.settings.get(
@@ -599,7 +606,7 @@ class SettingsDialog(QDialog):
             "₴ (UAH)",
             "R (ZAR)",
         ]
-        self.curr_combo = QComboBox(scroll_general_content)
+        self.curr_combo = NoWheelComboBox(scroll_general_content)
         self.curr_combo.addItems(currency_options)
         curr_symbol = self.settings.get("currency_symbol", "$")
         matched = [c for c in currency_options if c.startswith(curr_symbol)]
@@ -781,9 +788,63 @@ class SettingsDialog(QDialog):
         drive_btn_row = QHBoxLayout()
         drive_btn_row.setSpacing(6)
 
-        self.btn_drive_auth = QPushButton("Sign In with Google", drive_box)
-        self.btn_drive_auth.setObjectName("AccentButton")
+        self.btn_drive_auth = QPushButton(" Sign in with Google", drive_box)
         self.btn_drive_auth.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_drive_auth.setIcon(get_svg_icon(GOOGLE_G_SVG, QSize(18, 18)))
+        self.btn_drive_auth.setIconSize(QSize(18, 18))
+        self.btn_drive_auth.setFixedHeight(36)
+
+        is_dark_theme = self.settings.get("dark_mode", False)
+        if is_dark_theme:
+            self.btn_drive_auth.setStyleSheet("""
+                QPushButton {
+                    background-color: #131314;
+                    color: #E3E3E3;
+                    border: 1px solid #8E918F;
+                    border-radius: 18px;
+                    font-family: 'Roboto', 'Segoe UI', sans-serif;
+                    font-size: 13px;
+                    font-weight: 500;
+                    padding: 0px 16px;
+                }
+                QPushButton:hover {
+                    background-color: #202124;
+                    border-color: #A8AAA7;
+                }
+                QPushButton:pressed {
+                    background-color: #303134;
+                }
+                QPushButton:disabled {
+                    background-color: #1F1F1F;
+                    color: #5E5E5E;
+                    border-color: #444444;
+                }
+            """)
+        else:
+            self.btn_drive_auth.setStyleSheet("""
+                QPushButton {
+                    background-color: #FFFFFF;
+                    color: #1F1F1F;
+                    border: 1px solid #747775;
+                    border-radius: 18px;
+                    font-family: 'Roboto', 'Segoe UI', sans-serif;
+                    font-size: 13px;
+                    font-weight: 500;
+                    padding: 0px 16px;
+                }
+                QPushButton:hover {
+                    background-color: #F8F9FA;
+                    border-color: #5E5E5E;
+                }
+                QPushButton:pressed {
+                    background-color: #F1F3F4;
+                }
+                QPushButton:disabled {
+                    background-color: #F5F5F5;
+                    color: #A8AAA7;
+                    border-color: #E3E3E3;
+                }
+            """)
         self.btn_drive_auth.clicked.connect(self._on_drive_auth_clicked)
         drive_btn_row.addWidget(self.btn_drive_auth, 1)
 
@@ -1550,11 +1611,23 @@ class SettingsDialog(QDialog):
             QMessageBox.critical(self, "Error", f"Could not open data directory:\n{e}")
 
     # ── Google Drive Sync Handlers ─────────────────────────────────────
-    def _update_drive_ui(self):
+    def _update_drive_ui(self, user_info=None):
         authenticated = drive_sync.is_authenticated()
         if authenticated:
-            creds, user_info = drive_sync.get_google_credentials(interactive=False)
-            email = user_info.get("email", "Google Account")
+            if user_info and isinstance(user_info, dict) and user_info.get("email"):
+                self._cached_drive_user_info = user_info
+            else:
+                stored = drive_sync.get_stored_user_info()
+                if stored and stored.get("email"):
+                    self._cached_drive_user_info = stored
+                elif not hasattr(self, "_cached_drive_user_info"):
+                    self._cached_drive_user_info = {}
+
+            email = self._cached_drive_user_info.get("email")
+            if not email or email in ["Google Account", "Connected Account"]:
+                stored = drive_sync.get_stored_user_info()
+                email = stored.get("email") or "Google Account"
+
             self.drive_status_lbl.setText(f"Connected: {email}")
             self.btn_drive_auth.setVisible(False)
             self.btn_drive_sync.setVisible(True)
@@ -1562,6 +1635,7 @@ class SettingsDialog(QDialog):
             self.btn_drive_signout.setVisible(True)
             self.cb_drive_auto.setEnabled(True)
         else:
+            self._cached_drive_user_info = {}
             self.drive_status_lbl.setText("Status: Not connected to Google Drive")
             self.btn_drive_auth.setVisible(True)
             self.btn_drive_sync.setVisible(False)
@@ -1579,9 +1653,7 @@ class SettingsDialog(QDialog):
     def _on_drive_auth_finished(self, success, user_info, err_msg):
         self.btn_drive_auth.setEnabled(True)
         if success:
-            self.settings["google_drive_auto_sync"] = True
-            self.cb_drive_auto.setChecked(True)
-            self._update_drive_ui()
+            self._update_drive_ui(user_info)
             QMessageBox.information(
                 self,
                 "Google Drive Connected",
@@ -1607,7 +1679,7 @@ class SettingsDialog(QDialog):
 
     def _on_drive_sync_finished(self, success, result, err_msg):
         self.btn_drive_sync.setEnabled(True)
-        self._update_drive_ui()
+        self._update_drive_ui(result)
         if success:
             archive_name = result.get("archive_name", "backup archive")
             self.drive_status_lbl.setText(
@@ -1622,6 +1694,14 @@ class SettingsDialog(QDialog):
             QMessageBox.warning(self, "Cloud Sync Failed", f"Sync error:\n{err_msg}")
 
     def _on_drive_restore_clicked(self):
+        if hasattr(self.parent(), "tracker") and getattr(self.parent().tracker, "running", False):
+            QMessageBox.warning(
+                self,
+                "Active Tracking Session",
+                "Please stop the current active tracking session before restoring from cloud backup.",
+            )
+            return
+
         confirm = QMessageBox.question(
             self,
             "Restore Profile from Cloud?",

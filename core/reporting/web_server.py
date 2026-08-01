@@ -1,6 +1,7 @@
 import json
 import threading
 import socket
+import secrets
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from PyQt6.QtCore import QObject, pyqtSignal
 
@@ -21,16 +22,48 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
     def _set_headers(self, content_type="application/json", status=200):
         self.send_response(status)
         self.send_header("Content-type", content_type)
-        # Allow CORS so fetch can easily reach it if needed, though they are same-origin
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-TrueHour-Token")
         self.end_headers()
 
+    def _is_request_authorized(self, is_post=False) -> bool:
+        host = self.headers.get("Host", "")
+        allowed_hosts = [
+            f"127.0.0.1:{self.server.server_port}",
+            f"localhost:{self.server.server_port}",
+        ]
+        if host and host.lower() not in allowed_hosts:
+            return False
+
+        origin = self.headers.get("Origin")
+        if origin:
+            allowed_origins = [
+                f"http://127.0.0.1:{self.server.server_port}",
+                f"http://localhost:{self.server.server_port}",
+            ]
+            if origin.lower() not in allowed_origins:
+                return False
+
+        if is_post:
+            token = self.headers.get("X-TrueHour-Token", "")
+            if not token or token != getattr(self.server, "auth_token", ""):
+                return False
+
+        return True
+
     def do_OPTIONS(self):
+        if not self._is_request_authorized(is_post=False):
+            self._set_headers(status=403)
+            self.wfile.write(json.dumps({"error": "Forbidden"}).encode("utf-8"))
+            return
         self._set_headers(status=200)
 
     def do_GET(self):
+        if not self._is_request_authorized(is_post=False):
+            self._set_headers(status=403)
+            self.wfile.write(json.dumps({"error": "Forbidden"}).encode("utf-8"))
+            return
+
         if self.path == "/":
             # Serve the goals HTML page
             try:
@@ -66,8 +99,10 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
                 # Dynamic injection of port and configuration state to avoid initial fetch delay
                 data = self.server.get_state_callback()
                 json_state = json.dumps(data)
+                auth_token = getattr(self.server, "auth_token", "")
+                injection = f"window.INITIAL_STATE = {json_state};\nwindow.SERVER_TOKEN = \"{auth_token}\";"
                 content = content.replace(
-                    "/*{{INITIAL_STATE}}*/", f"window.INITIAL_STATE = {json_state};"
+                    "/*{{INITIAL_STATE}}*/", injection
                 )
 
                 self._set_headers(content_type="text/html", status=200)
@@ -89,6 +124,11 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"Not Found")
 
     def do_POST(self):
+        if not self._is_request_authorized(is_post=True):
+            self._set_headers(status=403)
+            self.wfile.write(json.dumps({"error": "Forbidden"}).encode("utf-8"))
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         post_data = self.rfile.read(content_length)
 
@@ -170,6 +210,7 @@ class GoalsWebServer(HTTPServer):
         super().__init__(server_address, RequestHandlerClass)
         self.get_state_callback = get_state_callback
         self.signals = signals
+        self.auth_token = secrets.token_hex(16)
 
 
 def find_free_port():
@@ -220,3 +261,4 @@ class WebServerManager(QObject):
             self.server.server_close()
         if self.thread:
             self.thread.join(timeout=1.0)
+

@@ -5,7 +5,7 @@ Single source of truth for version and build metadata.
 
 from dataclasses import dataclass
 
-__version__ = "4.0.0-beta.1"
+__version__ = "4.0.0-beta.4"
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,6 @@ class VersionInfo:
         return f"v{self.version} \u00b7 Build {self.build_date}"
 
 
-INFO = VersionInfo(version=__version__, build_date="2026.07.30", build_number=35)
+INFO = VersionInfo(version=__version__, build_date="2026.08.02", build_number=36)
 VERSION_SHORT = INFO.short
 VERSION_FULL = INFO.full

@@ -1,4 +1,3 @@
-```gitignore
 # Python
 __pycache__/
 *.pyc
@@ -39,18 +38,12 @@ Thumbs.db
 dist/
 build/
 *.egg-info/
-```
-/tests
-/tests
-/tests
-tests/test_export_diagnostic.py
 *.exe
 /skill
 build_telemetry.bat
 build_unofficial.bat
 build_unofficial_onedir.bat
 telemetry_config.py
-
 
 *.ps1
 worker-invoke.sh
@@ -63,4 +56,3 @@ client_secret.json
 token.pickle
 token.json
 *.token
-

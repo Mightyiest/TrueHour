@@ -454,22 +454,32 @@ class TrueHourApp(QMainWindow):
         # ── Background Google Drive Sync ──────────────────────────────
         QTimer.singleShot(6000, self._trigger_deferred_drive_sync)
 
+    def closeEvent(self, event):
+        if hasattr(self, "_app_drive_worker") and self._app_drive_worker and self._app_drive_worker.isRunning():
+            logger.info("[DriveSync] Waiting for background cloud sync thread to finish...")
+            self._app_drive_worker.wait(3000)
+        super().closeEvent(event)
+
     def _trigger_deferred_drive_sync(self):
         try:
             import drive_sync
             from workers.drive_sync_worker import DriveSyncWorker
 
             if drive_sync.is_authenticated() and getattr(self, "app_settings", {}).get(
-                "google_drive_auto_sync", True
+                "google_drive_auto_sync", False
             ):
                 logger.info("[DriveSync] Triggering background startup cloud sync...")
                 profile = getattr(self, "active_profile", "Default")
                 self._app_drive_worker = DriveSyncWorker(profile_name=profile, parent=self)
-                self._app_drive_worker.finished.connect(
-                    lambda success, result, err: logger.info(
-                        f"[DriveSync] Startup sync finished: success={success}, archive={result.get('archive_name', '')}"
-                    )
-                )
+
+                def _on_startup_sync_finished(success, result, err):
+                    if success:
+                        archive_name = result.get("archive_name", "") if isinstance(result, dict) else ""
+                        logger.info(f"[DriveSync] Startup sync finished successfully: archive={archive_name}")
+                    else:
+                        logger.warning(f"[DriveSync] Startup sync failed: {err}")
+
+                self._app_drive_worker.finished.connect(_on_startup_sync_finished)
                 self._app_drive_worker.start()
         except Exception as e:
             logger.warning(f"[DriveSync] Startup sync trigger failed: {e}")
@@ -2352,35 +2362,6 @@ class TrueHourApp(QMainWindow):
         dialog.settings_saved.connect(handle_settings_saved)
         dialog.exec()
 
-    def _handle_settings_imported(self, profile_name=None):
-        logger.info(f"[Action] Settings/profile imported: {profile_name}. Reloading configuration...")
-        self._load_app_settings()
-        self.apply_theme(self.theme_style)
-        self._update_developer_ui()
-        self._recalculate_weekly_base_focus_seconds()
-        self._refresh_app_list()
-
-    def _handle_profile_switched(self, new_profile_name):
-        logger.info(f"[Action] Profile switched to: {new_profile_name}")
-        self.active_profile = new_profile_name
-        self._load_app_settings()
-        self.apply_theme(self.theme_style)
-        self._update_developer_ui()
-        self._recalculate_weekly_base_focus_seconds()
-        self._refresh_app_list()
-
-    def _handle_profile_renamed(self, old_name, new_name):
-        logger.info(f"[Action] Profile renamed from '{old_name}' to '{new_name}'")
-        if getattr(self, "active_profile", "Default") == old_name:
-            self.active_profile = new_name
-            self._load_app_settings()
-
-    def _handle_profile_deleted(self, deleted_name):
-        logger.info(f"[Action] Profile deleted: {deleted_name}")
-        if getattr(self, "active_profile", "Default") == deleted_name:
-            self.active_profile = "Default"
-            self._load_app_settings()
-            self.apply_theme(self.theme_style)
 
     def _show_about_dialog(self):
         import webbrowser
@@ -3469,15 +3450,7 @@ class TrueHourApp(QMainWindow):
         dialog = TrueHourDashboard(self)
         dialog.exec()
 
-    def _handle_profile_switched(self, profile_name):
-        if self.tracker.running:
-            QMessageBox.warning(
-                self,
-                "Active Tracking Session",
-                "Please stop the current active tracking session before switching or modifying profiles.",
-            )
-            return False
-
+    def _reload_active_profile(self, profile_name, show_message=False):
         root_dir = get_app_data_root()
         profiles_file = os.path.join(root_dir, "profiles.json")
         try:
@@ -3492,7 +3465,9 @@ class TrueHourApp(QMainWindow):
             with open(profiles_file, "w", encoding="utf-8") as f:
                 json.dump(pdata, f, indent=4)
 
-            # Dynamic dynamic reloading of target profile configuration
+            self.active_profile = profile_name
+
+            # Dynamic reloading of target profile configuration
             self._load_app_settings()
 
             # Re-initialize target database schema inside target profile directory
@@ -3533,9 +3508,10 @@ class TrueHourApp(QMainWindow):
 
             # Trigger dynamic refresh of active layout
             self._last_app_state_hash = None
+            self._recalculate_weekly_base_focus_seconds()
             self._refresh_app_list()
             self._update_developer_ui()
-            self.apply_theme(self.dark_mode)
+            self.apply_theme(getattr(self, "theme_style", self.dark_mode))
 
             # Reset earnings text if tracker not active
             if self.hourly_rate > 0:
@@ -3543,17 +3519,30 @@ class TrueHourApp(QMainWindow):
             else:
                 self.earnings_label.setText(" ")
 
-            QMessageBox.information(
-                self,
-                "Profile Switched",
-                f"Successfully switched to profile '{profile_name}'.",
-            )
+            if show_message:
+                QMessageBox.information(
+                    self,
+                    "Profile Switched",
+                    f"Successfully switched to profile '{profile_name}'.",
+                )
             return True
         except Exception as e:
-            QMessageBox.critical(
-                self, "Switch Failed", f"Failed to switch to profile:\n{e}"
+            if show_message:
+                QMessageBox.critical(
+                    self, "Switch Failed", f"Failed to switch to profile:\n{e}"
+                )
+            return False
+
+    def _handle_profile_switched(self, profile_name):
+        if self.tracker.running:
+            QMessageBox.warning(
+                self,
+                "Active Tracking Session",
+                "Please stop the current active tracking session before switching or modifying profiles.",
             )
             return False
+
+        return self._reload_active_profile(profile_name, show_message=True)
 
     def _handle_profile_renamed(self, old_name, new_name):
         if self.tracker.running:
@@ -3607,7 +3596,7 @@ class TrueHourApp(QMainWindow):
             with open(profiles_file, "w", encoding="utf-8") as f:
                 json.dump(pdata, f, indent=4)
 
-            self._handle_profile_switched(new_name)
+            self._reload_active_profile(new_name, show_message=False)
             QMessageBox.information(
                 self,
                 "Profile Renamed",
@@ -3693,7 +3682,7 @@ class TrueHourApp(QMainWindow):
             with open(profiles_file, "w", encoding="utf-8") as f:
                 json.dump(pdata, f, indent=4)
 
-            self._handle_profile_switched(new_active)
+            self._reload_active_profile(new_active, show_message=False)
             QMessageBox.information(
                 self,
                 "Profile Deleted",
@@ -3704,9 +3693,11 @@ class TrueHourApp(QMainWindow):
                 self, "Delete Failed", f"Failed to delete profile:\n{e}"
             )
 
-    def _handle_settings_imported(self, profile_name):
-        # Trigger dynamic switch to imported profile
-        self._handle_profile_switched(profile_name)
+    def _handle_settings_imported(self, profile_name=None):
+        if not profile_name:
+            profile_name = getattr(self, "active_profile", "Default")
+        logger.info(f"[Action] Settings/profile imported: {profile_name}. Reloading configuration...")
+        return self._reload_active_profile(profile_name, show_message=False)
 
     def run(self):
         self.show()

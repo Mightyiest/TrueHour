@@ -2,6 +2,14 @@
 
 All notable changes to TrueHour will be documented in this file.
 
+## [4.0.0-beta.4] - 2026-08-02
+
+### Added
+- **Refactoring & Architectural Audit Verification**: Complete code structure audit and verification document for modularizing `app.py` without breaking existing PyQt6 functionality or UI signals.
+
+### Fixed
+- **Drive Sync Worker Shutdown**: Resolved unjoined background cloud sync thread bug on application close.
+
 ## [4.0.0-beta.1] - 2026-07-30
 
 ### Added
