@@ -5,7 +5,7 @@ All notable changes to TrueHour will be documented in this file.
 ## [4.0.0-beta.4] - 2026-08-02
 
 ### Added
-- **Refactoring & Architectural Audit Verification**: Complete code structure audit and verification document for modularizing `app.py` without breaking existing PyQt6 functionality or UI signals.
+- **`app.py` Core Codebase Refactoring**: Modularized 3,788-line monolithic `app.py` down to 2,258 lines (-40% line reduction) by extracting dialogs, widgets, and utility helpers into decoupled modules (`widgets/ui_utils.py`, `utils/icon_utils.py`, `widgets/header_bar.py`, `dialogs/save_dialog.py`, `dialogs/about_dialog.py`, `dialogs/categories_dialog.py`, `dialogs/report_dialog.py`).
 - **Local Web Server Token Security**: Integrated 128-bit secret token validation (`auth_token` and `X-TrueHour-Token` header) for all local web server POST endpoints to protect against unauthorized CSRF/cross-origin requests and local script manipulation.
 
 ### Fixed

@@ -2434,6 +2434,19 @@ chmod +x build.sh
                     <div class="changelog-list">
                         <div class="changelog-item">
                             <div class="changelog-version">
+                                <span>v4.0.0-beta.4</span>
+                                <span class="changelog-tag beta">Beta</span>
+                                <span class="changelog-date">2026.08.02</span>
+                            </div>
+                            <ul class="changelog-changes">
+                                <li><strong>`app.py` Modularization</strong>: Refactored monolithic 3,788-line `app.py` down to 2,258 lines (-40% size reduction) by extracting dialogs, widgets, and utility functions into modular components (`widgets/ui_utils.py`, `utils/icon_utils.py`, `widgets/header_bar.py`, `dialogs/save_dialog.py`, `dialogs/about_dialog.py`, `dialogs/categories_dialog.py`, `dialogs/report_dialog.py`).</li>
+                                <li><strong>Local Web Server Token Authentication</strong>: Integrated 128-bit secret token validation (`auth_token` and `X-TrueHour-Token` header) for all local web server POST endpoints to protect against unauthorized CSRF and cross-origin requests.</li>
+                                <li><strong>Web Dashboard Theme Isolation</strong>: Decoupled Goals Studio web theme toggle from desktop PyQt6 UI styles, storing dashboard preferences in local browser storage.</li>
+                                <li><strong>Drive Sync Shutdown Guard</strong>: Fixed unjoined background Google Drive sync worker thread bug on application close.</li>
+                            </ul>
+                        </div>
+                        <div class="changelog-item">
+                            <div class="changelog-version">
                                 <span>v3.3.2</span>
                                 <span class="changelog-tag stable">Stable</span>
                                 <span class="changelog-date">2026.06.22</span>
