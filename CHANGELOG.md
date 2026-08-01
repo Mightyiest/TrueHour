@@ -6,9 +6,12 @@ All notable changes to TrueHour will be documented in this file.
 
 ### Added
 - **Refactoring & Architectural Audit Verification**: Complete code structure audit and verification document for modularizing `app.py` without breaking existing PyQt6 functionality or UI signals.
+- **Local Web Server Token Security**: Integrated 128-bit secret token validation (`auth_token` and `X-TrueHour-Token` header) for all local web server POST endpoints to protect against unauthorized CSRF/cross-origin requests and local script manipulation.
 
 ### Fixed
 - **Drive Sync Worker Shutdown**: Resolved unjoined background cloud sync thread bug on application close.
+- **Web Dashboard Theme Isolation**: Decoupled Web Goals Studio theme toggle from desktop UI styles, storing dashboard preferences in local storage.
+- **Web Server Token Routing & Port Fallback**: Fixed 404 handler issue when launching local web dashboard with authentication query parameters and prioritized default port 5080.
 
 ## [4.0.0-beta.1] - 2026-07-30
 

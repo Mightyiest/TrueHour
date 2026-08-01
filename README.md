@@ -22,7 +22,7 @@ True Hours automatically monitors your active window to track productivity, calc
 | 🧾 | **Invoice Builder** | Dynamic invoicing with multi-email chip inputs, bank transfer details, QR codes, and A4 PDF printing. |
 | 💰 | **Earnings Calculator** | Set an hourly rate and watch earnings accumulate live during active sessions. |
 | 🛡️ | **Smart Exclusions** | Auto-ignores system processes, manually exclude apps, and automatically ignores TrueHour itself via PID matching. |
-| 🔒 | **Anti-Tamper Security** | Monotonic clock protection, NTP validation, and SHA-256 hash chaining with real-time integrity scoring. |
+| 🔒 | **Anti-Tamper Security** | Monotonic clock protection, NTP validation, SHA-256 hash chaining, and 128-bit local web server token authentication. |
 | 💾 | **Crash Recovery** | Unexpected closures are auto-saved to an `autosave` folder for later recovery. |
 | 📤 | **Export Options** | Export to TXT, HTML Invoice, or HTML Session Report. |
 | 🎨 | **Modern UI** | Clean, light-themed interface inspired by Windows 11 Fluent Design, built with PyQt6. |

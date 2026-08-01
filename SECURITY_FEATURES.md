@@ -37,6 +37,12 @@ This module adds **tamper-resistant time tracking** to prevent users from manipu
 - Stored in `security_log.json` for audit purposes
 - Keeps last 5000 events to prevent log flooding
 
+#### 6. **Local Web Server Token Authentication**
+- Generates a 128-bit secret session token (`auth_token`) on local server initialization
+- Enforces `X-TrueHour-Token` header verification for all state-modifying POST requests (`/api/goals`, `/api/settings`, `/api/goals/reset`)
+- Rejects unauthorized requests with `403 Forbidden`
+- Protects local endpoints against Cross-Site Request Forgery (CSRF) and malicious local process manipulation
+
 ### How It Prevents Cheating
 
 | Attack Method | Protection |
