@@ -56,3 +56,6 @@ client_secret.json
 token.pickle
 token.json
 *.token
+
+# Personal agent custom skills
+.agents/
