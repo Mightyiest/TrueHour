@@ -64,7 +64,10 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": "Forbidden"}).encode("utf-8"))
             return
 
-        if self.path == "/":
+        import urllib.parse
+        clean_path = urllib.parse.urlparse(self.path).path
+
+        if clean_path in ["/", "/index.html", "/dashboard"]:
             # Serve the goals HTML page
             try:
                 import os
@@ -111,7 +114,7 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
                 self._set_headers(content_type="text/plain", status=500)
                 self.wfile.write(f"Internal Server Error: {e}".encode("utf-8"))
 
-        elif self.path == "/api/goals":
+        elif clean_path == "/api/goals":
             try:
                 data = self.server.get_state_callback()
                 self._set_headers(status=200)
@@ -129,6 +132,9 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": "Forbidden"}).encode("utf-8"))
             return
 
+        import urllib.parse
+        clean_path = urllib.parse.urlparse(self.path).path
+
         content_length = int(self.headers.get("Content-Length", 0))
         post_data = self.rfile.read(content_length)
 
@@ -141,7 +147,7 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode("utf-8"))
                 return
 
-        if self.path == "/api/goals":
+        if clean_path == "/api/goals":
             data_to_emit = {}
             if "weekly_goals" in payload:
                 weekly_goals = payload["weekly_goals"]
@@ -179,7 +185,7 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
                     ).encode("utf-8")
                 )
 
-        elif self.path == "/api/settings":
+        elif clean_path == "/api/settings":
             if "enable_goal_tray_alerts" in payload:
                 enabled = bool(payload["enable_goal_tray_alerts"])
                 self.server.signals.alerts_toggled.emit(enabled)
@@ -190,11 +196,11 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
             self._set_headers(status=200)
             self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
 
-        elif self.path == "/api/test-notification":
+        elif clean_path == "/api/test-notification":
             self.server.signals.test_notification_requested.emit()
             self._set_headers(status=200)
             self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
-        elif self.path == "/api/goals/reset":
+        elif clean_path == "/api/goals/reset":
             self.server.signals.reset_requested.emit()
             self._set_headers(status=200)
             self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
