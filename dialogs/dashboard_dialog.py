@@ -558,14 +558,19 @@ class TrueHourDashboard(QDialog):
         def launch_web_console():
             import webbrowser
 
-            if (
-                hasattr(self.main_app, "web_server_mgr")
-                and self.main_app.web_server_mgr
-            ):
-                port = self.main_app.web_server_mgr.port
-                webbrowser.open(f"http://127.0.0.1:{port}/")
+            web_mgr = getattr(self.main_app, "web_server_mgr", None)
+            if web_mgr is None and hasattr(self.main_app, "_start_web_server"):
+                self.main_app._start_web_server()
+                web_mgr = getattr(self.main_app, "web_server_mgr", None)
+
+            if web_mgr and getattr(web_mgr, "running", False):
+                port = web_mgr.port
+                server_obj = getattr(web_mgr, "server", None)
+                token = getattr(server_obj, "auth_token", "") if server_obj else ""
+                url = f"http://127.0.0.1:{port}/?token={token}" if token else f"http://127.0.0.1:{port}/"
+                webbrowser.open(url)
             else:
-                webbrowser.open("http://127.0.0.1:5080/")  # fallback
+                webbrowser.open("http://127.0.0.1:5080/")
 
         launch_btn.clicked.connect(launch_web_console)
         self.goals_layout.addWidget(launch_btn, alignment=Qt.AlignmentFlag.AlignCenter)

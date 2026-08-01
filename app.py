@@ -275,31 +275,7 @@ class TrueHourApp(QMainWindow):
             print(f"[TrueHour] Failed to schedule summary rebuild: {e}")
 
         # Start local web server for Focus Goals dashboard (delayed to avoid startup blocking/loading)
-        def _deferred_start_web_server():
-            try:
-                from core.reporting.web_server import WebServerManager
-
-                self.web_server_mgr = WebServerManager(self._get_web_goals_state, self)
-                self.web_server_mgr.signals.goals_updated.connect(
-                    self._on_web_goals_updated
-                )
-                self.web_server_mgr.signals.alerts_toggled.connect(
-                    self._on_web_alerts_toggled
-                )
-                self.web_server_mgr.signals.theme_toggled.connect(
-                    self._on_web_theme_toggled
-                )
-                self.web_server_mgr.signals.test_notification_requested.connect(
-                    self._trigger_test_notification
-                )
-                self.web_server_mgr.signals.reset_requested.connect(
-                    self._on_web_goals_reset
-                )
-                self.web_server_mgr.start()
-            except Exception as ex:
-                print(f"[TrueHour] Failed to initialize web server: {ex}")
-
-        QTimer.singleShot(4000, _deferred_start_web_server)
+        QTimer.singleShot(4000, self._start_web_server)
 
         # Schedule database optimization 3 seconds after startup to clean up database file
         try:
@@ -1188,6 +1164,32 @@ class TrueHourApp(QMainWindow):
                 self, "earnings_goal_reset_timestamp", ""
             ),
         }
+
+    def _start_web_server(self):
+        if getattr(self, "web_server_mgr", None) is not None:
+            return
+        try:
+            from core.reporting.web_server import WebServerManager
+
+            self.web_server_mgr = WebServerManager(self._get_web_goals_state, self)
+            self.web_server_mgr.signals.goals_updated.connect(
+                self._on_web_goals_updated
+            )
+            self.web_server_mgr.signals.alerts_toggled.connect(
+                self._on_web_alerts_toggled
+            )
+            self.web_server_mgr.signals.theme_toggled.connect(
+                self._on_web_theme_toggled
+            )
+            self.web_server_mgr.signals.test_notification_requested.connect(
+                self._trigger_test_notification
+            )
+            self.web_server_mgr.signals.reset_requested.connect(
+                self._on_web_goals_reset
+            )
+            self.web_server_mgr.start()
+        except Exception as ex:
+            print(f"[TrueHour] Failed to initialize web server: {ex}")
 
     def _on_web_goals_reset(self):
         logger.info("[Web Server] Goals reset requested")
