@@ -13,6 +13,9 @@ All notable changes to TrueHour will be documented in this file.
 - **Web Dashboard Theme Isolation**: Decoupled Web Goals Studio theme toggle from desktop UI styles, storing dashboard preferences in local storage.
 - **Web Server Token Routing & Port Fallback**: Fixed 404 handler issue when launching local web dashboard with authentication query parameters and prioritized default port 5080.
 
+### Removed
+- **PostHog Telemetry & Dependencies**: Completely purged PostHog analytics tracking, telemetry configuration files, and `posthog` package dependencies, converting TrueHour to a 100% telemetry-free, offline-first application.
+
 ## [4.0.0-beta.1] - 2026-07-30
 
 ### Added

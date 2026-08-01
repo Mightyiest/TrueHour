@@ -180,10 +180,6 @@ class TrueHourApp(QMainWindow):
         self.notified_goals = None
         self.notified_earnings_goal = None
         self._load_app_settings()
-        self._init_posthog()
-        self._track_event(
-            "app_started", {"version": VERSION_FULL, "platform": sys.platform}
-        )
 
         self._check_vars = {}
         self._photo_refs = []
@@ -693,7 +689,6 @@ class TrueHourApp(QMainWindow):
         logger.info("[Action] Clicked Start Tracking")
         auto_name = datetime.now().strftime("Session - %I:%M %p")
         self.tracker.start(session_name=auto_name)
-        self._track_event("tracking_started", {"session_name": auto_name})
 
         # Clear layout
         self._clear_list_layout()
@@ -783,18 +778,6 @@ class TrueHourApp(QMainWindow):
         )
         if self._load_dlg.exec() == QDialog.DialogCode.Accepted:
             self._show_compact_save_dialog(self._load_dlg.compiled_report)
-            try:
-                rep = self._load_dlg.compiled_report
-                self._track_event(
-                    "tracking_stopped",
-                    {
-                        "duration_seconds": rep.get("total_seconds", 0),
-                        "app_count": len(rep.get("items", [])),
-                        "amount_due": rep.get("total_amount_due", ""),
-                    },
-                )
-            except Exception:
-                pass
         else:
             if (
                 hasattr(self._load_dlg, "error_message")
@@ -1896,61 +1879,6 @@ class TrueHourApp(QMainWindow):
                 json.dump(data, f, indent=4)
         except Exception as e:
             print(f"[TrueHour] Failed to save app settings: {e}")
-
-    def _init_posthog(self):
-        self.posthog_client = None
-        self.posthog_enabled = False
-        api_key = os.getenv("POSTHOG_API_KEY")
-        host = os.getenv("POSTHOG_HOST", "https://us.i.posthog.com")
-
-        if api_key:
-            api_key = api_key.strip("'\"")
-        if host:
-            host = host.strip("'\"")
-
-        # Fallback to embedded credentials if running as a prebuilt release (frozen bundle)
-        # and no specific API key was configured locally in .env.
-        is_frozen = getattr(sys, "frozen", False)
-
-        telemetry_allowed = True
-        try:
-            # pyrefly: ignore [missing-import]
-            import telemetry_config
-
-            telemetry_allowed = getattr(telemetry_config, "TELEMETRY_ENABLED", True)
-        except ImportError:
-            pass
-
-        if not api_key and is_frozen and telemetry_allowed:
-            api_key = "phc_nNUNKAHMsXobKfZbD7pJ9X2dM88A5895nyhbJvyWDCHV"
-            host = "https://us.i.posthog.com"
-
-        if api_key and api_key != "your_posthog_project_api_key_here":
-            try:
-                from posthog import Posthog
-
-                self.posthog_client = Posthog(api_key, host=host)
-                self.posthog_enabled = True
-                logger.info("[PostHog] Initialized successfully.")
-            except Exception as e:
-                logger.warning(f"[PostHog] Failed to import/initialize posthog: {e}")
-
-    def _track_event(self, event_name, properties=None):
-        if (
-            not self.posthog_enabled
-            or not self.posthog_client
-            or not self.anonymous_user_id
-        ):
-            return
-        try:
-            self.posthog_client.capture(
-                distinct_id=self.anonymous_user_id,
-                event=event_name,
-                properties=properties or {},
-            )
-            self.posthog_client.flush()
-        except Exception as e:
-            logger.debug(f"[PostHog] Failed to capture event '{event_name}': {e}")
 
     def apply_theme(self, theme_style):
         if isinstance(theme_style, bool):

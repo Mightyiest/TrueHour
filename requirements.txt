@@ -3,7 +3,6 @@ pyobjc-framework-Cocoa; sys_platform == 'darwin'
 psutil
 pyinstaller
 PyQt6
-posthog
 python-dotenv
 pytest
 pytest-qt

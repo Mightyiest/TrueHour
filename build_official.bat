@@ -1,9 +1,6 @@
 @echo off
 for /f "delims=" %%A in ('python -c "import version; print(version.__version__)"') do set "VERSION=%%A"
-echo Building TrueHours_%VERSION% (Official Release with Telemetry ON)...
-
-:: Inject build-time configuration to enable telemetry
-echo TELEMETRY_ENABLED = True > telemetry_config.py
+echo Building TrueHours_%VERSION%...
 
 :: Check if pyinstaller is available in PATH to avoid shell error printout
 where pyinstaller >nul 2>nul
@@ -21,11 +18,9 @@ if %ERRORLEVEL% equ 0 (
     rmdir /s /q build
     rmdir /s /q dist
     del /f /q "TrueHours_%VERSION%.spec"
-    del /f /q telemetry_config.py
     echo Build complete!
 ) else (
     echo Cleaning up...
-    del /f /q telemetry_config.py
     echo Build failed.
 )
 pause

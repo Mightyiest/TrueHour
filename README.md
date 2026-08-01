@@ -229,14 +229,7 @@ A: Click the **📂 (Folder)** icon in the top right header to open the Session 
 
 **Q: Does this send data online?**
 
-A: **No personal or sensitive tracking data is ever sent online.** By default, **only the official prebuilt application releases** (compiled `.exe` or `.app` binaries) have anonymous tracking via **PostHog** enabled to help monitor active usage and app stability. If you compile or run the application from the open-source source code yourself, tracking is **completely disabled by default** (unless you explicitly set up your own local `.env` file). 
-
-By using the prebuilt binary releases, you agree to the collection of three basic events:
-- **`app_started`**: Triggered when the application is launched (includes operating system platform and version).
-- **`tracking_started`**: Triggered when you start the tracking timer.
-- **`tracking_stopped`**: Triggered when you stop the tracking timer (includes anonymous aggregate session duration and app counts).
-
-All metrics are bound to a randomly generated, anonymous installation ID stored locally in your settings. No emails, billing details, names, active window titles, or keystrokes are ever captured. You can easily disable this tracking at any time by leaving the `POSTHOG_API_KEY` empty in your local `.env` file in the application directory.
+A: **No.** TrueHour is a 100% offline-first application with **zero telemetry tracking**. No analytics, usage events, window titles, keystrokes, or personal data are ever sent online. All tracking data remains exclusively on your local machine.
 
 **Q: Was AI Used in this Project?**
 
