@@ -42,8 +42,14 @@ def get_client_secrets_path() -> str:
 
 
 def get_token_path() -> str:
-    """Return path to token.json stored in appdata directory."""
-    return os.path.join(get_app_data_dir(), "token.json")
+    """Return path to token.json stored in active profile or root appdata directory."""
+    profile_token = os.path.join(get_app_data_dir(), "token.json")
+    if os.path.exists(profile_token):
+        return profile_token
+    root_token = os.path.join(get_app_data_root(), "token.json")
+    if os.path.exists(root_token):
+        return root_token
+    return profile_token
 
 
 def get_legacy_token_path() -> str:
@@ -58,13 +64,26 @@ def _load_credentials_from_file():
     token_path = get_token_path()
     legacy_path = get_legacy_token_path()
 
-    if os.path.exists(token_path):
+    # Search profile token, root token, or any existing profile token
+    search_paths = [token_path, os.path.join(get_app_data_root(), "token.json")]
+    root_profiles = os.path.join(get_app_data_root(), "profiles")
+    if os.path.exists(root_profiles):
         try:
-            with open(token_path, "r", encoding="utf-8") as f:
-                info = json.load(f)
-            return Credentials.from_authorized_user_info(info, SCOPES)
-        except Exception as e:
-            logger.warning("Error reading token.json: %s", e)
+            for p in os.listdir(root_profiles):
+                p_token = os.path.join(root_profiles, p, "token.json")
+                if p_token not in search_paths and os.path.exists(p_token):
+                    search_paths.append(p_token)
+        except Exception:
+            pass
+
+    for tp in search_paths:
+        if os.path.exists(tp):
+            try:
+                with open(tp, "r", encoding="utf-8") as f:
+                    info = json.load(f)
+                return Credentials.from_authorized_user_info(info, SCOPES)
+            except Exception as e:
+                logger.warning("Error reading token file %s: %s", tp, e)
 
     # Clean up legacy pickle token file if present without unpickling
     if os.path.exists(legacy_path):
@@ -78,10 +97,11 @@ def _load_credentials_from_file():
 
 
 def _save_credentials_to_file(creds, user_info=None):
-    """Helper to save credentials and user info to token.json."""
+    """Helper to save credentials and user info to token.json in both profile and root."""
     if not creds:
         return
     token_path = get_token_path()
+    root_token_path = os.path.join(get_app_data_root(), "token.json")
     try:
         data = json.loads(creds.to_json())
         if not user_info and os.path.exists(token_path):
@@ -95,13 +115,18 @@ def _save_credentials_to_file(creds, user_info=None):
         if user_info and isinstance(user_info, dict):
             data["user_info"] = user_info
 
-        with open(token_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
-
-        try:
-            os.chmod(token_path, 0o600)
-        except Exception:
-            pass
+        # Save to active profile and app data root for profile portability
+        for path in set([token_path, root_token_path]):
+            try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=4)
+                try:
+                    os.chmod(path, 0o600)
+                except Exception:
+                    pass
+            except Exception as inner_e:
+                logger.warning("Failed writing token to %s: %s", path, inner_e)
     except Exception as e:
         logger.error("Failed saving token.json: %s", e)
 
@@ -405,9 +430,20 @@ def sign_out() -> bool:
 
     token_path = get_token_path()
     legacy_path = get_legacy_token_path()
+    root_token = os.path.join(get_app_data_root(), "token.json")
     success = True
 
-    for tp in (token_path, legacy_path):
+    paths_to_delete = set([token_path, legacy_path, root_token])
+    root_profiles = os.path.join(get_app_data_root(), "profiles")
+    if os.path.exists(root_profiles):
+        try:
+            for p in os.listdir(root_profiles):
+                paths_to_delete.add(os.path.join(root_profiles, p, "token.json"))
+                paths_to_delete.add(os.path.join(root_profiles, p, "token.pickle"))
+        except Exception:
+            pass
+
+    for tp in paths_to_delete:
         if os.path.exists(tp):
             try:
                 os.remove(tp)

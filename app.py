@@ -304,30 +304,47 @@ class TrueHourApp(QMainWindow):
         # ── Background Google Drive Sync ──────────────────────────────
         QTimer.singleShot(6000, self._trigger_deferred_drive_sync)
 
+        # Periodic background Google Drive auto-sync (every 30 minutes)
+        self._drive_sync_timer = QTimer(self)
+        self._drive_sync_timer.timeout.connect(self._trigger_deferred_drive_sync)
+        self._drive_sync_timer.start(30 * 60 * 1000)
 
     def _trigger_deferred_drive_sync(self):
         try:
             import drive_sync
             from workers.drive_sync_worker import DriveSyncWorker
 
-            if drive_sync.is_authenticated() and getattr(self, "app_settings", {}).get(
-                "google_drive_auto_sync", False
+            if not drive_sync.is_authenticated():
+                logger.debug("[DriveSync] Skipped auto cloud sync: user not authenticated with Google Drive.")
+                return
+
+            if not getattr(self, "google_drive_auto_sync", True):
+                logger.debug("[DriveSync] Skipped auto cloud sync: google_drive_auto_sync is disabled.")
+                return
+
+            if (
+                hasattr(self, "_app_drive_worker")
+                and self._app_drive_worker
+                and self._app_drive_worker.isRunning()
             ):
-                logger.info("[DriveSync] Triggering background startup cloud sync...")
-                profile = getattr(self, "active_profile", "Default")
-                self._app_drive_worker = DriveSyncWorker(profile_name=profile, parent=self)
+                logger.info("[DriveSync] Background cloud sync already in progress, skipping duplicate.")
+                return
 
-                def _on_startup_sync_finished(success, result, err):
-                    if success:
-                        archive_name = result.get("archive_name", "") if isinstance(result, dict) else ""
-                        logger.info(f"[DriveSync] Startup sync finished successfully: archive={archive_name}")
-                    else:
-                        logger.warning(f"[DriveSync] Startup sync failed: {err}")
+            logger.info("[DriveSync] Triggering background cloud sync...")
+            profile = getattr(self, "active_profile", "Default")
+            self._app_drive_worker = DriveSyncWorker(profile_name=profile, parent=self)
 
-                self._app_drive_worker.finished.connect(_on_startup_sync_finished)
-                self._app_drive_worker.start()
+            def _on_sync_finished(success, result, err):
+                if success:
+                    archive_name = result.get("archive_name", "") if isinstance(result, dict) else ""
+                    logger.info(f"[DriveSync] Cloud sync finished successfully: archive={archive_name}")
+                else:
+                    logger.warning(f"[DriveSync] Cloud sync failed: {err}")
+
+            self._app_drive_worker.finished.connect(_on_sync_finished)
+            self._app_drive_worker.start()
         except Exception as e:
-            logger.warning(f"[DriveSync] Startup sync trigger failed: {e}")
+            logger.warning(f"[DriveSync] Cloud sync trigger failed: {e}")
 
     def _toggle_debug_console(self):
         import subprocess
@@ -670,18 +687,35 @@ class TrueHourApp(QMainWindow):
         except Exception:
             pass
 
+        if hasattr(self, "_drive_sync_timer"):
+            try:
+                self._drive_sync_timer.stop()
+            except Exception:
+                pass
+
         if hasattr(self, "web_server_mgr"):
             self.web_server_mgr.stop()
 
-        if (
-            hasattr(self, "_app_drive_worker")
-            and self._app_drive_worker
-            and self._app_drive_worker.isRunning()
-        ):
-            logger.info(
-                "[DriveSync] Waiting for background cloud sync thread to finish..."
-            )
-            self._app_drive_worker.wait(3000)
+        # Trigger automatic cloud sync on app close if authenticated and auto-sync is enabled
+        try:
+            import drive_sync
+            if drive_sync.is_authenticated() and getattr(self, "google_drive_auto_sync", True):
+                if (
+                    hasattr(self, "_app_drive_worker")
+                    and self._app_drive_worker
+                    and self._app_drive_worker.isRunning()
+                ):
+                    logger.info("[DriveSync] Waiting for active cloud sync thread on exit...")
+                    self._app_drive_worker.wait(4000)
+                else:
+                    logger.info("[DriveSync] Running exit cloud sync...")
+                    profile = getattr(self, "active_profile", "Default")
+                    from workers.drive_sync_worker import DriveSyncWorker
+                    self._app_drive_worker = DriveSyncWorker(profile_name=profile, parent=self)
+                    self._app_drive_worker.start()
+                    self._app_drive_worker.wait(4000)
+        except Exception as e:
+            logger.warning(f"[DriveSync] Exit cloud sync failed: {e}")
 
         event.accept()
 
@@ -1688,6 +1722,7 @@ class TrueHourApp(QMainWindow):
         self.dark_mode = False
         self.theme_style = "light"
         self.anonymous_user_id = ""
+        self.google_drive_auto_sync = True
 
         if os.path.exists(APP_SETTINGS_FILE):
             try:
@@ -1696,6 +1731,7 @@ class TrueHourApp(QMainWindow):
                     self.confirm_on_close = data.get("confirm_on_close", True)
                     self.min_track_seconds = data.get("min_track_seconds", 2)
                     self.auto_save_seconds = data.get("auto_save_seconds", 10)
+                    self.google_drive_auto_sync = data.get("google_drive_auto_sync", True)
                     raw_curr = data.get("currency_symbol", "$")
                     self.currency_symbol = (
                         str(raw_curr).split()[0].split("(")[0].strip()
@@ -1874,6 +1910,7 @@ class TrueHourApp(QMainWindow):
                 "anonymous_user_id": self.anonymous_user_id,
                 "enable_distraction_auto_pause": self.enable_distraction_auto_pause,
                 "distraction_apps": self.distraction_apps,
+                "google_drive_auto_sync": getattr(self, "google_drive_auto_sync", True),
             }
             with open(APP_SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
@@ -2056,6 +2093,7 @@ class TrueHourApp(QMainWindow):
             "enable_goal_tray_alerts": self.enable_goal_tray_alerts,
             "enable_distraction_auto_pause": self.enable_distraction_auto_pause,
             "distraction_apps": self.distraction_apps,
+            "google_drive_auto_sync": getattr(self, "google_drive_auto_sync", True),
         }
 
         dialog = SettingsDialog(current_settings, self)
@@ -2140,6 +2178,7 @@ class TrueHourApp(QMainWindow):
                 "enable_distraction_auto_pause", False
             )
             self.distraction_apps = new_settings.get("distraction_apps", [])
+            self.google_drive_auto_sync = new_settings.get("google_drive_auto_sync", True)
             self.tracker.enable_distraction_auto_pause = (
                 self.enable_distraction_auto_pause
             )
@@ -2213,7 +2252,9 @@ class TrueHourApp(QMainWindow):
         from dialogs.save_dialog import SaveSessionDialog
 
         dialog = SaveSessionDialog(report, theme_style=self.theme_style, parent=self)
-        dialog.exec()
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Trigger automatic cloud sync immediately after session is saved
+            self._trigger_deferred_drive_sync()
 
     def _export(self, report, fmt):
         logger.info(f"[Action] Commencing report export to format: '{fmt}'")
@@ -2338,6 +2379,9 @@ class TrueHourApp(QMainWindow):
                 self.earnings_label.setText(f"💰 {self.currency_symbol}0.00 earned")
             else:
                 self.earnings_label.setText(" ")
+
+            # Trigger background cloud sync for the newly loaded profile
+            QTimer.singleShot(1000, self._trigger_deferred_drive_sync)
 
             if show_message:
                 QMessageBox.information(

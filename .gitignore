@@ -57,5 +57,23 @@ token.pickle
 token.json
 *.token
 
-# Personal agent custom skills
+# Personal agent custom skills & config
 .agents/
+.claude/
+
+# User Data, Reports, Backups & Invoices (Confidential / Private)
+reports/
+sessions/
+autosave/
+profiles/
+*.truehour
+*.db
+*.sqlite
+*.sqlite3
+*.pdf
+*.csv
+truehour_*.html
+TrueHour_*.html
+Invoice_*.html
+FocusLog_*.html
+

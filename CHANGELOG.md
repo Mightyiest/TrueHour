@@ -2,6 +2,16 @@
 
 All notable changes to TrueHour will be documented in this file.
 
+## [4.1.0-beta.1] - 2026-08-25
+
+### Added
+- **Multi-Trigger Automatic Google Drive Cloud Sync**: Continuous background cloud backup engine that automatically pushes single-archive `.truehour` backups to Google Drive on session completion/save, every 30 minutes in the background, 6 seconds post-startup, and immediately prior to application exit.
+- **Cross-Profile Authentication Portability**: Upgraded token management in `drive_sync.py` to discover and synchronize OAuth 2.0 credentials across active profile directories and root app data, preventing accidental sign-outs when switching profiles.
+
+### Fixed
+- **Cloud Auto-Sync Default State**: Resolved configuration default mismatch where Google Drive auto-sync showed as enabled in UI but evaluated to `False` in backend settings loaders.
+- **PyQt6 Framework Consistency in Tests**: Fixed stray PySide6 imports in `test_drive_sync.py` to maintain full test suite compatibility on PyQt6.
+
 ## [4.0.0-beta.4] - 2026-08-02
 
 ### Added

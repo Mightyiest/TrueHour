@@ -18,7 +18,8 @@ def test_get_client_secrets_path():
 
 def test_is_authenticated_false_when_missing(tmp_path):
     with patch("drive_sync.get_token_path", return_value=str(tmp_path / "nonexistent.json")), \
-         patch("drive_sync.get_legacy_token_path", return_value=str(tmp_path / "nonexistent.pickle")):
+         patch("drive_sync.get_legacy_token_path", return_value=str(tmp_path / "nonexistent.pickle")), \
+         patch("drive_sync.get_app_data_root", return_value=str(tmp_path)):
         assert drive_sync.is_authenticated() is False
 
 
@@ -46,7 +47,8 @@ def test_sign_out(tmp_path):
     token_file.write_text("mock token data")
 
     with patch("drive_sync.get_token_path", return_value=str(token_file)), \
-         patch("drive_sync.get_legacy_token_path", return_value=str(tmp_path / "nonexistent.pickle")):
+         patch("drive_sync.get_legacy_token_path", return_value=str(tmp_path / "nonexistent.pickle")), \
+         patch("drive_sync.get_app_data_root", return_value=str(tmp_path)):
         assert os.path.exists(str(token_file))
         result = drive_sync.sign_out()
         assert result is True
@@ -166,7 +168,7 @@ def test_restore_from_cloud_missing_backup_raises():
 
 def test_drive_restore_worker_failure_emission():
     from workers.drive_sync_worker import DriveRestoreWorker
-    from PySide6.QtCore import QCoreApplication
+    from PyQt6.QtCore import QCoreApplication
 
     app = QCoreApplication.instance() or QCoreApplication([])
 
@@ -200,3 +202,45 @@ def test_zip_slip_validation(tmp_path):
     with patch("core.backup_manager.get_app_data_root", return_value=str(root_dir)):
         status = import_settings(bad_zip, "Default")
         assert status == "error"
+
+
+def test_drive_sync_worker_success_emission():
+    from workers.drive_sync_worker import DriveSyncWorker
+    from PyQt6.QtCore import QCoreApplication
+
+    app = QCoreApplication.instance() or QCoreApplication([])
+
+    worker = DriveSyncWorker(profile_name="Default")
+    emitted = []
+
+    def handle_finished(success, result, err):
+        emitted.append((success, result, err))
+
+    worker.finished.connect(handle_finished)
+
+    mock_res = {"status": "success", "archive_name": "backup_Default.truehour"}
+    with patch("drive_sync.sync_to_cloud", return_value=mock_res):
+        worker.run()
+
+    assert len(emitted) == 1
+    assert emitted[0][0] is True
+    assert emitted[0][1]["archive_name"] == "backup_Default.truehour"
+
+
+def test_token_discovery_across_root_and_profiles(tmp_path):
+    root_dir = tmp_path / "app_root"
+    root_dir.mkdir()
+    prof_dir = root_dir / "profiles" / "MightyProfile"
+    prof_dir.mkdir(parents=True)
+    token_file = prof_dir / "token.json"
+    token_file.write_text('{"token": "mock_profile_token", "refresh_token": "refresh"}')
+
+    active_dir = tmp_path / "empty_active_profile"
+    active_dir.mkdir()
+
+    with patch("drive_sync.get_app_data_dir", return_value=str(active_dir)), \
+         patch("drive_sync.get_app_data_root", return_value=str(root_dir)), \
+         patch("drive_sync.get_legacy_token_path", return_value=str(tmp_path / "nonexistent.pickle")), \
+         patch("google.oauth2.credentials.Credentials.from_authorized_user_info", return_value=DummyCreds(valid=True)):
+        assert drive_sync.is_authenticated() is True
+

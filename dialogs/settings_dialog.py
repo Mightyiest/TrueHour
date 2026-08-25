@@ -868,7 +868,7 @@ class SettingsDialog(QDialog):
 
         drive_layout.addLayout(drive_btn_row)
 
-        self.cb_drive_auto = QCheckBox("Automatically backup settings and sessions on startup", drive_box)
+        self.cb_drive_auto = QCheckBox("Automatically sync to Google Drive (startup, session save, and periodic)", drive_box)
         self.cb_drive_auto.setChecked(self.settings.get("google_drive_auto_sync", True))
         self.cb_drive_auto.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px;")
         self.cb_drive_auto.toggled.connect(lambda val: self.settings.__setitem__("google_drive_auto_sync", val))
@@ -1307,6 +1307,8 @@ class SettingsDialog(QDialog):
                 self.cb_distract.isChecked()
             )
             self.settings["distraction_apps"] = list(self._distraction_apps_local)
+            if hasattr(self, "cb_drive_auto"):
+                self.settings["google_drive_auto_sync"] = self.cb_drive_auto.isChecked()
 
             self.settings_saved.emit(self.settings)
             self.accept()
