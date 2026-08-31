@@ -244,3 +244,35 @@ def test_token_discovery_across_root_and_profiles(tmp_path):
          patch("google.oauth2.credentials.Credentials.from_authorized_user_info", return_value=DummyCreds(valid=True)):
         assert drive_sync.is_authenticated() is True
 
+
+def test_fading_version_label_sync_progress_and_finished(qtbot):
+    from widgets.update_label import FadingVersionLabel
+
+    lbl = FadingVersionLabel("v4.1.0-beta.1 · Build 2026.08.25")
+    qtbot.addWidget(lbl)
+
+    # Initial state
+    assert lbl.text() == "v4.1.0-beta.1 · Build 2026.08.25"
+    assert not lbl._is_syncing
+
+    # Show progress
+    lbl.show_sync_progress("Uploading to Drive... 75%", percent=75)
+    assert lbl._is_syncing is True
+    assert "75%" in lbl.text()
+    assert lbl._spinner_timer.isActive() is True
+
+    # Spinner animation tick
+    initial_text = lbl.text()
+    lbl._on_spinner_tick()
+    # Spinner frame should rotate
+    assert lbl._is_syncing is True
+    assert "75%" in lbl.text()
+
+    # Show finished success
+    lbl.show_sync_finished(True, "Cloud backup complete")
+    assert lbl._is_syncing is False
+    assert lbl._spinner_timer.isActive() is False
+    assert "✓ Cloud backup complete" in lbl.text()
+    assert lbl._restore_timer.isActive() is True
+
+

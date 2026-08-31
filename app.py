@@ -331,20 +331,37 @@ class TrueHourApp(QMainWindow):
                 return
 
             logger.info("[DriveSync] Triggering background cloud sync...")
+            if hasattr(self, "ver_lbl") and self.ver_lbl:
+                self.ver_lbl.show_sync_progress(msg="Syncing to Google Drive... 10%", percent=10)
+
             profile = getattr(self, "active_profile", "Default")
             self._app_drive_worker = DriveSyncWorker(profile_name=profile, parent=self)
+
+            def _on_sync_progress(msg):
+                if hasattr(self, "ver_lbl") and self.ver_lbl:
+                    import re
+                    match = re.search(r"\((\d+)%\)", msg)
+                    pct = int(match.group(1)) if match else None
+                    self.ver_lbl.show_sync_progress(msg=msg, percent=pct)
 
             def _on_sync_finished(success, result, err):
                 if success:
                     archive_name = result.get("archive_name", "") if isinstance(result, dict) else ""
                     logger.info(f"[DriveSync] Cloud sync finished successfully: archive={archive_name}")
+                    if hasattr(self, "ver_lbl") and self.ver_lbl:
+                        self.ver_lbl.show_sync_finished(True, "Cloud backup complete")
                 else:
                     logger.warning(f"[DriveSync] Cloud sync failed: {err}")
+                    if hasattr(self, "ver_lbl") and self.ver_lbl:
+                        self.ver_lbl.show_sync_finished(False, "Cloud sync failed")
 
+            self._app_drive_worker.progress.connect(_on_sync_progress)
             self._app_drive_worker.finished.connect(_on_sync_finished)
             self._app_drive_worker.start()
         except Exception as e:
             logger.warning(f"[DriveSync] Cloud sync trigger failed: {e}")
+            if hasattr(self, "ver_lbl") and self.ver_lbl:
+                self.ver_lbl.show_sync_finished(False, "Cloud sync failed")
 
     def _toggle_debug_console(self):
         import subprocess
@@ -696,26 +713,20 @@ class TrueHourApp(QMainWindow):
         if hasattr(self, "web_server_mgr"):
             self.web_server_mgr.stop()
 
-        # Trigger automatic cloud sync on app close if authenticated and auto-sync is enabled
+        # Wait for any active background cloud sync to safely finish before exiting
         try:
-            import drive_sync
-            if drive_sync.is_authenticated() and getattr(self, "google_drive_auto_sync", True):
-                if (
-                    hasattr(self, "_app_drive_worker")
-                    and self._app_drive_worker
-                    and self._app_drive_worker.isRunning()
-                ):
-                    logger.info("[DriveSync] Waiting for active cloud sync thread on exit...")
-                    self._app_drive_worker.wait(4000)
-                else:
-                    logger.info("[DriveSync] Running exit cloud sync...")
-                    profile = getattr(self, "active_profile", "Default")
-                    from workers.drive_sync_worker import DriveSyncWorker
-                    self._app_drive_worker = DriveSyncWorker(profile_name=profile, parent=self)
-                    self._app_drive_worker.start()
-                    self._app_drive_worker.wait(4000)
+            if (
+                hasattr(self, "_app_drive_worker")
+                and self._app_drive_worker
+                and self._app_drive_worker.isRunning()
+            ):
+                logger.info("[DriveSync] Waiting for active cloud sync thread to finish on exit...")
+                finished_cleanly = self._app_drive_worker.wait(5000)
+                if not finished_cleanly:
+                    logger.warning("[DriveSync] Cloud sync thread did not finish within timeout; detaching safely.")
+                    self._app_drive_worker.setParent(None)
         except Exception as e:
-            logger.warning(f"[DriveSync] Exit cloud sync failed: {e}")
+            logger.warning(f"[DriveSync] Exit cloud sync wait failed: {e}")
 
         event.accept()
 

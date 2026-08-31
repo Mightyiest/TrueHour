@@ -1,8 +1,7 @@
 """
-TrueHour — Fading Version / Update-Available Label Widget.
-Alternates between the current version string and an "Update available"
-message with a smooth fade-in / fade-out animation until the user
-acknowledges or dismisses the update.
+TrueHour — Fading Version / Update-Available / Cloud Sync Label Widget.
+Alternates between the current version string, an "Update available" message,
+and real-time circulating cloud synchronization loading & completion states.
 """
 
 import webbrowser
@@ -18,17 +17,19 @@ GITHUB_RELEASES_URL = "https://github.com/Mightyiest/TrueHour/releases"
 
 class FadingVersionLabel(QLabel):
     """
-    A QLabel that, when an update is available, crossfades between the
-    normal version text and an accent-coloured "Update available" hint.
-
-    When no update is flagged it behaves exactly like a plain QLabel
-    (including forwarding clicks for the developer-mode easter egg).
+    A QLabel that displays version & build metadata, with support for:
+    1. Circulating animated spinner & percentage during Google Drive cloud sync.
+    2. Confirmation checkmark status upon backup/sync completion with auto-revert.
+    3. Update-available notification crossfades.
+    4. Developer easter egg click handling.
     """
 
     # Duration of one fade-out or fade-in leg (ms)
     FADE_DURATION = 600
     # How long each text stays fully visible before switching (ms)
     DISPLAY_HOLD = 3000
+    # Circulating Braille spinner animation frames
+    SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
     def __init__(self, version_text: str, parent=None):
         super().__init__(version_text, parent)
@@ -39,7 +40,13 @@ class FadingVersionLabel(QLabel):
         self._showing_update = False
         self._update_available = False
         self._is_dark = False
-        self._dismissed = False  # True after user clicks "No" — animation keeps going
+        self._dismissed = False
+
+        # Cloud sync state
+        self._is_syncing = False
+        self._spinner_index = 0
+        self._current_sync_msg = ""
+        self._current_sync_percent = None
 
         # External callback for the developer-mode easter egg
         self._version_click_handler = None
@@ -58,12 +65,111 @@ class FadingVersionLabel(QLabel):
         self._anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
         self._anim.finished.connect(self._on_animation_finished)
 
-        # Timer that triggers fade transitions
+        # Timer that triggers fade transitions for updates
         self._cycle_timer = QTimer(self)
         self._cycle_timer.setSingleShot(True)
         self._cycle_timer.timeout.connect(self._start_fade_out)
 
-    # ── Public API ───────────────────────────────────────────────────
+        # Spinner animation timer for real-time circulating loading
+        self._spinner_timer = QTimer(self)
+        self._spinner_timer.setInterval(80)
+        self._spinner_timer.timeout.connect(self._on_spinner_tick)
+
+        # Restore timer to return to normal version text after confirmation
+        self._restore_timer = QTimer(self)
+        self._restore_timer.setSingleShot(True)
+        self._restore_timer.timeout.connect(self._restore_normal_display)
+
+    # ── Cloud Sync Status API ────────────────────────────────────────
+
+    def show_sync_progress(self, msg: str = "Syncing in progress...", percent: int = None):
+        """Display circulating loading spinner with sync progress/percentage."""
+        self._restore_timer.stop()
+        if self._cycle_timer.isActive():
+            self._cycle_timer.stop()
+        self._anim.stop()
+        self._opacity.setOpacity(1.0)
+
+        self._is_syncing = True
+        self._current_sync_msg = msg
+        self._current_sync_percent = percent
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.setToolTip(f"Google Drive Cloud Backup: {msg}")
+
+        if not self._spinner_timer.isActive():
+            self._spinner_timer.start()
+
+        self._update_sync_display()
+
+    def show_sync_finished(self, success: bool = True, message: str = ""):
+        """Display completion confirmation and start revert countdown."""
+        self._spinner_timer.stop()
+        self._is_syncing = False
+        self._opacity.setOpacity(1.0)
+
+        if success:
+            confirm_text = f"✓ {message or 'Cloud backup complete'}"
+            self.setText(confirm_text)
+            self._apply_success_style()
+            self.setToolTip("Google Drive Cloud Backup synchronized successfully.")
+        else:
+            err_text = f"⚠️ {message or 'Cloud sync failed'}"
+            self.setText(err_text)
+            self._apply_error_style()
+            self.setToolTip(f"Google Drive Sync Issue: {message or 'Could not complete cloud backup'}")
+
+        # Hold confirmation for 4.5 seconds before smoothly restoring version
+        self._restore_timer.start(4500)
+
+    def _on_spinner_tick(self):
+        """Cycle circulating spinner frames."""
+        self._spinner_index = (self._spinner_index + 1) % len(self.SPINNER_FRAMES)
+        self._update_sync_display()
+
+    def _update_sync_display(self):
+        """Render current spinner frame and sync status message."""
+        frame = self.SPINNER_FRAMES[self._spinner_index]
+        if self._current_sync_percent is not None:
+            text = f"{frame} Syncing in progress... {self._current_sync_percent}%"
+        elif self._current_sync_msg:
+            text = f"{frame} {self._current_sync_msg}"
+        else:
+            text = f"{frame} Syncing to Google Drive..."
+
+        self.setText(text)
+        self._apply_sync_style()
+
+    def _restore_normal_display(self):
+        """Smoothly cross-fade from confirmation back to default version text."""
+        if self._is_syncing:
+            return
+
+        self._anim.stop()
+        self._anim.setStartValue(1.0)
+        self._anim.setEndValue(0.0)
+
+        def _on_faded_out():
+            try:
+                self._anim.finished.disconnect(_on_faded_out)
+            except Exception:
+                pass
+            if self._is_syncing:
+                return
+            self.setText(self._version_text)
+            self._apply_base_style()
+            self.setToolTip("")
+            self._anim.setStartValue(0.0)
+            self._anim.setEndValue(1.0)
+            self._anim.start()
+
+            # Resume update cycles if an update was waiting
+            if self._update_available and not self._dismissed:
+                self._cycle_timer.start(self.DISPLAY_HOLD)
+
+        self._anim.finished.connect(_on_faded_out)
+        self._anim.start()
+
+    # ── Update Notification API ──────────────────────────────────────
 
     def set_update_available(
         self, available: bool, new_version: str = "", release_url: str = ""
@@ -76,13 +182,16 @@ class FadingVersionLabel(QLabel):
             self._update_text = f"✨ {new_version} available"
         if release_url:
             self._release_url = release_url
+
+        if self._is_syncing:
+            return
+
         if available:
             self.setCursor(Qt.CursorShape.PointingHandCursor)
             self.setToolTip(f"Click to view {new_version or 'the latest release'}")
             self._showing_update = False
             self.setText(self._version_text)
             self._opacity.setOpacity(1.0)
-            # Kick off the first cycle after a brief pause
             self._cycle_timer.start(self.DISPLAY_HOLD)
         else:
             self._stop_animation()
@@ -98,13 +207,16 @@ class FadingVersionLabel(QLabel):
 
     def update_theme(self, is_dark: bool):
         self._is_dark = is_dark
-        self._apply_base_style()
+        if self._is_syncing:
+            self._apply_sync_style()
+        else:
+            self._apply_base_style()
 
     # ── Animation cycle ──────────────────────────────────────────────
 
     def _start_fade_out(self):
         """Fade the current text to invisible."""
-        if not self._update_available:
+        if not self._update_available or self._is_syncing:
             return
         self._anim.stop()
         self._anim.setStartValue(1.0)
@@ -113,12 +225,11 @@ class FadingVersionLabel(QLabel):
 
     def _on_animation_finished(self):
         """Handle transition after fade-out or fade-in completes."""
-        if not self._update_available:
+        if not self._update_available or self._is_syncing:
             return
 
         end_val = self._anim.endValue()
         if end_val == 0.0:
-            # We faded out. Swap text, apply style, and fade back in.
             self._showing_update = not self._showing_update
             if self._showing_update:
                 self.setText(self._update_text)
@@ -132,7 +243,6 @@ class FadingVersionLabel(QLabel):
             self._anim.setEndValue(1.0)
             self._anim.start()
         elif end_val == 1.0:
-            # We faded in. Wait DISPLAY_HOLD ms before cycling again.
             self._cycle_timer.start(self.DISPLAY_HOLD)
 
     def _stop_animation(self):
@@ -156,18 +266,40 @@ class FadingVersionLabel(QLabel):
             f"color: {color}; background: transparent; border: none;"
         )
 
+    def _apply_sync_style(self):
+        color = "#60A5FA" if self._is_dark else "#0078D4"
+        self.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 9px; font-weight: 600; "
+            f"color: {color}; background: transparent; border: none;"
+        )
+
+    def _apply_success_style(self):
+        color = "#10B981" if self._is_dark else "#059669"
+        self.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 9px; font-weight: bold; "
+            f"color: {color}; background: transparent; border: none;"
+        )
+
+    def _apply_error_style(self):
+        color = "#EF4444" if self._is_dark else "#DC2626"
+        self.setStyleSheet(
+            f"font-family: 'Segoe UI'; font-size: 9px; font-weight: bold; "
+            f"color: {color}; background: transparent; border: none;"
+        )
+
     # ── Click handling ───────────────────────────────────────────────
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() != Qt.MouseButton.LeftButton:
             return super().mousePressEvent(event)
 
+        if self._is_syncing:
+            return
+
         if self._update_available:
-            # Pause animation while the dialog is shown
             self._stop_animation()
             self._show_update_dialog()
         else:
-            # Forward to the developer-mode easter egg handler
             if self._version_click_handler:
                 self._version_click_handler(event)
 
@@ -194,7 +326,6 @@ class FadingVersionLabel(QLabel):
             else:
                 target_url = GITHUB_RELEASES_URL
             webbrowser.open(target_url)
-            # After opening, keep the label static on version text
             self._update_available = False
             self._showing_update = False
             self.setText(self._version_text)
@@ -202,10 +333,10 @@ class FadingVersionLabel(QLabel):
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.setToolTip("")
         else:
-            # User dismissed — resume the fade animation
             self._dismissed = True
             self._showing_update = False
             self.setText(self._version_text)
             self._apply_base_style()
             self._opacity.setOpacity(1.0)
             self._cycle_timer.start(self.DISPLAY_HOLD)
+

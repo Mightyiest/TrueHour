@@ -243,8 +243,10 @@ def get_or_create_app_folder(service) -> str:
     return folder.get("id")
 
 
-def upload_file_to_drive(service, local_filepath: str, folder_id: str, remote_filename: str = None) -> str:
-    """Upload or update a local file in the Google Drive app folder."""
+def upload_file_to_drive(
+    service, local_filepath: str, folder_id: str, remote_filename: str = None, progress_callback=None
+) -> str:
+    """Upload or update a local file in the Google Drive app folder with progress reporting."""
     from googleapiclient.http import MediaFileUpload
 
     if not os.path.exists(local_filepath):
@@ -261,15 +263,24 @@ def upload_file_to_drive(service, local_filepath: str, folder_id: str, remote_fi
 
     if files:
         file_id = files[0]["id"]
-        updated = service.files().update(fileId=file_id, media_body=media).execute()
-        return updated.get("id")
+        request = service.files().update(fileId=file_id, media_body=media, fields="id")
     else:
         file_metadata = {
             "name": filename,
             "parents": [folder_id],
         }
-        created = service.files().create(body=file_metadata, media_body=media, fields="id").execute()
-        return created.get("id")
+        request = service.files().create(body=file_metadata, media_body=media, fields="id")
+
+    response = None
+    while response is None:
+        status, response = request.next_chunk()
+        if status and progress_callback:
+            pct = int(50 + (status.progress() * 45))
+            progress_callback(f"Uploading to Drive ({pct}%)...")
+
+    if response:
+        return response.get("id")
+    return None
 
 
 def download_file_from_drive(service, file_id: str, local_filepath: str, progress_callback=None):
@@ -310,6 +321,9 @@ def sync_to_cloud(
     Packs all profile data (settings, active sessions, history, QR codes, logos, logs, database)
     into a single compressed .truehour archive using backup_manager and uploads it to Google Drive.
     """
+    if progress_callback:
+        progress_callback("Syncing to Google Drive (10%)...")
+
     creds, user_info = get_google_credentials(interactive=False)
     if not creds or not creds.valid:
         raise ValueError("User not logged in to Google Drive.")
@@ -331,9 +345,9 @@ def sync_to_cloud(
             logger.warning("Could not read anonymous_user_id from profile settings: %s", e)
 
     if progress_callback:
-        progress_callback(f"Compressing profile data for '{profile_name}'...")
+        progress_callback(f"Compressing profile data (35%)...")
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
         archive_name = f"backup_{profile_name}.truehour"
         tmp_zip_path = os.path.join(tmp_dir, archive_name)
 
@@ -344,9 +358,14 @@ def sync_to_cloud(
             raise RuntimeError(f"Failed to build local backup archive for profile '{profile_name}'.")
 
         if progress_callback:
-            progress_callback(f"Uploading single archive ({archive_name}) to Google Drive...")
+            progress_callback(f"Uploading single archive ({archive_name}) (55%)...")
 
-        file_id = upload_file_to_drive(service, tmp_zip_path, folder_id, remote_filename=archive_name)
+        file_id = upload_file_to_drive(
+            service, tmp_zip_path, folder_id, remote_filename=archive_name, progress_callback=progress_callback
+        )
+
+    if progress_callback:
+        progress_callback("Finalizing cloud sync (100%)...")
 
     sync_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     logger.info("Drive cloud sync completed. Archive uploaded: %s (id: %s)", archive_name, file_id)
@@ -386,7 +405,7 @@ def restore_from_cloud(profile_name: str = "Default", file_id: str = None, passw
                 f"No cloud backup (.truehour) found for profile '{profile_name}' on Google Drive."
             )
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
         tmp_zip_path = os.path.join(tmp_dir, "cloud_restore.truehour")
 
         if progress_callback:
