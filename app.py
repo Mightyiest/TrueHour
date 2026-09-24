@@ -330,12 +330,12 @@ class TrueHourApp(QMainWindow):
                 logger.info("[DriveSync] Background cloud sync already in progress, skipping duplicate.")
                 return
 
-            logger.info("[DriveSync] Triggering background cloud sync...")
+            logger.info("[DriveSync] Triggering background workspace cloud sync...")
             if hasattr(self, "ver_lbl") and self.ver_lbl:
                 self.ver_lbl.show_sync_progress(msg="Syncing to Google Drive... 10%", percent=10)
 
             profile = getattr(self, "active_profile", "Default")
-            self._app_drive_worker = DriveSyncWorker(profile_name=profile, parent=self)
+            self._app_drive_worker = DriveSyncWorker(profile_name=profile, force=False, parent=self)
 
             def _on_sync_progress(msg):
                 if hasattr(self, "ver_lbl") and self.ver_lbl:
@@ -351,17 +351,113 @@ class TrueHourApp(QMainWindow):
                     if hasattr(self, "ver_lbl") and self.ver_lbl:
                         self.ver_lbl.show_sync_finished(True, "Cloud backup complete")
                 else:
-                    logger.warning(f"[DriveSync] Cloud sync failed: {err}")
+                    logger.warning(f"[DriveSync] Cloud sync failed or blocked: {err}")
                     if hasattr(self, "ver_lbl") and self.ver_lbl:
-                        self.ver_lbl.show_sync_finished(False, "Cloud sync failed")
+                        self.ver_lbl.show_sync_finished(False, "Cloud sync paused")
 
             self._app_drive_worker.progress.connect(_on_sync_progress)
             self._app_drive_worker.finished.connect(_on_sync_finished)
+            self._app_drive_worker.safety_blocked.connect(self._on_drive_safety_blocked)
             self._app_drive_worker.start()
         except Exception as e:
             logger.warning(f"[DriveSync] Cloud sync trigger failed: {e}")
             if hasattr(self, "ver_lbl") and self.ver_lbl:
                 self.ver_lbl.show_sync_finished(False, "Cloud sync failed")
+
+    def _on_drive_safety_blocked(self, preflight_data):
+        """Called when DriveSyncWorker safety gate stops an automatic upload."""
+        status = preflight_data.get("status")
+        remote_sessions = preflight_data.get("remote_sessions", 0)
+        remote_size = preflight_data.get("remote_size", 0)
+
+        if status == "prompt_restore":
+            logger.info("[DriveSync] Safety gate blocked upload: fresh install detected with existing cloud backup.")
+            confirm = QMessageBox.question(
+                self,
+                "Cloud Backup Found",
+                (
+                    f"TrueHour detected an existing cloud backup on Google Drive ({remote_size:,} bytes, "
+                    f"approx. {remote_sessions} sessions).\n\n"
+                    "Your local installation currently has 0 recorded sessions. To prevent overwriting your cloud data, "
+                    "would you like to restore your workspace now?"
+                ),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            if confirm == QMessageBox.StandardButton.Yes:
+                self._start_drive_restore()
+        elif status == "conflict_deficit":
+            logger.info("[DriveSync] Safety gate blocked upload: local session deficit detected.")
+            if not getattr(self, "_deficit_prompt_shown", False):
+                self._deficit_prompt_shown = True
+                QMessageBox.warning(
+                    self,
+                    "Cloud Backup Conflict",
+                    (
+                        f"Your Google Drive backup contains more sessions ({remote_sessions}) than this PC "
+                        f"({preflight_data.get('local_sessions', 0)}).\n\n"
+                        "Automatic sync has been paused to protect your cloud data from accidental loss. "
+                        "You can restore from cloud or force sync via Settings > Google Drive Cloud Sync."
+                    ),
+                )
+
+    def _start_drive_restore(self, file_id=None):
+        """Executes full workspace restore from Google Drive."""
+        if getattr(self, "tracker", None) and getattr(self.tracker, "running", False):
+            QMessageBox.warning(
+                self,
+                "Active Tracking Session",
+                "Please stop your current tracking session before restoring from Google Drive.",
+            )
+            return
+
+        from workers.drive_sync_worker import DriveRestoreWorker
+
+        if hasattr(self, "ver_lbl") and self.ver_lbl:
+            self.ver_lbl.show_sync_progress(msg="Restoring from Google Drive...", percent=20)
+
+        self._restore_worker = DriveRestoreWorker(
+            profile_name=getattr(self, "active_profile", "Default"),
+            file_id=file_id,
+            parent=self,
+        )
+
+        def _on_restore_progress(msg):
+            if hasattr(self, "ver_lbl") and self.ver_lbl:
+                self.ver_lbl.show_sync_progress(msg=msg, percent=50)
+
+        def _on_restore_finished(success, result, err):
+            if success:
+                logger.info(f"[DriveSync] Cloud restore successful: {result}")
+                restored_profs = result.get("restored_profiles", [])
+                tot_s = result.get("total_sessions", 0)
+                if hasattr(self, "ver_lbl") and self.ver_lbl:
+                    self.ver_lbl.show_sync_finished(True, "Cloud restore complete")
+
+                target_active = result.get("active_profile", self.active_profile)
+                self._reload_active_profile(target_active, show_message=False)
+
+                QMessageBox.information(
+                    self,
+                    "Cloud Restore Successful",
+                    (
+                        f"Successfully restored {tot_s} sessions across {len(restored_profs)} profile(s) "
+                        f"from Google Drive!\n\nProfiles: {', '.join(restored_profs)}"
+                    ),
+                )
+            else:
+                logger.warning(f"[DriveSync] Cloud restore failed: {err}")
+                if hasattr(self, "ver_lbl") and self.ver_lbl:
+                    self.ver_lbl.show_sync_finished(False, "Cloud restore failed")
+                QMessageBox.critical(
+                    self,
+                    "Cloud Restore Failed",
+                    f"Could not restore from Google Drive:\n{err}",
+                )
+
+        self._restore_worker.progress.connect(_on_restore_progress)
+        self._restore_worker.finished.connect(_on_restore_finished)
+        self._restore_worker.start()
 
     def _toggle_debug_console(self):
         import subprocess

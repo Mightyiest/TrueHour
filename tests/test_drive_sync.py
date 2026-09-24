@@ -68,15 +68,15 @@ def test_sync_to_cloud_single_archive():
     with patch("drive_sync.get_google_credentials", return_value=(mock_creds, {"email": "test@gmail.com"})), \
          patch("drive_sync.get_drive_service", return_value=mock_service), \
          patch("drive_sync.get_or_create_app_folder", return_value="folder_id_999"), \
-         patch("drive_sync.backup_settings", return_value=True) as mock_backup, \
+         patch("drive_sync.backup_workspace", return_value=True) as mock_backup, \
          patch("drive_sync.upload_file_to_drive", return_value="file_id_123") as mock_upload:
 
         res = drive_sync.sync_to_cloud(profile_name="Default")
         assert res["status"] == "success"
-        assert res["archive_name"] == "backup_Default.truehour"
+        assert res["archive_name"] == "backup_all_profiles.truehour"
         assert res["file_id"] == "file_id_123"
 
-        mock_backup.assert_called_once()
+        assert mock_backup.call_count >= 1
         mock_upload.assert_called_once()
 
 

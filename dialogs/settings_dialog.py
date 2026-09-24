@@ -20,6 +20,11 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QApplication,
     QInputDialog,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QRadioButton,
+    QGridLayout,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QSize
 
@@ -35,6 +40,13 @@ from workers.drive_sync_worker import (
     DriveAuthWorker,
     DriveSyncWorker,
     DriveRestoreWorker,
+    DriveRevisionsWorker,
+)
+from core.backup_manager import (
+    backup_settings,
+    backup_workspace,
+    import_workspace,
+    get_workspace_summary,
 )
 
 logger = logging.getLogger(__name__)
@@ -226,12 +238,14 @@ class DistractionAppsDialog(QDialog):
 
 
 class BackupTypeDialog(QDialog):
-    def __init__(self, theme_style, parent=None):
+    def __init__(self, theme_style, active_profile="Default", parent=None):
         super().__init__(parent)
         self.theme_style = theme_style
+        self.active_profile = active_profile
         self.selected_type = None  # "standard", "encrypted", or None
-        self.setWindowTitle("Select Backup Type")
-        self._center_window(360, 220)
+        self.selected_scope = "workspace"  # "workspace" or "profile"
+        self.setWindowTitle("Select Backup Options")
+        self._center_window(400, 310)
 
         # Style matching parent
         from theme import (
@@ -254,15 +268,30 @@ class BackupTypeDialog(QDialog):
         layout.setContentsMargins(18, 16, 18, 16)
         layout.setSpacing(10)
 
-        title = QLabel("Select Backup Type", self)
+        title = QLabel("Backup TrueHour Data", self)
         title.setStyleSheet(
             "font-family: 'Segoe UI'; font-size: 14px; font-weight: bold;"
         )
         layout.addWidget(title)
 
+        scope_box = QGroupBox("Backup Scope", self)
+        scope_layout = QVBoxLayout(scope_box)
+        scope_layout.setSpacing(6)
+
+        self.rb_workspace = QRadioButton("Entire Workspace (All Profiles & Sessions)", scope_box)
+        self.rb_workspace.setChecked(True)
+        self.rb_workspace.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; font-weight: bold;")
+        scope_layout.addWidget(self.rb_workspace)
+
+        self.rb_profile = QRadioButton(f"Current Profile Only ('{self.active_profile}')", scope_box)
+        self.rb_profile.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px;")
+        scope_layout.addWidget(self.rb_profile)
+
+        layout.addWidget(scope_box)
+
         desc = QLabel(
-            "Standard backup removes sensitive banking info. "
-            "Encrypted backup protects it with a password for transfer to other devices.",
+            "Standard backup excludes sensitive banking credentials. "
+            "Encrypted backup protects banking info with a portable password for transfer to other PCs.",
             self,
         )
         desc.setWordWrap(True)
@@ -318,12 +347,161 @@ class BackupTypeDialog(QDialog):
         self.move(x, y)
 
     def _on_standard(self):
+        self.selected_scope = "workspace" if self.rb_workspace.isChecked() else "profile"
         self.selected_type = "standard"
         self.accept()
 
     def _on_encrypted(self):
+        self.selected_scope = "workspace" if self.rb_workspace.isChecked() else "profile"
         self.selected_type = "encrypted"
         self.accept()
+
+
+class CloudRevisionsDialog(QDialog):
+    """Dialog displaying historical revisions of the cloud backup archive on Google Drive."""
+    restore_requested = pyqtSignal(str)  # emits revision_id
+
+    def __init__(self, theme_style, parent=None):
+        super().__init__(parent)
+        self.theme_style = theme_style
+        self.setWindowTitle("Google Drive Backup History")
+        self.resize(620, 420)
+        self.setMinimumSize(520, 320)
+
+        from theme import (
+            get_qss_style,
+            get_dark_palette,
+            get_light_palette,
+            ensure_checkmark_icon,
+        )
+
+        is_dark = theme_style in ["modern-dark", "classic-dark"]
+        qss = get_qss_style(theme_style).replace(
+            "CHECKMARK_PATH", ensure_checkmark_icon(theme_style)
+        )
+        self.setStyleSheet(qss)
+        self.setPalette(
+            get_dark_palette(theme_style) if is_dark else get_light_palette()
+        )
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        header = QLabel("Google Drive Revision History", self)
+        header.setStyleSheet("font-family: 'Segoe UI'; font-size: 15px; font-weight: bold;")
+        layout.addWidget(header)
+
+        desc = QLabel(
+            "All cloud backup revisions are protected with permanent retention. "
+            "Select any past revision to preview and restore it into your workspace.",
+            self,
+        )
+        desc.setWordWrap(True)
+        desc.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B;")
+        layout.addWidget(desc)
+
+        self.table = QTableWidget(self)
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["Date & Time", "Archive Size", "Retention Status", "Action"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        layout.addWidget(self.table)
+
+        self.status_lbl = QLabel("Loading revision history...", self)
+        self.status_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 11px; color: #64748B;")
+        layout.addWidget(self.status_lbl)
+
+        btn_row = QHBoxLayout()
+        self.btn_refresh = QPushButton("Refresh", self)
+        self.btn_refresh.setObjectName("NormalButton")
+        self.btn_refresh.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_refresh.clicked.connect(self._load_revisions)
+        btn_row.addWidget(self.btn_refresh)
+
+        btn_row.addStretch()
+
+        self.btn_close = QPushButton("Close", self)
+        self.btn_close.setObjectName("NormalButton")
+        self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_close.clicked.connect(self.accept)
+        btn_row.addWidget(self.btn_close)
+        layout.addLayout(btn_row)
+
+        self._load_revisions()
+
+    def _load_revisions(self):
+        self.status_lbl.setText("Fetching revision history from Google Drive...")
+        self.btn_refresh.setEnabled(False)
+        self._worker = DriveRevisionsWorker(parent=self)
+        self._worker.finished.connect(self._on_revisions_loaded)
+        self._worker.start()
+
+    def _on_revisions_loaded(self, success, revisions, err):
+        self.btn_refresh.setEnabled(True)
+        if not success or not revisions:
+            self.status_lbl.setText("No historical revisions found or error fetching.")
+            return
+
+        self.table.setRowCount(0)
+        self.status_lbl.setText(f"Found {len(revisions)} cloud backup revision(s).")
+
+        from datetime import datetime
+        sorted_revs = sorted(revisions, key=lambda r: r.get("modifiedTime", ""), reverse=True)
+
+        for row, rev in enumerate(sorted_revs):
+            self.table.insertRow(row)
+            rev_id = rev.get("id", "")
+            mod_time = rev.get("modifiedTime", "")
+            try:
+                dt = datetime.fromisoformat(mod_time.replace("Z", "+00:00"))
+                display_time = dt.strftime("%Y-%m-%d %I:%M %p")
+            except Exception:
+                display_time = mod_time
+
+            sz_bytes = int(rev.get("size") or 0)
+            if sz_bytes >= 1024 * 1024:
+                display_size = f"{sz_bytes / (1024*1024):.1f} MB"
+            elif sz_bytes >= 1024:
+                display_size = f"{sz_bytes / 1024:.1f} KB"
+            else:
+                display_size = f"{sz_bytes} B"
+
+            keep_forever = rev.get("keepForever", False)
+            status_text = "Pinned / Protected" if keep_forever else "Standard"
+
+            self.table.setItem(row, 0, QTableWidgetItem(display_time))
+            self.table.setItem(row, 1, QTableWidgetItem(display_size))
+            self.table.setItem(row, 2, QTableWidgetItem(status_text))
+
+            btn_restore = QPushButton("Restore", self.table)
+            btn_restore.setObjectName("AccentButton" if row == 0 else "NormalButton")
+            btn_restore.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_restore.setStyleSheet("font-size: 11px; padding: 2px 8px;")
+            btn_restore.clicked.connect(
+                lambda checked=False, rid=rev_id, d=display_time, s=display_size: self._confirm_restore(rid, d, s)
+            )
+            self.table.setCellWidget(row, 3, btn_restore)
+
+    def _confirm_restore(self, rev_id, display_time, display_size):
+        confirm = QMessageBox.question(
+            self,
+            "Restore Historical Revision?",
+            (
+                f"Are you sure you want to restore the cloud backup from {display_time} ({display_size})?\n\n"
+                "This will restore all profiles and sessions from that snapshot. "
+                "A local safety snapshot will automatically be created before restoring."
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirm == QMessageBox.StandardButton.Yes:
+            self.restore_requested.emit(rev_id)
+            self.accept()
 
 
 class SettingsDialog(QDialog):
@@ -342,7 +520,8 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.settings = dict(current_settings)  # copy to avoid mutating directly
         self.setWindowTitle("Settings")
-        self._center_window(520, 650)
+        self._center_window(620, 700)
+        self.setMinimumSize(580, 580)
 
         # Load profiles config
         root_dir = get_app_data_root()
@@ -546,10 +725,12 @@ class SettingsDialog(QDialog):
         form_general.setSpacing(6)
 
         self.min_sec_entry = QLineEdit(scroll_general_content)
+        self.min_sec_entry.setFixedWidth(80)
         self.min_sec_entry.setText(str(self.settings.get("min_track_seconds", 2)))
         form_general.addRow("Min activity threshold (secs):", self.min_sec_entry)
 
         self.auto_save_entry = QLineEdit(scroll_general_content)
+        self.auto_save_entry.setFixedWidth(80)
         self.auto_save_entry.setText(str(self.settings.get("auto_save_seconds", 10)))
         form_general.addRow("Auto-save interval (secs):", self.auto_save_entry)
 
@@ -607,6 +788,7 @@ class SettingsDialog(QDialog):
             "R (ZAR)",
         ]
         self.curr_combo = NoWheelComboBox(scroll_general_content)
+        self.curr_combo.setFixedWidth(160)
         self.curr_combo.addItems(currency_options)
         curr_symbol = self.settings.get("currency_symbol", "$")
         matched = [c for c in currency_options if c.startswith(curr_symbol)]
@@ -617,6 +799,7 @@ class SettingsDialog(QDialog):
         form_general.addRow("Currency symbol:", self.curr_combo)
 
         self.rate_entry = QLineEdit(scroll_general_content)
+        self.rate_entry.setFixedWidth(100)
         self.rate_entry.setText(f"{self.settings.get('hourly_rate', 0.0):.2f}")
         form_general.addRow("Hourly rate:", self.rate_entry)
 
@@ -696,15 +879,19 @@ class SettingsDialog(QDialog):
         config_layout.addWidget(btn_overrides)
 
         excl_row = QHBoxLayout()
+        excl_row.setSpacing(6)
         btn_excl = QPushButton("Edit Auto-Exclusions", scroll_general_content)
         btn_excl.setObjectName("NormalButton")
         btn_excl.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_excl.setFixedHeight(30)
         btn_excl.clicked.connect(lambda: _open_file(AUTO_EXCLUDE_FILE))
         excl_row.addWidget(btn_excl, 1)
 
         btn_reload = QPushButton("🔄 Reload", scroll_general_content)
         btn_reload.setObjectName("NormalButton")
         btn_reload.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_reload.setFixedHeight(30)
+        btn_reload.setMinimumWidth(100)
 
         self.reload_status_lbl = QLabel(" ", scroll_general_content)
         self.reload_status_lbl.setStyleSheet("font-size: 11px; font-weight: bold;")
@@ -719,29 +906,35 @@ class SettingsDialog(QDialog):
         )
         btn_categories.setObjectName("NormalButton")
         btn_categories.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_categories.setFixedHeight(30)
         btn_categories.clicked.connect(lambda: self.manage_categories_requested.emit())
         config_layout.addWidget(btn_categories)
 
         btn_about = QPushButton("  About TrueHour", scroll_general_content)
+        btn_about.setObjectName("AboutButton")
         btn_about.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_about.setIcon(get_svg_icon(INFO_SVG, QSize(14, 14), color_hex="#FFFFFF"))
+        is_dark_theme = self.theme_style in ["modern-dark", "classic-dark"]
+        btn_about.setIcon(get_svg_icon(INFO_SVG, QSize(14, 14), color_hex="#F59E0B" if is_dark_theme else "#D97706"))
         btn_about.setIconSize(QSize(14, 14))
+        btn_about.setFixedHeight(30)
         btn_about.setStyleSheet("""
-            QPushButton {
-                background-color: #D97706;
-                color: #FFFFFF;
-                border: none;
-                border-radius: 14px;
-                padding: 6px 16px;
-                font-weight: bold;
+            QPushButton#AboutButton {
+                background-color: transparent;
+                color: #D97706;
+                border: 1px solid #D97706;
+                border-radius: 6px;
+                padding: 4px 14px;
+                font-weight: 600;
                 font-family: 'Segoe UI';
-                font-size: 13px;
+                font-size: 12px;
             }
-            QPushButton:hover {
-                background-color: #B45309;
+            QPushButton#AboutButton:hover {
+                background-color: rgba(217, 119, 6, 0.12);
+                border-color: #B45309;
+                color: #B45309;
             }
-            QPushButton:pressed {
-                background-color: #78350F;
+            QPushButton#AboutButton:pressed {
+                background-color: rgba(217, 119, 6, 0.22);
             }
         """)
         btn_about.clicked.connect(lambda: self.about_requested.emit())
@@ -752,24 +945,27 @@ class SettingsDialog(QDialog):
         # Backup & Restore Group
         backup_box = QGroupBox("Backup && Restore", scroll_general_content)
         backup_layout = QHBoxLayout(backup_box)
-        backup_layout.setContentsMargins(8, 8, 8, 8)
+        backup_layout.setContentsMargins(10, 10, 10, 10)
         backup_layout.setSpacing(8)
 
-        btn_backup = QPushButton("Backup Settings...", scroll_general_content)
+        btn_backup = QPushButton("Backup Workspace...", scroll_general_content)
         btn_backup.setObjectName("AccentButton")
         btn_backup.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_backup.setFixedHeight(32)
         btn_backup.clicked.connect(self._on_backup_clicked)
         backup_layout.addWidget(btn_backup, 1)
 
-        btn_import = QPushButton("Import Settings...", scroll_general_content)
+        btn_import = QPushButton("Import / Restore...", scroll_general_content)
         btn_import.setObjectName("NormalButton")
         btn_import.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_import.setFixedHeight(32)
         btn_import.clicked.connect(self._on_import_clicked)
         backup_layout.addWidget(btn_import, 1)
 
         btn_browse = QPushButton("Open Data Folder", scroll_general_content)
         btn_browse.setObjectName("NormalButton")
         btn_browse.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_browse.setFixedHeight(32)
         btn_browse.clicked.connect(self._on_browse_files_clicked)
         backup_layout.addWidget(btn_browse, 1)
 
@@ -778,16 +974,15 @@ class SettingsDialog(QDialog):
         # Google Drive Cloud Sync Group
         drive_box = QGroupBox("Google Drive Cloud Sync", scroll_general_content)
         drive_layout = QVBoxLayout(drive_box)
-        drive_layout.setContentsMargins(8, 8, 8, 8)
-        drive_layout.setSpacing(6)
+        drive_layout.setContentsMargins(10, 10, 10, 10)
+        drive_layout.setSpacing(8)
 
         self.drive_status_lbl = QLabel("Checking status...", drive_box)
+        self.drive_status_lbl.setWordWrap(True)
         self.drive_status_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px;")
         drive_layout.addWidget(self.drive_status_lbl)
 
-        drive_btn_row = QHBoxLayout()
-        drive_btn_row.setSpacing(6)
-
+        # Disconnected state: Google Sign-in button
         self.btn_drive_auth = QPushButton(" Sign in with Google", drive_box)
         self.btn_drive_auth.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_drive_auth.setIcon(get_svg_icon(GOOGLE_G_SVG, QSize(18, 18)))
@@ -846,27 +1041,43 @@ class SettingsDialog(QDialog):
                 }
             """)
         self.btn_drive_auth.clicked.connect(self._on_drive_auth_clicked)
-        drive_btn_row.addWidget(self.btn_drive_auth, 1)
+        drive_layout.addWidget(self.btn_drive_auth)
 
-        self.btn_drive_sync = QPushButton("Sync Now", drive_box)
-        self.btn_drive_sync.setObjectName("NormalButton")
+        # Connected state: Clean 2x2 grid for sync actions
+        self.drive_actions_widget = QWidget(drive_box)
+        drive_grid = QGridLayout(self.drive_actions_widget)
+        drive_grid.setContentsMargins(0, 0, 0, 0)
+        drive_grid.setSpacing(8)
+
+        self.btn_drive_sync = QPushButton("Sync All Profiles Now", self.drive_actions_widget)
+        self.btn_drive_sync.setObjectName("AccentButton")
         self.btn_drive_sync.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_drive_sync.setFixedHeight(32)
         self.btn_drive_sync.clicked.connect(self._on_drive_sync_clicked)
-        drive_btn_row.addWidget(self.btn_drive_sync, 1)
+        drive_grid.addWidget(self.btn_drive_sync, 0, 0)
 
-        self.btn_drive_restore = QPushButton("Restore from Cloud", drive_box)
+        self.btn_drive_restore = QPushButton("Restore from Cloud", self.drive_actions_widget)
         self.btn_drive_restore.setObjectName("NormalButton")
         self.btn_drive_restore.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_drive_restore.setFixedHeight(32)
         self.btn_drive_restore.clicked.connect(self._on_drive_restore_clicked)
-        drive_btn_row.addWidget(self.btn_drive_restore, 1)
+        drive_grid.addWidget(self.btn_drive_restore, 0, 1)
 
-        self.btn_drive_signout = QPushButton("Sign Out", drive_box)
+        self.btn_drive_history = QPushButton("Revision History...", self.drive_actions_widget)
+        self.btn_drive_history.setObjectName("NormalButton")
+        self.btn_drive_history.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_drive_history.setFixedHeight(32)
+        self.btn_drive_history.clicked.connect(self._on_drive_history_clicked)
+        drive_grid.addWidget(self.btn_drive_history, 1, 0)
+
+        self.btn_drive_signout = QPushButton("Sign Out", self.drive_actions_widget)
         self.btn_drive_signout.setObjectName("NormalButton")
         self.btn_drive_signout.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_drive_signout.setFixedHeight(32)
         self.btn_drive_signout.clicked.connect(self._on_drive_signout_clicked)
-        drive_btn_row.addWidget(self.btn_drive_signout, 1)
+        drive_grid.addWidget(self.btn_drive_signout, 1, 1)
 
-        drive_layout.addLayout(drive_btn_row)
+        drive_layout.addWidget(self.drive_actions_widget)
 
         self.cb_drive_auto = QCheckBox("Automatically sync to Google Drive (startup, session save, and periodic)", drive_box)
         self.cb_drive_auto.setChecked(self.settings.get("google_drive_auto_sync", True))
@@ -1408,10 +1619,10 @@ class SettingsDialog(QDialog):
 
     def _on_backup_clicked(self):
         from datetime import datetime
-        from core.backup_manager import backup_settings
+        from core.backup_manager import backup_settings, backup_workspace
 
         theme_style = self.settings.get("theme_style", "modern-dark")
-        type_dialog = BackupTypeDialog(theme_style, self)
+        type_dialog = BackupTypeDialog(theme_style, active_profile=self.active_profile, parent=self)
         if (
             type_dialog.exec() != QDialog.DialogCode.Accepted
             or not type_dialog.selected_type
@@ -1444,9 +1655,7 @@ class SettingsDialog(QDialog):
                 QLineEdit.EchoMode.Password,
                 "",
             )
-            if not ok2:
-                return
-            if pwd1 != pwd2:
+            if not ok2 or pwd1 != pwd2:
                 QMessageBox.critical(
                     self,
                     "Passwords Mismatch",
@@ -1455,12 +1664,17 @@ class SettingsDialog(QDialog):
                 return
             password = pwd1
 
-        default_name = (
-            f"backup_{self.active_profile}_{datetime.now().strftime('%Y%m%d')}.truehour"
-        )
+        scope = getattr(type_dialog, "selected_scope", "workspace")
+        if scope == "workspace":
+            default_name = f"backup_all_profiles_{datetime.now().strftime('%Y%m%d_%H%M%S')}.truehour"
+            title_text = "Backup Entire Workspace (All Profiles)"
+        else:
+            default_name = f"backup_{self.active_profile}_{datetime.now().strftime('%Y%m%d')}.truehour"
+            title_text = f"Backup Profile '{self.active_profile}'"
+
         dest_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Backup Settings & History",
+            title_text,
             default_name,
             "TrueHour Backup Files (*.truehour)",
         )
@@ -1470,96 +1684,62 @@ class SettingsDialog(QDialog):
         if not dest_path.endswith(".truehour"):
             dest_path += ".truehour"
 
-        anon_user_id = self.settings.get("anonymous_user_id", "")
-        success = backup_settings(
-            dest_path, self.active_profile, password, anon_user_id
-        )
+        if scope == "workspace":
+            success = backup_workspace(dest_path, password=password)
+        else:
+            anon_user_id = self.settings.get("anonymous_user_id", "")
+            success = backup_settings(
+                dest_path, self.active_profile, password, anon_user_id
+            )
+
         if success:
-            if password:
-                QMessageBox.information(
-                    self,
-                    "Backup Successful",
-                    f"Encrypted profile backup created successfully! Banking credentials are protected.\n\nFile location:\n{dest_path}",
-                )
-            else:
-                QMessageBox.information(
-                    self,
-                    "Backup Successful",
-                    f"Profile backup created successfully! Note that sensitive banking details were omitted for security.\n\nFile location:\n{dest_path}",
-                )
+            enc_msg = (
+                "Encrypted backup created successfully! Banking credentials are password-protected."
+                if password
+                else "Backup created successfully! Sensitive banking details were safely excluded."
+            )
+            QMessageBox.information(
+                self,
+                "Backup Successful",
+                f"{enc_msg}\n\nFile location:\n{dest_path}",
+            )
         else:
             QMessageBox.critical(
                 self,
                 "Backup Failed",
-                "An error occurred while compiling and writing the settings backup.",
+                "An error occurred while compiling and writing the backup archive.",
             )
 
     def _on_import_clicked(self):
-        from core.backup_manager import import_settings
-        import re
+        from core.backup_manager import import_workspace
 
         src_path, _ = QFileDialog.getOpenFileName(
-            self, "Import Settings Backup", "", "TrueHour Backup Files (*.truehour)"
+            self, "Import Backup Archive", "", "TrueHour Backup Files (*.truehour)"
         )
-        if not src_path:
+        if not src_path or not os.path.exists(src_path):
             return
 
-        base_fn = os.path.basename(src_path)
-        match = re.match(r"backup_(.*?)_\d+", base_fn)
-        suggested_name = match.group(1) if match else os.path.splitext(base_fn)[0]
-
-        imported_name, ok = QInputDialog.getText(
-            self,
-            "Import Profile Name",
-            "Enter the profile name to restore this backup as:",
-            QLineEdit.EchoMode.Normal,
-            suggested_name,
-        )
-        if not ok or not imported_name.strip():
-            return
-        imported_name = imported_name.strip()
-
-        if not all(c.isalnum() or c in " _-" for c in imported_name):
-            QMessageBox.critical(
-                self,
-                "Invalid Name",
-                "Profile name can only contain alphanumeric characters, spaces, hyphens, or underscores.",
-            )
-            return
-
-        if imported_name in self.profiles_list:
-            overwrite_confirm = QMessageBox.question(
-                self,
-                "Overwrite Profile?",
-                f"A profile named '{imported_name}' already exists. Importing this backup will permanently overwrite all of its preferences, tags, pre-aggregated summaries, and historical session logs.\n\nDo you want to proceed?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if overwrite_confirm != QMessageBox.StandardButton.Yes:
-                return
-
-        # Attempt standard/default import (password=None, strip_if_encrypted=False)
-        status = import_settings(
-            src_path, imported_name, password=None, strip_if_encrypted=False
-        )
+        res = import_workspace(src_path, password=None, strip_if_encrypted=False)
+        status = res.get("status")
 
         if status == "password_required":
             password, ok = QInputDialog.getText(
                 self,
                 "Encrypted Backup Detected",
-                "This backup is encrypted. Please enter the password to restore banking details:",
+                "This backup is encrypted. Please enter the password to restore:",
                 QLineEdit.EchoMode.Password,
                 "",
             )
             if not ok:
                 return
-            status = import_settings(src_path, imported_name, password=password)
+            res = import_workspace(src_path, password=password)
+            status = res.get("status")
 
             while status == "wrong_password":
                 retry = QMessageBox.question(
                     self,
                     "Incorrect Password",
-                    "Incorrect password entered. Would you like to try again?\n\n(Click 'No' to import without banking details, or 'Cancel' to abort)",
+                    "Incorrect password entered. Would you like to try again?\n\n(Click 'No' to import without sensitive banking details, or 'Cancel' to abort)",
                     QMessageBox.StandardButton.Yes
                     | QMessageBox.StandardButton.No
                     | QMessageBox.StandardButton.Cancel,
@@ -1575,35 +1755,32 @@ class SettingsDialog(QDialog):
                     )
                     if not ok:
                         return
-                    status = import_settings(src_path, imported_name, password=password)
+                    res = import_workspace(src_path, password=password)
+                    status = res.get("status")
                 elif retry == QMessageBox.StandardButton.No:
-                    status = import_settings(
-                        src_path, imported_name, password=None, strip_if_encrypted=True
-                    )
+                    res = import_workspace(src_path, password=None, strip_if_encrypted=True)
+                    status = res.get("status")
                 else:
                     return
 
-        if status == "success":
+        if status in ["success", "banking_stripped"]:
+            restored_profiles = res.get("restored_profiles", [self.active_profile])
+            total_s = res.get("total_sessions", 0)
+            active_p = res.get("active_profile", self.active_profile)
+            msg_extra = " Note that sensitive banking details were stripped or omitted." if status == "banking_stripped" else ""
             QMessageBox.information(
                 self,
                 "Import Successful",
-                f"Profile '{imported_name}' imported successfully including all preferences, session history, and decrypted banking credentials.",
+                f"Backup restored successfully!{msg_extra}\n\n"
+                f"Restored {total_s} session(s) across profile(s): {', '.join(restored_profiles)}.",
             )
-            self.settings_imported.emit(imported_name)
-            self.accept()
-        elif status == "banking_stripped":
-            QMessageBox.information(
-                self,
-                "Import Successful",
-                f"Profile '{imported_name}' imported successfully. Note that sensitive banking details were omitted or stripped — you can re-enter them under Billing & Invoices.",
-            )
-            self.settings_imported.emit(imported_name)
+            self.settings_imported.emit(active_p)
             self.accept()
         else:
             QMessageBox.critical(
                 self,
                 "Import Failed",
-                "Failed to restore profile. Please ensure that the selected file is a valid TrueHour backup archive.",
+                "Failed to restore backup archive. Please ensure the file is a valid TrueHour backup.",
             )
 
     def _on_browse_files_clicked(self):
@@ -1630,18 +1807,28 @@ class SettingsDialog(QDialog):
                 stored = drive_sync.get_stored_user_info()
                 email = stored.get("email") or "Google Account"
 
-            self.drive_status_lbl.setText(f"Connected: {email}")
+            self.drive_status_lbl.setText(f"Connected: {email} (Workspace Sync Active)")
+            self.drive_status_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; font-weight: bold; color: #16A34A;")
             self.btn_drive_auth.setVisible(False)
+            if hasattr(self, "drive_actions_widget"):
+                self.drive_actions_widget.setVisible(True)
             self.btn_drive_sync.setVisible(True)
             self.btn_drive_restore.setVisible(True)
+            if hasattr(self, "btn_drive_history"):
+                self.btn_drive_history.setVisible(True)
             self.btn_drive_signout.setVisible(True)
             self.cb_drive_auto.setEnabled(True)
         else:
             self._cached_drive_user_info = {}
             self.drive_status_lbl.setText("Status: Not connected to Google Drive")
+            self.drive_status_lbl.setStyleSheet("font-family: 'Segoe UI'; font-size: 12px; color: #64748B;")
             self.btn_drive_auth.setVisible(True)
+            if hasattr(self, "drive_actions_widget"):
+                self.drive_actions_widget.setVisible(False)
             self.btn_drive_sync.setVisible(False)
             self.btn_drive_restore.setVisible(False)
+            if hasattr(self, "btn_drive_history"):
+                self.btn_drive_history.setVisible(False)
             self.btn_drive_signout.setVisible(False)
             self.cb_drive_auto.setEnabled(False)
 
@@ -1659,7 +1846,7 @@ class SettingsDialog(QDialog):
             QMessageBox.information(
                 self,
                 "Google Drive Connected",
-                f"Successfully signed in as {user_info.get('email', 'Google Account')}!",
+                f"Successfully signed in as {user_info.get('email', 'Google Account')}!\n\nAll profiles will now sync seamlessly with Google Drive.",
             )
         else:
             self._update_drive_ui()
@@ -1670,12 +1857,68 @@ class SettingsDialog(QDialog):
             )
 
     def _on_drive_sync_clicked(self):
-        self.drive_status_lbl.setText(f"Compressing & uploading profile '{self.active_profile}' archive...")
+        self.drive_status_lbl.setText("Compressing & uploading workspace (all profiles)...")
         self.btn_drive_sync.setEnabled(False)
-        self._sync_worker = DriveSyncWorker(self.active_profile, self)
+        self._sync_worker = DriveSyncWorker(self.active_profile, force=False, parent=self)
         self._sync_worker.progress.connect(
             lambda msg: self.drive_status_lbl.setText(msg)
         )
+        self._sync_worker.finished.connect(self._on_drive_sync_finished)
+        self._sync_worker.safety_blocked.connect(self._on_drive_sync_blocked)
+        self._sync_worker.start()
+
+    def _on_drive_sync_blocked(self, preflight_data):
+        self.btn_drive_sync.setEnabled(True)
+        status = preflight_data.get("status")
+        remote_sessions = preflight_data.get("remote_sessions", 0)
+        remote_size = preflight_data.get("remote_size", 0)
+        local_sessions = preflight_data.get("local_sessions", 0)
+
+        if status == "prompt_restore":
+            choice = QMessageBox.question(
+                self,
+                "Cloud Backup Detected",
+                (
+                    f"Google Drive has an existing backup with {remote_sessions} sessions ({remote_size:,} bytes), "
+                    "but your local machine has 0 sessions.\n\n"
+                    "Would you like to RESTORE from Google Drive now to recover your data?\n\n"
+                    "(Click 'No' if you explicitly want to overwrite the cloud with an empty workspace)"
+                ),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            if choice == QMessageBox.StandardButton.Yes:
+                self._on_drive_restore_clicked()
+                return
+
+            force_confirm = QMessageBox.question(
+                self,
+                "Confirm Cloud Overwrite",
+                "Are you absolutely certain you want to OVERWRITE the existing cloud backup with your empty local workspace?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if force_confirm == QMessageBox.StandardButton.Yes:
+                self._force_drive_sync()
+        elif status == "conflict_deficit":
+            choice = QMessageBox.question(
+                self,
+                "Cloud Backup Conflict",
+                (
+                    f"Your cloud backup has {remote_sessions} sessions, while this local machine only has {local_sessions} sessions.\n\n"
+                    "Uploading now could cause data loss on the cloud. Do you want to FORCE upload anyway?"
+                ),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if choice == QMessageBox.StandardButton.Yes:
+                self._force_drive_sync()
+
+    def _force_drive_sync(self):
+        self.drive_status_lbl.setText("Force uploading workspace archive...")
+        self.btn_drive_sync.setEnabled(False)
+        self._sync_worker = DriveSyncWorker(self.active_profile, force=True, parent=self)
+        self._sync_worker.progress.connect(lambda msg: self.drive_status_lbl.setText(msg))
         self._sync_worker.finished.connect(self._on_drive_sync_finished)
         self._sync_worker.start()
 
@@ -1684,18 +1927,19 @@ class SettingsDialog(QDialog):
         self._update_drive_ui(result)
         if success:
             archive_name = result.get("archive_name", "backup archive")
+            tot_s = result.get("total_sessions", 0)
             self.drive_status_lbl.setText(
-                f"✓ Uploaded {archive_name} at {result.get('last_sync', '')}"
+                f"✓ Uploaded {archive_name} ({tot_s} sessions) at {result.get('last_sync', '')}"
             )
             QMessageBox.information(
                 self,
                 "Cloud Sync Complete",
-                f"Successfully backed up entire profile '{self.active_profile}' as a single archive ({archive_name}) to Google Drive!",
+                f"Successfully backed up entire workspace ({tot_s} sessions across all profiles) to Google Drive!\n\nArchive: {archive_name}",
             )
         else:
-            QMessageBox.warning(self, "Cloud Sync Failed", f"Sync error:\n{err_msg}")
+            QMessageBox.warning(self, "Cloud Sync Blocked/Failed", f"Sync message:\n{err_msg}")
 
-    def _on_drive_restore_clicked(self):
+    def _on_drive_restore_clicked(self, file_id=None, revision_id=None):
         if hasattr(self.parent(), "tracker") and getattr(self.parent().tracker, "running", False):
             QMessageBox.warning(
                 self,
@@ -1706,8 +1950,8 @@ class SettingsDialog(QDialog):
 
         confirm = QMessageBox.question(
             self,
-            "Restore Profile from Cloud?",
-            f"Restoring from Google Drive will download the latest .truehour backup archive and overwrite your current local profile ('{self.active_profile}').\n\nDo you want to proceed?",
+            "Restore Workspace from Cloud?",
+            "Restoring from Google Drive will download your multi-profile cloud backup and restore all profiles, sessions, and databases.\n\nA local safety snapshot will automatically be created before restoring.\n\nDo you want to proceed?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -1717,7 +1961,10 @@ class SettingsDialog(QDialog):
         self.drive_status_lbl.setText("Downloading cloud backup archive...")
         self.btn_drive_restore.setEnabled(False)
         self._restore_worker = DriveRestoreWorker(
-            profile_name=self.active_profile, parent=self
+            profile_name=self.active_profile,
+            file_id=file_id,
+            revision_id=revision_id,
+            parent=self,
         )
         self._restore_worker.progress.connect(
             lambda msg: self.drive_status_lbl.setText(msg)
@@ -1729,19 +1976,32 @@ class SettingsDialog(QDialog):
         self.btn_drive_restore.setEnabled(True)
         self._update_drive_ui()
         if success:
+            restored = result.get("restored_profiles", [])
+            tot = result.get("total_sessions", 0)
+            active_p = result.get("active_profile", self.active_profile)
             QMessageBox.information(
                 self,
                 "Cloud Restore Successful",
-                f"Successfully restored profile '{self.active_profile}' from Google Drive cloud backup!\n\nAll settings, sessions, QR codes, and assets have been updated.",
+                f"Successfully restored workspace from Google Drive cloud backup!\n\n"
+                f"Restored {tot} sessions across {len(restored)} profile(s): {', '.join(restored)}.\n\n"
+                "All preferences, sessions, and databases are up to date.",
             )
-            self.settings_imported.emit(self.active_profile)
+            self.settings_imported.emit(active_p)
             self.accept()
         else:
             QMessageBox.critical(
                 self,
                 "Cloud Restore Failed",
-                f"Failed to restore profile from Google Drive:\n{err_msg}",
+                f"Failed to restore workspace from Google Drive:\n{err_msg}",
             )
+
+    def _on_drive_history_clicked(self):
+        theme_style = self.settings.get("theme_style", "modern-dark")
+        history_dlg = CloudRevisionsDialog(theme_style, parent=self)
+        history_dlg.restore_requested.connect(
+            lambda rev_id: self._on_drive_restore_clicked(revision_id=rev_id)
+        )
+        history_dlg.exec()
 
     def _on_drive_signout_clicked(self):
         drive_sync.sign_out()
