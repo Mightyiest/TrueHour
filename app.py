@@ -1436,6 +1436,7 @@ class TrueHourApp(QMainWindow):
                         self.scroll_layout.removeWidget(item.widget())
                     elif item.spacerItem():
                         self.scroll_layout.removeItem(item)
+                        del item
 
             active_apps = set()
             new_widgets = {}
@@ -1485,7 +1486,6 @@ class TrueHourApp(QMainWindow):
             to_remove = [name for name in self._row_widgets if name not in active_apps]
             for name in to_remove:
                 widget = self._row_widgets[name]
-                widget.setParent(None)
                 widget.deleteLater()
                 del self._row_widgets[name]
 
@@ -1525,17 +1525,14 @@ class TrueHourApp(QMainWindow):
                 widget._icon_loaded = True
 
     def _clear_list_layout(self):
-        """Clear all widgets from the scroll layout while preserving the bottom stretch."""
-        # First, find and remove the stretch if it exists
-        for i in reversed(range(self.scroll_layout.count())):
-            item = self.scroll_layout.itemAt(i)
-            if item and item.widget():
+        """Clear all widgets and spacers from the scroll layout."""
+        while self.scroll_layout.count():
+            item = self.scroll_layout.takeAt(0)
+            if item:
                 widget = item.widget()
-                widget.setParent(None)
-                widget.deleteLater()
-            elif item and item.spacerItem():
-                # Remove stretch items
-                self.scroll_layout.removeItem(item)
+                if widget:
+                    widget.deleteLater()
+                del item
 
     def _toggle_include(self, app_name, is_checked):
         self.tracker.set_included(app_name, is_checked)
@@ -2114,7 +2111,7 @@ class TrueHourApp(QMainWindow):
             self.ver_lbl.update_theme(is_dark)
 
         # Trigger dynamic QSS style changes on custom list row widgets
-        self._refresh_app_list()
+        QTimer.singleShot(0, self._refresh_app_list)
 
     def _toggle_theme(self):
         if self.theme_style == "light":
@@ -2206,8 +2203,12 @@ class TrueHourApp(QMainWindow):
         dialog = SettingsDialog(current_settings, self)
 
         # Connect signals
-        dialog.manage_categories_requested.connect(self._show_categories_dialog)
-        dialog.about_requested.connect(self._show_about_dialog)
+        dialog.manage_categories_requested.connect(
+            lambda: self._show_categories_dialog(parent=dialog)
+        )
+        dialog.about_requested.connect(
+            lambda: self._show_about_dialog(parent=dialog)
+        )
         dialog.theme_toggled.connect(self.apply_theme)
         dialog.profile_changed.connect(self._handle_profile_switched)
         dialog.profile_renamed.connect(self._handle_profile_renamed)
@@ -2318,21 +2319,25 @@ class TrueHourApp(QMainWindow):
         dialog.exec()
 
 
-    def _show_about_dialog(self):
+    def _show_about_dialog(self, parent=None):
         from dialogs.about_dialog import AboutDialog
 
-        dialog = AboutDialog(theme_style=self.theme_style, parent=self)
+        parent_widget = parent if isinstance(parent, QWidget) else self
+        dialog = AboutDialog(theme_style=self.theme_style, parent=parent_widget)
         dialog.exec()
 
-    def _show_categories_dialog(self):
+    def _show_categories_dialog(self, parent=None):
         logger.info("[Action] Opened Categories Manager")
         from dialogs.categories_dialog import CategoriesDialog
 
-        dialog = CategoriesDialog(self.tracker, theme_style=self.theme_style, parent=self)
+        parent_widget = parent if isinstance(parent, QWidget) else self
+        dialog = CategoriesDialog(
+            self.tracker, theme_style=self.theme_style, parent=parent_widget
+        )
 
         def _on_categories_changed():
             self._last_app_state_hash = None
-            self._refresh_app_list()
+            QTimer.singleShot(0, self._refresh_app_list)
 
         dialog.categories_changed.connect(_on_categories_changed)
         dialog.exec()

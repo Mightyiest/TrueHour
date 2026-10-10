@@ -343,7 +343,6 @@ class EmailChipWidget(QWidget):
             self._chip_widgets.remove(chip_widget)
         chip_widget.hide()
         self._flow_layout.removeWidget(chip_widget)
-        chip_widget.setParent(None)
         chip_widget.deleteLater()
         self._flow_layout.invalidate()
 
@@ -366,7 +365,6 @@ class EmailChipWidget(QWidget):
         for chip in self._chip_widgets:
             chip.hide()
             self._flow_layout.removeWidget(chip)
-            chip.setParent(None)
             chip.deleteLater()
         self._chip_widgets.clear()
         self._input.clear()

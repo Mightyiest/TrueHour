@@ -34,7 +34,7 @@ class LogBufferCollector:
 
     def __init__(self, max_lines=1000):
         self.buffer = deque(maxlen=max_lines)
-        self.emitter = LogSignalEmitter()
+        self._emitter = None
         self.lock = threading.Lock()
 
         self._stdout = sys.stdout
@@ -57,12 +57,23 @@ class LogBufferCollector:
         except Exception:
             pass
 
+    @property
+    def emitter(self):
+        if self._emitter is None and QApplication.instance() is not None:
+            self._emitter = LogSignalEmitter()
+        return self._emitter
+
     def write_log(self, text):
         if not text:
             return
         with self.lock:
             self.buffer.append(text)
-            self.emitter.log_written.emit(text)
+            emitter = self.emitter
+            if emitter is not None:
+                try:
+                    emitter.log_written.emit(text)
+                except Exception:
+                    pass
 
             # Write to persistent active log file
             try:

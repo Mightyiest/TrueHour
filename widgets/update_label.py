@@ -41,6 +41,7 @@ class FadingVersionLabel(QLabel):
         self._update_available = False
         self._is_dark = False
         self._dismissed = False
+        self._is_restoring = False
 
         # Cloud sync state
         self._is_syncing = False
@@ -89,6 +90,7 @@ class FadingVersionLabel(QLabel):
             self._cycle_timer.stop()
         self._anim.stop()
         self._opacity.setOpacity(1.0)
+        self._is_restoring = False
 
         self._is_syncing = True
         self._current_sync_msg = msg
@@ -144,29 +146,10 @@ class FadingVersionLabel(QLabel):
         if self._is_syncing:
             return
 
+        self._is_restoring = True
         self._anim.stop()
-        self._anim.setStartValue(1.0)
+        self._anim.setStartValue(self._opacity.opacity())
         self._anim.setEndValue(0.0)
-
-        def _on_faded_out():
-            try:
-                self._anim.finished.disconnect(_on_faded_out)
-            except Exception:
-                pass
-            if self._is_syncing:
-                return
-            self.setText(self._version_text)
-            self._apply_base_style()
-            self.setToolTip("")
-            self._anim.setStartValue(0.0)
-            self._anim.setEndValue(1.0)
-            self._anim.start()
-
-            # Resume update cycles if an update was waiting
-            if self._update_available and not self._dismissed:
-                self._cycle_timer.start(self.DISPLAY_HOLD)
-
-        self._anim.finished.connect(_on_faded_out)
         self._anim.start()
 
     # ── Update Notification API ──────────────────────────────────────
@@ -225,10 +208,28 @@ class FadingVersionLabel(QLabel):
 
     def _on_animation_finished(self):
         """Handle transition after fade-out or fade-in completes."""
-        if not self._update_available or self._is_syncing:
+        if self._is_syncing:
             return
 
         end_val = self._anim.endValue()
+
+        if self._is_restoring:
+            if end_val == 0.0:
+                self.setText(self._version_text)
+                self._apply_base_style()
+                self.setToolTip("")
+                self._anim.setStartValue(0.0)
+                self._anim.setEndValue(1.0)
+                self._anim.start()
+            elif end_val == 1.0:
+                self._is_restoring = False
+                if self._update_available and not self._dismissed:
+                    self._cycle_timer.start(self.DISPLAY_HOLD)
+            return
+
+        if not self._update_available:
+            return
+
         if end_val == 0.0:
             self._showing_update = not self._showing_update
             if self._showing_update:
@@ -238,7 +239,6 @@ class FadingVersionLabel(QLabel):
                 self.setText(self._version_text)
                 self._apply_base_style()
 
-            self._anim.stop()
             self._anim.setStartValue(0.0)
             self._anim.setEndValue(1.0)
             self._anim.start()
@@ -246,6 +246,7 @@ class FadingVersionLabel(QLabel):
             self._cycle_timer.start(self.DISPLAY_HOLD)
 
     def _stop_animation(self):
+        self._is_restoring = False
         self._anim.stop()
         self._cycle_timer.stop()
         self._opacity.setOpacity(1.0)

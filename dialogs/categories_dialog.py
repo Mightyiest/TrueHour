@@ -4,7 +4,7 @@ Modal dialog for managing custom category/project tags.
 """
 
 import logging
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -81,10 +81,11 @@ class CategoriesDialog(QDialog):
     def _refresh_categories_list(self):
         while self.scroll_layout.count():
             item = self.scroll_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.setParent(None)
-                widget.deleteLater()
+            if item:
+                widget = item.widget()
+                if widget:
+                    widget.deleteLater()
+                del item
 
         projects = self.tracker.tag_manager.projects
         for proj in projects:
@@ -126,7 +127,7 @@ class CategoriesDialog(QDialog):
     def _delete_project(self, project: str):
         if self.tracker.tag_manager.remove_project(project):
             self.categories_changed.emit()
-            self._refresh_categories_list()
+            QTimer.singleShot(0, self._refresh_categories_list)
 
     def _add_project(self):
         name = self.add_entry.text().strip()
@@ -138,4 +139,4 @@ class CategoriesDialog(QDialog):
         if self.tracker.tag_manager.add_project(name):
             self.add_entry.clear()
             self.categories_changed.emit()
-            self._refresh_categories_list()
+            QTimer.singleShot(0, self._refresh_categories_list)

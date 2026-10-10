@@ -1402,9 +1402,11 @@ class SettingsDialog(QDialog):
         """Rebuild QR thumbnail strip from _qr_paths_local."""
         while self.qr_thumbs_layout.count() > 0:
             item = self.qr_thumbs_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
+            if item:
+                widget = item.widget()
+                if widget:
+                    widget.deleteLater()
+                del item
         self._qr_thumb_refs.clear()
 
         qr_dir = os.path.join(get_app_data_dir(), "qr_codes")
@@ -1420,7 +1422,7 @@ class SettingsDialog(QDialog):
                 if fname in self._qr_paths_local:
                     self._qr_paths_local.remove(fname)
                 self._qr_links_local.pop(fname, None)
-                self._refresh_qr_thumbnails()
+                QTimer.singleShot(0, self._refresh_qr_thumbnails)
 
             def _link_changed(fname, new_url):
                 if new_url:
