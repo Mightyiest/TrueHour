@@ -2434,6 +2434,20 @@ chmod +x build.sh
                     <div class="changelog-list">
                         <div class="changelog-item">
                             <div class="changelog-version">
+                                <span>v4.2.0-beta.1</span>
+                                <span class="changelog-tag beta">Beta</span>
+                                <span class="changelog-date">2026.10.10</span>
+                            </div>
+                            <ul class="changelog-changes">
+                                <li><strong>UI Memory Access Violation Fix</strong>: Resolved Windows STATUS_ACCESS_VIOLATION (0xC0000005) crash in Qt6Core.dll (<code>QObject::isWidgetType()</code>) during dialog widget teardown and mouse event dispatching.</li>
+                                <li><strong>Consolidated Cloud Backup Architecture</strong>: Unified single-archive multi-profile Google Drive sync with timestamp verification and anti-overwrite safety gates.</li>
+                                <li><strong>Nested Modal Window Hierarchy</strong>: Properly parented secondary dialogs to their active parent modals, preventing competing modal loops and focus locks.</li>
+                                <li><strong>Deferred Layout Invalidation & Spacer Cleanup</strong>: Safeguarded UI lists with deferred single-shot refreshes and leak-free layout item teardowns.</li>
+                                <li><strong>State-Driven Animation Restoration</strong>: Upgraded version status label transitions to an atomic state machine, preventing signal re-entrancy issues.</li>
+                            </ul>
+                        </div>
+                        <div class="changelog-item">
+                            <div class="changelog-version">
                                 <span>v4.1.0-beta.1</span>
                                 <span class="changelog-tag beta">Beta</span>
                                 <span class="changelog-date">2026.08.25</span>

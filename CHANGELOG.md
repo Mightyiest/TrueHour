@@ -2,6 +2,21 @@
 
 All notable changes to TrueHour will be documented in this file.
 
+## [4.2.0-beta.1] - 2026-10-10
+
+### Added
+- **Multi-Profile Unified Cloud Backup Architecture**: Consolidated multi-profile `.truehour` archive sync to Google Drive, ensuring all profiles and tracking histories are backed up together atomically.
+- **Drive Anti-Overwrite Safety Gate**: Implemented cloud timestamp and integrity verification gates to safeguard existing cloud backups from being prematurely overwritten.
+- **Automated UI Dialog Stability Test Suite**: Added dedicated regression test coverage (`tests/test_ui_dialog_stability.py`) validating nested modal operations, category additions/deletions, widget unparenting safety, and label crossfades.
+
+### Fixed
+- **UI Crash & Memory Access Violation (0xC0000005)**: Resolved Windows `STATUS_ACCESS_VIOLATION` in `Qt6Core.dll` (`QObject::isWidgetType()`) caused by unsafe `setParent(None)` calls on widgets while active mouse release signals were still dispatching.
+- **Nested Modal Hierarchy & Window Modality**: Correctly parented `CategoriesDialog` and `AboutDialog` to `SettingsDialog` when launched from settings, eliminating competing modal event loops under the main window root.
+- **Deferred Layout Rebuilding**: Deferred category, app list, and QR thumbnail rebuilds using `QTimer.singleShot(0, ...)` so Qt event loops unwind cleanly before widgets are destroyed and recreated.
+- **Layout Item & Spacer Memory Leaks**: Cleanly deleted `QLayoutItem` and `QSpacerItem` instances when taking items from layouts during refreshes.
+- **Version Label Animation State Machine**: Streamlined `FadingVersionLabel` crossfade transitions to a unified state-driven model, removing nested dynamic lambda connections on `finished` signals.
+- **Early QObject Lifecycle Compliance**: Lazily initialized `LogSignalEmitter` in `LogBufferCollector` so `QObject` instances are never created before `QApplication` initialization.
+
 ## [4.1.0-beta.1] - 2026-08-25
 
 ### Added
