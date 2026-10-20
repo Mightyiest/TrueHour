@@ -68,6 +68,7 @@ def test_sync_to_cloud_single_archive():
     with patch("drive_sync.get_google_credentials", return_value=(mock_creds, {"email": "test@gmail.com"})), \
          patch("drive_sync.get_drive_service", return_value=mock_service), \
          patch("drive_sync.get_or_create_app_folder", return_value="folder_id_999"), \
+         patch("drive_sync.preflight_cloud_check", return_value={"status": "ready", "message": "Ready"}), \
          patch("drive_sync.backup_workspace", return_value=True) as mock_backup, \
          patch("drive_sync.upload_file_to_drive", return_value="file_id_123") as mock_upload:
 
@@ -274,5 +275,96 @@ def test_fading_version_label_sync_progress_and_finished(qtbot):
     assert lbl._spinner_timer.isActive() is False
     assert "✓ Cloud backup complete" in lbl.text()
     assert lbl._restore_timer.isActive() is True
+
+
+def test_upload_file_to_drive_rotates_revisions_on_200_limit(tmp_path):
+    """Verify 403 keptRevisionsLimitExceeded triggers automatic pruning of oldest pinned revisions and retries."""
+    dummy_file = tmp_path / "backup_all_profiles.truehour"
+    dummy_file.write_bytes(b"zip-archive-bytes")
+
+    mock_service = MagicMock()
+    mock_service.files().list().execute.return_value = {
+        "files": [{"id": "file_123", "name": "backup_all_profiles.truehour"}]
+    }
+
+    # First update request raises 403 keptRevisionsLimitExceeded; second succeeds
+    limit_err = Exception(
+        '<HttpError 403 when requesting https://www.googleapis.com/upload/drive/v3/files/file_123 '
+        'returned "A maximum of 200 revisions can be kept forever.". '
+        'Details: "[{\'message\': \'A maximum of 200 revisions can be kept forever.\', '
+        '\'domain\': \'global\', \'reason\': \'keptRevisionsLimitExceeded\'}]">'
+    )
+    req_fail = MagicMock()
+    req_fail.next_chunk.side_effect = limit_err
+
+    req_ok = MagicMock()
+    req_ok.next_chunk.return_value = (None, {"id": "file_123"})
+
+    mock_service.files().update.side_effect = [req_fail, req_ok]
+
+    # Provide 155 revisions (oldest first) so prune_excess_revisions(max_kept=150) unpins 5 oldest
+    revs = [
+        {
+            "id": f"rev_{i:03d}",
+            "modifiedTime": f"2026-10-01T00:00:{i:02d}Z",
+            "keepForever": True,
+        }
+        for i in range(155)
+    ]
+    mock_service.revisions().list().execute.return_value = {"revisions": revs}
+
+    with patch("googleapiclient.http.MediaFileUpload", return_value=MagicMock()):
+        out_id = drive_sync.upload_file_to_drive(
+            mock_service,
+            str(dummy_file),
+            "folder_999",
+            remote_filename="backup_all_profiles.truehour",
+            keep_revision_forever=True,
+        )
+
+    assert out_id == "file_123"
+    assert mock_service.files().update.call_count == 2
+    # 154 non-head revisions vs target 149 -> 5 oldest revisions unpinned
+    assert mock_service.revisions().update.call_count == 5
+    first_unpinned = mock_service.revisions().update.call_args_list[0].kwargs
+    assert first_unpinned["fileId"] == "file_123"
+    assert first_unpinned["revisionId"] == "rev_000"
+    assert first_unpinned["body"] == {"keepForever": False}
+
+
+def test_upload_file_to_drive_falls_back_to_unpinned_when_prune_unavailable(tmp_path):
+    """Verify upload falls back to keepRevisionForever=False if no revisions can be pruned."""
+    dummy_file = tmp_path / "backup_all_profiles.truehour"
+    dummy_file.write_bytes(b"zip-archive-bytes")
+
+    mock_service = MagicMock()
+    mock_service.files().list().execute.return_value = {
+        "files": [{"id": "file_123", "name": "backup_all_profiles.truehour"}]
+    }
+
+    limit_err = Exception("A maximum of 200 revisions can be kept forever. (keptRevisionsLimitExceeded)")
+    req_fail = MagicMock()
+    req_fail.next_chunk.side_effect = limit_err
+
+    req_ok = MagicMock()
+    req_ok.next_chunk.return_value = (None, {"id": "file_123"})
+
+    mock_service.files().update.side_effect = [req_fail, req_ok]
+    mock_service.revisions().list().execute.return_value = {"revisions": []}
+
+    with patch("googleapiclient.http.MediaFileUpload", return_value=MagicMock()):
+        out_id = drive_sync.upload_file_to_drive(
+            mock_service,
+            str(dummy_file),
+            "folder_999",
+            remote_filename="backup_all_profiles.truehour",
+            keep_revision_forever=True,
+        )
+
+    assert out_id == "file_123"
+    assert mock_service.files().update.call_count == 2
+    assert mock_service.files().update.call_args_list[0].kwargs["keepRevisionForever"] is True
+    assert mock_service.files().update.call_args_list[1].kwargs["keepRevisionForever"] is False
+
 
 

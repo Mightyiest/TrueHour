@@ -125,7 +125,10 @@ class AboutDialog(QDialog):
         """)
 
         def open_legal():
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+                base_dir = sys._MEIPASS
+            else:
+                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             legal_path = os.path.join(base_dir, "templates", "about_legal.html")
             webbrowser.open(f"file:///{legal_path.replace('\\', '/')}")
 

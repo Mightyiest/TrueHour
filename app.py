@@ -168,6 +168,8 @@ class TrackerSignals(QObject):
 class TrueHourApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.active_profile = os.path.basename(get_app_data_dir())
+        self._last_synced_paused = False
         # Initialize SQLite database (lightweight schema creation)
         try:
             from database.schema import init_db
@@ -386,8 +388,13 @@ class TrueHourApp(QMainWindow):
             )
             if confirm == QMessageBox.StandardButton.Yes:
                 self._start_drive_restore()
+            else:
+                if hasattr(self, "ver_lbl") and self.ver_lbl:
+                    self.ver_lbl.show_sync_finished(False, "Cloud sync paused")
         elif status == "conflict_deficit":
             logger.info("[DriveSync] Safety gate blocked upload: local session deficit detected.")
+            if hasattr(self, "ver_lbl") and self.ver_lbl:
+                self.ver_lbl.show_sync_finished(False, "Cloud sync paused")
             if not getattr(self, "_deficit_prompt_shown", False):
                 self._deficit_prompt_shown = True
                 QMessageBox.warning(
@@ -434,7 +441,9 @@ class TrueHourApp(QMainWindow):
                 if hasattr(self, "ver_lbl") and self.ver_lbl:
                     self.ver_lbl.show_sync_finished(True, "Cloud restore complete")
 
-                target_active = result.get("active_profile", self.active_profile)
+                target_active = result.get(
+                    "active_profile", getattr(self, "active_profile", "Default")
+                )
                 self._reload_active_profile(target_active, show_message=False)
 
                 QMessageBox.information(
@@ -1035,12 +1044,46 @@ class TrueHourApp(QMainWindow):
         else:
             self.earnings_label.setText("")
 
-        if not self.tracker.paused:
+        is_paused = self.tracker.paused
+        if getattr(self, "_last_synced_paused", None) != is_paused:
+            self._last_synced_paused = is_paused
+            self._update_pause_btn_ui()
+            if hasattr(self, "tray_pause_action"):
+                self.tray_pause_action.setText(
+                    "Resume Tracking" if is_paused else "Pause Tracking"
+                )
+            if is_paused:
+                if self.dark_mode:
+                    self.pause_btn.setStyleSheet(
+                        "color: #ffffff; background-color: #262626; font-weight: bold;"
+                    )
+                else:
+                    self.pause_btn.setStyleSheet(
+                        "color: #ffffff; background-color: #1e293b; font-weight: bold;"
+                    )
+            else:
+                self.pause_btn.setStyleSheet("")
+
+        if not is_paused:
             current = self.tracker.get_current_app()
             self.active_label.setText(f"Active: {current}" if current else " ")
             self.active_label.setStyleSheet("color: #616161; font-size: 10px;")
         elif getattr(self.tracker, "_idle_paused", False):
             self.active_label.setText("💤 Idle — auto paused")
+            self.active_label.setStyleSheet(
+                "color: #ffffff; font-size: 10px;"
+                if self.dark_mode
+                else "color: #CA5010; font-size: 10px;"
+            )
+        elif getattr(self.tracker, "_distraction_paused", False):
+            self.active_label.setText("🚫 Distraction — auto paused")
+            self.active_label.setStyleSheet(
+                "color: #ffffff; font-size: 10px;"
+                if self.dark_mode
+                else "color: #CA5010; font-size: 10px;"
+            )
+        else:
+            self.active_label.setText("⏸ Session paused")
             self.active_label.setStyleSheet(
                 "color: #ffffff; font-size: 10px;"
                 if self.dark_mode
@@ -1317,10 +1360,6 @@ class TrueHourApp(QMainWindow):
 
     def _on_web_goals_reset(self):
         logger.info("[Web Server] Goals reset requested")
-        tracker_was_running = self.tracker.running
-        session_name = getattr(self.tracker, "session_name", "")
-        if tracker_was_running:
-            self.tracker.stop()
         self.earnings_goal_reset_timestamp = datetime.now().isoformat()
         if self.notified_goals is not None:
             self.notified_goals.clear()
@@ -1328,8 +1367,6 @@ class TrueHourApp(QMainWindow):
             self.notified_earnings_goal.clear()
         self._recalculate_weekly_base_focus_seconds()
         self._save_app_settings()
-        if tracker_was_running:
-            self.tracker.start(session_name=session_name)
         for widget in QApplication.topLevelWidgets():
             if (
                 widget.inherits("QDialog")
@@ -1650,7 +1687,21 @@ class TrueHourApp(QMainWindow):
     def _resume_session(self, filepath):
         try:
             if self.tracker.running:
-                self.tracker.stop()
+                reply = QMessageBox.question(
+                    self,
+                    "Active Session in Progress",
+                    "An active tracking session is currently in progress. Would you like to stop and save it before resuming another session?",
+                    QMessageBox.StandardButton.Yes
+                    | QMessageBox.StandardButton.No
+                    | QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Yes,
+                )
+                if reply == QMessageBox.StandardButton.Cancel:
+                    return
+                if reply == QMessageBox.StandardButton.Yes:
+                    self._on_stop()
+                else:
+                    self.tracker.stop()
 
             self.clock_timer.stop()
             self._clear_list_layout()
@@ -1666,7 +1717,13 @@ class TrueHourApp(QMainWindow):
                     "Error",
                     "Failed to resume session. The file may be corrupted.",
                 )
-                self._on_stop()
+                self.start_btn.setEnabled(True)
+                self.pause_btn.setEnabled(False)
+                self.stop_btn.setEnabled(False)
+                self.active_label.setText("Session ended")
+                self.clock_label.setText("00:00:00")
+                self.total_label.setText("0h 00m 00s")
+                self.earnings_label.setText("")
                 return
 
             self.start_btn.setEnabled(False)
@@ -1830,7 +1887,7 @@ class TrueHourApp(QMainWindow):
 
         if os.path.exists(APP_SETTINGS_FILE):
             try:
-                with open(APP_SETTINGS_FILE, "r") as f:
+                with open(APP_SETTINGS_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     self.confirm_on_close = data.get("confirm_on_close", True)
                     self.min_track_seconds = data.get("min_track_seconds", 2)
@@ -1946,9 +2003,17 @@ class TrueHourApp(QMainWindow):
                     self.earnings_goal_reset_timestamp = data.get(
                         "earnings_goal_reset_timestamp", ""
                     )
-                    self.anonymous_user_id = data.get("anonymous_user_id", "")
             except Exception as e:
-                print(f"[TrueHour] Failed to load app settings: {e}")
+                logger.error(f"[TrueHour] Failed to load app settings: {e}")
+                try:
+                    import shutil
+
+                    backup_corrupt = f"{APP_SETTINGS_FILE}.corrupt.bak"
+                    if not os.path.exists(backup_corrupt):
+                        shutil.copy2(APP_SETTINGS_FILE, backup_corrupt)
+                except Exception as bak_err:
+                    logger.warning(f"Failed to backup corrupt settings: {bak_err}")
+                return
 
         if not self.anonymous_user_id:
             import uuid
@@ -2016,8 +2081,11 @@ class TrueHourApp(QMainWindow):
                 "distraction_apps": self.distraction_apps,
                 "google_drive_auto_sync": getattr(self, "google_drive_auto_sync", True),
             }
-            with open(APP_SETTINGS_FILE, "w", encoding="utf-8") as f:
+            target_path = str(APP_SETTINGS_FILE)
+            tmp_path = f"{target_path}.tmp"
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
+            os.replace(tmp_path, target_path)
         except Exception as e:
             print(f"[TrueHour] Failed to save app settings: {e}")
 
@@ -2439,6 +2507,11 @@ class TrueHourApp(QMainWindow):
                 json.dump(pdata, f, indent=4)
 
             self.active_profile = profile_name
+
+            # Invalidate cached app data directory path so DynamicPaths point to the new profile
+            from config import invalidate_app_data_dir_cache
+
+            invalidate_app_data_dir_cache()
 
             # Dynamic reloading of target profile configuration
             self._load_app_settings()

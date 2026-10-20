@@ -50,29 +50,53 @@ def get_app_data_root() -> str:
     return str(new_path)
 
 
+_cached_app_data_dir = None
+_cached_profiles_mtime = None
+_legacy_checked = False
+
+
+def invalidate_app_data_dir_cache():
+    global _cached_app_data_dir, _cached_profiles_mtime
+    _cached_app_data_dir = None
+    _cached_profiles_mtime = None
+
+
 def get_app_data_dir() -> str:
+    global _cached_app_data_dir, _cached_profiles_mtime, _legacy_checked
     root_dir = Path(get_app_data_root())
+    profiles_file = root_dir / "profiles.json"
+
+    # Fast path: cache hit based on profiles.json modification time
+    try:
+        if _cached_app_data_dir is not None and profiles_file.exists():
+            mtime = profiles_file.stat().st_mtime
+            if mtime == _cached_profiles_mtime:
+                return _cached_app_data_dir
+    except Exception:
+        pass
 
     # Ensure legacy migration from old FocusLog app to TrueHour root
-    old_path = root_dir.parent / "FocusLog"
-    if old_path.exists() and not (root_dir / "profiles.json").exists():
-        for file in old_path.glob("*"):
-            dest = root_dir / file.name
-            if not dest.exists():
-                try:
-                    if file.is_dir():
-                        shutil.copytree(file, dest)
-                    else:
-                        shutil.copy2(file, dest)
-                except Exception:
-                    pass
-
-    profiles_file = root_dir / "profiles.json"
+    if not _legacy_checked:
+        _legacy_checked = True
+        old_path = root_dir.parent / "FocusLog"
+        if old_path.exists() and not profiles_file.exists():
+            for file in old_path.glob("*"):
+                dest = root_dir / file.name
+                if not dest.exists():
+                    try:
+                        if file.is_dir():
+                            shutil.copytree(file, dest)
+                        else:
+                            shutil.copy2(file, dest)
+                    except Exception:
+                        pass
 
     # Load/Initialize profiles.json
     profiles_data = {"active_profile": "Default", "profiles": ["Default"]}
+    mtime = 0.0
     if profiles_file.exists():
         try:
+            mtime = profiles_file.stat().st_mtime
             with open(profiles_file, "r", encoding="utf-8") as f:
                 loaded = json.load(f)
                 if (
@@ -88,6 +112,7 @@ def get_app_data_dir() -> str:
         try:
             with open(profiles_file, "w", encoding="utf-8") as f:
                 json.dump(profiles_data, f, indent=4)
+            mtime = profiles_file.stat().st_mtime
         except Exception:
             pass
 
@@ -97,7 +122,8 @@ def get_app_data_dir() -> str:
 
     # ── Legacy Migration to 'Default' Profile ──
     # If legacy files exist in TrueHour root, move them into TrueHour/profiles/Default on first launch
-    if active_profile == "Default":
+    if active_profile == "Default" and not getattr(get_app_data_dir, "_default_migrated", False):
+        setattr(get_app_data_dir, "_default_migrated", True)
         legacy_files = [
             "app_settings.json",
             "settings.json",
@@ -127,7 +153,9 @@ def get_app_data_dir() -> str:
                     except Exception:
                         pass
 
-    return str(profile_dir)
+    _cached_app_data_dir = str(profile_dir)
+    _cached_profiles_mtime = mtime
+    return _cached_app_data_dir
 
 
 def open_file(path: str) -> None:

@@ -101,7 +101,12 @@ class GoalsHTTPRequestHandler(BaseHTTPRequestHandler):
 
                 # Dynamic injection of port and configuration state to avoid initial fetch delay
                 data = self.server.get_state_callback()
-                json_state = json.dumps(data)
+                json_state = (
+                    json.dumps(data)
+                    .replace("<", "\\u003c")
+                    .replace(">", "\\u003e")
+                    .replace("&", "\\u0026")
+                )
                 auth_token = getattr(self.server, "auth_token", "")
                 injection = f"window.INITIAL_STATE = {json_state};\nwindow.SERVER_TOKEN = \"{auth_token}\";"
                 content = content.replace(

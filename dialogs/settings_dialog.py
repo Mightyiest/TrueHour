@@ -503,6 +503,31 @@ class CloudRevisionsDialog(QDialog):
             self.restore_requested.emit(rev_id)
             self.accept()
 
+    def _cleanup_workers(self):
+        if hasattr(self, "_worker") and self._worker:
+            try:
+                self._worker.finished.disconnect()
+            except Exception:
+                pass
+            if self._worker.isRunning():
+                self._worker.quit()
+                self._worker.wait(500)
+            self._worker.setParent(None)
+            self._worker = None
+
+    def closeEvent(self, event):
+        self._cleanup_workers()
+        super().closeEvent(event)
+
+    def reject(self):
+        self._cleanup_workers()
+        super().reject()
+
+    def accept(self):
+        self._cleanup_workers()
+        super().accept()
+
+
 
 class SettingsDialog(QDialog):
     manage_categories_requested = pyqtSignal()
@@ -564,6 +589,7 @@ class SettingsDialog(QDialog):
             get_dark_palette(self.theme_style) if is_dark else get_light_palette()
         )
 
+        self._original_theme = self.settings.get("theme_style", "modern-dark")
         self._build_ui()
 
     def _center_window(self, width, height):
@@ -580,7 +606,15 @@ class SettingsDialog(QDialog):
         else:
             self.reload_status_lbl.setText("✗ Failed")
             self.reload_status_lbl.setStyleSheet("color: #C42B1C;")
-        QTimer.singleShot(2000, lambda: self.reload_status_lbl.setText(" "))
+
+        def _clear():
+            try:
+                if hasattr(self, "reload_status_lbl") and self.reload_status_lbl:
+                    self.reload_status_lbl.setText(" ")
+            except RuntimeError:
+                pass
+
+        QTimer.singleShot(2000, _clear)
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -791,7 +825,9 @@ class SettingsDialog(QDialog):
         self.curr_combo.setFixedWidth(160)
         self.curr_combo.addItems(currency_options)
         curr_symbol = self.settings.get("currency_symbol", "$")
-        matched = [c for c in currency_options if c.startswith(curr_symbol)]
+        matched = [
+            c for c in currency_options if c.split(" (")[0].strip() == curr_symbol
+        ] or [c for c in currency_options if c.startswith(curr_symbol)]
         if matched:
             self.curr_combo.setCurrentText(matched[0])
         else:
@@ -1282,7 +1318,9 @@ class SettingsDialog(QDialog):
                 return
             qr_dir = os.path.join(get_app_data_dir(), "qr_codes")
             os.makedirs(qr_dir, exist_ok=True)
-            fname = f"qr_{len(self._qr_paths_local) + 1}_{os.path.basename(path)}"
+            import uuid
+            import time
+            fname = f"qr_{int(time.time())}_{uuid.uuid4().hex[:6]}_{os.path.basename(path)}"
             dest = os.path.join(qr_dir, fname)
             try:
                 shutil.copy2(path, dest)
@@ -1524,6 +1562,7 @@ class SettingsDialog(QDialog):
                 self.settings["google_drive_auto_sync"] = self.cb_drive_auto.isChecked()
 
             self.settings_saved.emit(self.settings)
+            self._original_theme = None
             self.accept()
         except ValueError:
             QMessageBox.critical(self, "Error", "Please enter valid numeric values.")
@@ -2011,4 +2050,45 @@ class SettingsDialog(QDialog):
         QMessageBox.information(
             self, "Signed Out", "Successfully signed out of Google Drive."
         )
+
+    def _cleanup_workers(self):
+        for attr in ("_auth_worker", "_sync_worker", "_restore_worker"):
+            worker = getattr(self, attr, None)
+            if worker:
+                try:
+                    worker.finished.disconnect()
+                except Exception:
+                    pass
+                try:
+                    if hasattr(worker, "progress"):
+                        worker.progress.disconnect()
+                except Exception:
+                    pass
+                try:
+                    if hasattr(worker, "safety_blocked"):
+                        worker.safety_blocked.disconnect()
+                except Exception:
+                    pass
+                if worker.isRunning():
+                    worker.quit()
+                    worker.wait(500)
+                worker.setParent(None)
+                setattr(self, attr, None)
+
+    def closeEvent(self, event):
+        self._cleanup_workers()
+        if getattr(self, "_original_theme", None):
+            self.theme_toggled.emit(self._original_theme)
+        super().closeEvent(event)
+
+    def reject(self):
+        self._cleanup_workers()
+        if getattr(self, "_original_theme", None):
+            self.theme_toggled.emit(self._original_theme)
+        super().reject()
+
+    def accept(self):
+        self._cleanup_workers()
+        super().accept()
+
 

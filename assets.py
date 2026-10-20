@@ -10,7 +10,7 @@ RENAME_SVG = b"""<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xml
 
 TRASH_SVG = b"""<svg width="24" height="24" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
 <path d="M 15,30 C 15,25 20,25 25,25 L 35,25 C 35,15 45,10 50,10 C 55,10 65,15 65,25 L 75,25 C 80,25 85,25 85,30 C 85,35 80,35 75,35 L 25,35 C 20,35 15,35 15,30 Z" fill="#FF0000"/>
-<rect x="25" y="42" width="50" height="48" rx="12" ry="12" fill="#FF7F7F"/>
+<rect x="25" y="42" width="50" height="48" rx="12" ry="12" fill="#FF0000"/>
 </svg>"""
 
 RESTORE_SVG = b"""<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

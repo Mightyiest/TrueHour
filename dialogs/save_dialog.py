@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
 from assets import SHIELD_SVG
 from report import save_to_history
 from theme import get_svg_icon, apply_dialog_theme, get_theme_colors
+from widgets.ui_utils import center_window
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ class SaveSessionDialog(QDialog):
 
         self.setWindowTitle("Session Summary Report")
         self.setFixedSize(380, 380)
+        center_window(self, 380, 380)
 
         apply_dialog_theme(self, self.theme_style)
         colors = get_theme_colors(self.theme_style)

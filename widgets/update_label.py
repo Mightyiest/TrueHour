@@ -106,6 +106,8 @@ class FadingVersionLabel(QLabel):
     def show_sync_finished(self, success: bool = True, message: str = ""):
         """Display completion confirmation and start revert countdown."""
         self._spinner_timer.stop()
+        self._anim.stop()
+        self._is_restoring = False
         self._is_syncing = False
         self._opacity.setOpacity(1.0)
 

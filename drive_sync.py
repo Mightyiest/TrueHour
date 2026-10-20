@@ -32,6 +32,7 @@ SCOPES = [
 ]
 APP_FOLDER_NAME = "TrueHour_UserData"
 WORKSPACE_ARCHIVE_NAME = "backup_all_profiles.truehour"
+MAX_KEPT_REVISIONS = 150  # Google Drive hard limit is 200 permanent revisions per file
 
 
 class CloudSafetyException(Exception):
@@ -286,6 +287,94 @@ def take_local_pre_sync_snapshot() -> str:
         return ""
 
 
+def _is_kept_revisions_limit_error(exc: Exception) -> bool:
+    """Return True if an exception is Google Drive's 200-revision keepForever limit error."""
+    text = str(exc)
+    if "keptRevisionsLimitExceeded" in text or "200 revisions can be kept forever" in text:
+        return True
+    content = getattr(exc, "content", None)
+    if content:
+        try:
+            decoded = (
+                content.decode("utf-8", errors="ignore")
+                if isinstance(content, bytes)
+                else str(content)
+            )
+            if "keptRevisionsLimitExceeded" in decoded or "200 revisions can be kept forever" in decoded:
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def prune_excess_revisions(
+    service, file_id: str, max_kept: int = MAX_KEPT_REVISIONS
+) -> int:
+    """
+    Unpins (or deletes) the oldest kept-forever revisions on a Google Drive file
+    so that at most (max_kept - 1) remain pinned, keeping the file comfortably below
+    Google Drive's hard limit of 200 permanent revisions.
+    Returns the number of revisions unpinned/pruned.
+    """
+    if not file_id or not service:
+        return 0
+
+    revisions = list_cloud_backup_revisions(file_id=file_id, service=service)
+    if not revisions:
+        return 0
+
+    sorted_revs = sorted(
+        revisions,
+        key=lambda r: (r.get("modifiedTime", ""), r.get("id", "")),
+    )
+    # Never touch the latest (head) revision
+    historical_revs = sorted_revs[:-1] if len(sorted_revs) > 1 else []
+    pinned_revs = [r for r in historical_revs if r.get("keepForever", False)]
+    if not pinned_revs:
+        pinned_revs = historical_revs
+
+    target_keep = max(0, max_kept - 1)
+    if len(pinned_revs) <= target_keep:
+        return 0
+
+    to_prune = pinned_revs[: len(pinned_revs) - target_keep]
+    pruned_count = 0
+    for rev in to_prune:
+        rev_id = rev.get("id")
+        if not rev_id:
+            continue
+        try:
+            service.revisions().update(
+                fileId=file_id,
+                revisionId=rev_id,
+                body={"keepForever": False},
+            ).execute()
+            pruned_count += 1
+        except Exception as update_err:
+            try:
+                service.revisions().delete(
+                    fileId=file_id,
+                    revisionId=rev_id,
+                ).execute()
+                pruned_count += 1
+            except Exception as del_err:
+                logger.debug(
+                    "Could not unpin or delete revision %s on %s: %s / %s",
+                    rev_id,
+                    file_id,
+                    update_err,
+                    del_err,
+                )
+
+    if pruned_count > 0:
+        logger.info(
+            "Pruned/unpinned %d oldest revision(s) on file %s to stay within Google Drive's 200 permanent revision limit.",
+            pruned_count,
+            file_id,
+        )
+    return pruned_count
+
+
 def upload_file_to_drive(
     service,
     local_filepath: str,
@@ -297,7 +386,8 @@ def upload_file_to_drive(
 ) -> str:
     """
     Upload or update a local file in the Google Drive app folder with progress reporting.
-    Always preserves revision history by setting keepRevisionForever=True.
+    Preserves revision history with keepRevisionForever=True, and automatically rotates
+    oldest pinned revisions if Google Drive's 200-revision limit is reached.
     """
     from googleapiclient.http import MediaFileUpload
 
@@ -311,39 +401,73 @@ def upload_file_to_drive(
     results = service.files().list(q=query, spaces="drive", fields="files(id, name)").execute()
     files = results.get("files", [])
 
-    media = MediaFileUpload(local_filepath, resumable=True)
+    def _execute_resumable_upload(use_keep_forever: bool):
+        media = MediaFileUpload(local_filepath, resumable=True)
+        if files:
+            file_id = files[0]["id"]
+            body = {}
+            if app_properties:
+                body["appProperties"] = app_properties
+            request = service.files().update(
+                fileId=file_id,
+                body=body if body else None,
+                media_body=media,
+                keepRevisionForever=use_keep_forever,
+                fields="id, name, appProperties, size, modifiedTime",
+            )
+        else:
+            file_metadata = {
+                "name": filename,
+                "parents": [folder_id],
+            }
+            if app_properties:
+                file_metadata["appProperties"] = app_properties
+            request = service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields="id, name, appProperties, size, modifiedTime",
+            )
 
-    if files:
-        file_id = files[0]["id"]
-        body = {}
-        if app_properties:
-            body["appProperties"] = app_properties
-        request = service.files().update(
-            fileId=file_id,
-            body=body if body else None,
-            media_body=media,
-            keepRevisionForever=keep_revision_forever,
-            fields="id, name, appProperties, size, modifiedTime",
-        )
-    else:
-        file_metadata = {
-            "name": filename,
-            "parents": [folder_id],
-        }
-        if app_properties:
-            file_metadata["appProperties"] = app_properties
-        request = service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields="id, name, appProperties, size, modifiedTime",
-        )
+        response = None
+        while response is None:
+            status, response = request.next_chunk()
+            if status and progress_callback:
+                pct = int(50 + (status.progress() * 45))
+                progress_callback(f"Uploading to Drive ({pct}%)...")
+        return response
 
-    response = None
-    while response is None:
-        status, response = request.next_chunk()
-        if status and progress_callback:
-            pct = int(50 + (status.progress() * 45))
-            progress_callback(f"Uploading to Drive ({pct}%)...")
+    try:
+        response = _execute_resumable_upload(keep_revision_forever)
+    except Exception as exc:
+        if files and keep_revision_forever and _is_kept_revisions_limit_error(exc):
+            file_id = files[0]["id"]
+            logger.info(
+                "Google Drive 200 permanent revision limit reached for %s; rotating oldest pinned revisions...",
+                file_id,
+            )
+            if progress_callback:
+                progress_callback("Rotating oldest cloud backup revisions...")
+            pruned = prune_excess_revisions(service, file_id, max_kept=MAX_KEPT_REVISIONS)
+            if pruned > 0:
+                try:
+                    response = _execute_resumable_upload(True)
+                except Exception as retry_exc:
+                    if _is_kept_revisions_limit_error(retry_exc):
+                        logger.warning(
+                            "Still at revision limit after pruning for %s; uploading with standard retention.",
+                            file_id,
+                        )
+                        response = _execute_resumable_upload(False)
+                    else:
+                        raise
+            else:
+                logger.warning(
+                    "Could not unpin old revisions for %s; uploading with standard retention.",
+                    file_id,
+                )
+                response = _execute_resumable_upload(False)
+        else:
+            raise
 
     if response:
         return response.get("id")
@@ -400,11 +524,24 @@ def list_cloud_backup_revisions(file_id: str = None, service=None) -> list:
             return []
 
     try:
-        revs = service.revisions().list(
-            fileId=file_id,
-            fields="revisions(id, mimeType, modifiedTime, size, keepForever)",
-        ).execute()
-        return revs.get("revisions", [])
+        all_revisions = []
+        page_token = None
+        while True:
+            list_kwargs = {
+                "fileId": file_id,
+                "fields": "nextPageToken, revisions(id, mimeType, modifiedTime, size, keepForever)",
+                "pageSize": 1000,
+            }
+            if page_token:
+                list_kwargs["pageToken"] = page_token
+            revs = service.revisions().list(**list_kwargs).execute()
+            if not isinstance(revs, dict):
+                break
+            all_revisions.extend(revs.get("revisions", []))
+            page_token = revs.get("nextPageToken")
+            if not page_token or not isinstance(page_token, str):
+                break
+        return all_revisions
     except Exception as e:
         logger.warning(f"Error fetching revisions: {e}")
         return []

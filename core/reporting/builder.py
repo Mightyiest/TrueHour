@@ -24,7 +24,7 @@ def generate_report(job_id: str):
     report_type = job.report_type
 
     # 1. Check Cache
-    cached_path = get_cached_report(report_type, start_date, end_date, report_type)
+    cached_path = get_cached_report(report_type, start_date, end_date, job.export_format)
     if cached_path and job.output_path:
         import shutil
 

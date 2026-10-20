@@ -25,6 +25,16 @@ def get_cached_report(
     if os.path.exists(cache_file):
         import time
 
+        # Invalidate cache if database was updated after cache was generated
+        db_path = os.path.join(get_app_data_dir(), "truehour.db")
+        if os.path.exists(db_path):
+            try:
+                if os.path.getmtime(db_path) > os.path.getmtime(cache_file):
+                    os.remove(cache_file)
+                    return None
+            except Exception:
+                pass
+
         # Expire cache entries older than 24 hours
         if time.time() - os.path.getmtime(cache_file) < 86400:
             return cache_file

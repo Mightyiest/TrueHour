@@ -84,7 +84,6 @@ class DriveSyncWorker(BaseDriveWorker):
         except drive_sync.CloudSafetyException as cse:
             logger.warning("DriveSyncWorker halted by safety gate: %s", cse)
             self.safety_blocked.emit(cse.preflight_data)
-            self.finished.emit(False, cse.preflight_data, str(cse))
         except Exception as e:
             logger.error("DriveSyncWorker error: %s", e, exc_info=True)
             self.finished.emit(False, {}, str(e))

@@ -260,10 +260,8 @@ class TimeTamperDetector:
                         if "datetime" in data:
                             # worldtimeapi.org format
                             dt_str = data["datetime"]
-                            if "+" in dt_str:
-                                dt_str = dt_str.split("+")[0]
-                            elif dt_str.count("-") > 2:
-                                dt_str = dt_str.rsplit("-", 1)[0]
+                            if dt_str.endswith("Z"):
+                                dt_str = dt_str[:-1] + "+00:00"
 
                             network_dt = datetime.fromisoformat(dt_str)
                             if network_dt.tzinfo is None:
@@ -278,8 +276,8 @@ class TimeTamperDetector:
                         elif "dateTime" in data:
                             # timeapi.io format
                             dt_str = data["dateTime"]
-                            if "+" in dt_str:
-                                dt_str = dt_str.split("+")[0]
+                            if dt_str.endswith("Z"):
+                                dt_str = dt_str[:-1] + "+00:00"
                             network_dt = datetime.fromisoformat(dt_str)
                             if network_dt.tzinfo is None:
                                 network_dt = network_dt.replace(tzinfo=timezone.utc)
@@ -390,10 +388,27 @@ class TimeTamperDetector:
             monotonic_tick_elapsed = current_monotonic - self.last_monotonic
             system_tick_elapsed = current_system - self.last_system
 
-            # If system clock jumped ahead of monotonic clock (e.g. during sleep/suspend), adjust base system start time
+            # If system clock jumped ahead of monotonic clock, verify before adjusting base system start time
             if system_tick_elapsed - monotonic_tick_elapsed > 5:
-                sleep_time = system_tick_elapsed - monotonic_tick_elapsed
-                self.system_start += sleep_time
+                # Potential forward clock manipulation or OS suspend.
+                # Only adjust system_start if verified against network time.
+                net_offset = None
+                try:
+                    net_offset = self.get_network_time(timeout=1.0)
+                except Exception:
+                    pass
+
+                # If network time confirms the clock aligns with network time (within DRIFT_THRESHOLD),
+                # this was a legitimate system suspend/wake.
+                if net_offset is not None and abs(net_offset - self.network_time_offset) <= DRIFT_THRESHOLD:
+                    sleep_time = system_tick_elapsed - monotonic_tick_elapsed
+                    self.system_start += sleep_time
+                    self.network_time_offset = net_offset
+                    self.last_network_sync = time.time()
+                else:
+                    logger.warning(
+                        f"Unverified forward clock jump detected: system={system_tick_elapsed:.1f}s, mono={monotonic_tick_elapsed:.1f}s"
+                    )
 
             self.last_monotonic = current_monotonic
             self.last_system = current_system
@@ -508,31 +523,32 @@ class TimeTamperDetector:
         Verify the entire hash chain hasn't been tampered with.
         Returns True if chain is intact, False otherwise.
         """
-        if not self.chain_data:
+        with self._lock:
+            if not self.chain_data:
+                return True
+
+            for i, entry in enumerate(self.chain_data):
+                # Verify previous hash linkage
+                if i == 0:
+                    if entry.get("previous_hash") != self.last_historic_hash:
+                        return False
+                else:
+                    if entry.get("previous_hash") != self.chain_data[i - 1]["hash"]:
+                        return False
+
+                # Verify entry hash
+                entry_copy = {k: v for k, v in entry.items() if k != "hash"}
+                entry_json = json.dumps(entry_copy, sort_keys=True)
+                computed_hash = hashlib.sha256(entry_json.encode()).hexdigest()
+
+                if computed_hash != entry.get("hash"):
+                    self._log_security_event(
+                        "CHAIN_TAMPER_DETECTED",
+                        {"entry_index": i, "computed_hash": computed_hash},
+                    )
+                    return False
+
             return True
-
-        for i, entry in enumerate(self.chain_data):
-            # Verify previous hash linkage
-            if i == 0:
-                if entry.get("previous_hash") != self.last_historic_hash:
-                    return False
-            else:
-                if entry.get("previous_hash") != self.chain_data[i - 1]["hash"]:
-                    return False
-
-            # Verify entry hash
-            entry_copy = {k: v for k, v in entry.items() if k != "hash"}
-            entry_json = json.dumps(entry_copy, sort_keys=True)
-            computed_hash = hashlib.sha256(entry_json.encode()).hexdigest()
-
-            if computed_hash != entry.get("hash"):
-                self._log_security_event(
-                    "CHAIN_TAMPER_DETECTED",
-                    {"entry_index": i, "computed_hash": computed_hash},
-                )
-                return False
-
-        return True
 
     def get_trust_level(self):
         """Return human-readable trust level."""

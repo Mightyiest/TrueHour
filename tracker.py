@@ -12,6 +12,7 @@ import threading
 import time
 import ctypes as _ctypes
 import json
+import shutil
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -516,28 +517,44 @@ class TagManager:
     }
 
     def __init__(self):
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.projects = list(self.DEFAULT_PROJECTS)
         self.mappings = {}
+        self.display_names = {}
         self.dirty = False
         self._load_tags()
 
     def _load_tags(self):
-        if not os.path.exists(TAGS_FILE):
-            self._save_tags(force=True)
-            return
-        try:
-            with open(TAGS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                self.projects = data.get("projects", list(self.DEFAULT_PROJECTS))
-                # Ensure "Unassigned" is always present
-                if "Unassigned" not in self.projects:
-                    self.projects.append("Unassigned")
-                self.mappings = data.get("mappings", {})
-        except Exception as e:
-            logger.warning(f"Failed to load tags config: {e}")
+        with self.lock:
             self.projects = list(self.DEFAULT_PROJECTS)
             self.mappings = {}
+            self.display_names = {}
+            self.dirty = False
+
+            if not os.path.exists(TAGS_FILE):
+                self._save_tags(force=True)
+                return
+            try:
+                with open(TAGS_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    loaded_projects = data.get("projects", list(self.DEFAULT_PROJECTS))
+                    self.projects = [p for p in loaded_projects if p]
+                    # Ensure all default core categories are present
+                    for def_proj in self.DEFAULT_PROJECTS:
+                        if def_proj not in self.projects:
+                            self.projects.append(def_proj)
+                    self.mappings = data.get("mappings", {})
+                    self.display_names = data.get("display_names", {})
+            except Exception as e:
+                logger.warning(f"Failed to load tags config: {e}")
+                try:
+                    if os.path.exists(TAGS_FILE):
+                        shutil.copy2(TAGS_FILE, str(TAGS_FILE) + ".corrupt.bak")
+                except Exception:
+                    pass
+                self.projects = list(self.DEFAULT_PROJECTS)
+                self.mappings = {}
+                self.display_names = {}
 
     def _save_tags(self, force=False):
         if not force:
@@ -550,11 +567,20 @@ class TagManager:
             temp_file = TAGS_FILE + ".tmp"
             with open(temp_file, "w", encoding="utf-8") as f:
                 json.dump(
-                    {"projects": self.projects, "mappings": self.mappings},
+                    {
+                        "projects": self.projects,
+                        "mappings": self.mappings,
+                        "display_names": getattr(self, "display_names", {}),
+                    },
                     f,
                     indent=2,
                     ensure_ascii=False,
                 )
+            if os.path.exists(TAGS_FILE):
+                try:
+                    shutil.copy2(TAGS_FILE, str(TAGS_FILE) + ".bak")
+                except Exception:
+                    pass
             os.replace(temp_file, TAGS_FILE)
             self.dirty = False
         except Exception as e:
@@ -595,11 +621,51 @@ class TagManager:
         return "Unassigned"
 
     def set_tag(self, app_name: str, tag: str):
-        key = app_name.lower().strip()
+        clean_name = app_name.strip()
+        if not clean_name:
+            return
+        key = clean_name.lower()
         with self.lock:
             if tag in self.projects or tag == "Unassigned":
                 self.mappings[key] = tag
+                if not hasattr(self, "display_names"):
+                    self.display_names = {}
+                self.display_names[key] = clean_name
                 self._save_tags(force=True)
+
+    def remove_app_tag(self, app_name: str) -> bool:
+        """Remove explicit mapping for an application (sets to Unassigned to prevent auto-rematching)."""
+        clean_name = app_name.strip()
+        key = clean_name.lower()
+        with self.lock:
+            if key in self.mappings:
+                self.mappings[key] = "Unassigned"
+                if hasattr(self, "display_names"):
+                    self.display_names[key] = clean_name
+                self._save_tags(force=True)
+                return True
+        return False
+
+    def get_apps_for_project(self, project: str) -> list[str]:
+        """Return list of app display names assigned to a given project."""
+        with self.lock:
+            apps = []
+            display_map = getattr(self, "display_names", {})
+            for k, v in self.mappings.items():
+                if v == project:
+                    name = display_map.get(k, k)
+                    apps.append(name)
+            return sorted(apps, key=lambda s: s.lower())
+
+    def get_all_mapped_apps(self) -> dict[str, str]:
+        """Return mapping of { app_display_name: project_name }."""
+        with self.lock:
+            result = {}
+            display_map = getattr(self, "display_names", {})
+            for k, v in self.mappings.items():
+                name = display_map.get(k, k)
+                result[name] = v
+            return result
 
     def add_project(self, project: str) -> bool:
         project = project.strip()
@@ -613,8 +679,8 @@ class TagManager:
         return False
 
     def remove_project(self, project: str) -> bool:
-        if project == "Unassigned":
-            return False  # Protect Unassigned
+        if project in self.DEFAULT_PROJECTS:
+            return False  # Protect core default categories from deletion
         with self.lock:
             if project in self.projects:
                 self.projects.remove(project)
@@ -733,10 +799,13 @@ class TagManager:
 
     def _fetch_and_update_tag_online(self, app_name: str, exe_path: str):
         """Asynchronously query DuckDuckGo and update mapping on success."""
+        if not app_name or app_name.startswith("["):
+            return
         try:
             import urllib.request
             import urllib.parse
             import ssl
+            import re
 
             # Use app name or file description for better search accuracy
             search_query = app_name
@@ -768,11 +837,14 @@ class TagManager:
 
                     if abstract:
                         abstract_lower = abstract.lower()
-                        # Run our keyword matcher against the online description
+                        # Run our keyword matcher against the online description with word boundaries
                         matched_tag = None
                         for category, words in self.KEYWORDS.items():
                             for word in words:
-                                if word in abstract_lower:
+                                if re.search(
+                                    r"\b" + re.escape(word.lower()) + r"\b",
+                                    abstract_lower,
+                                ):
                                     matched_tag = category
                                     break
                             if matched_tag:
@@ -1046,10 +1118,18 @@ class AppTracker:
             with open(ACTIVE_SESSION_FILE, "r", encoding="utf-8") as f:
                 state = json.load(f)
 
+            self.session_name = state.get("session_name", "")
             self.session_start = datetime.fromtimestamp(state["session_start"])
             self.app_times = state["app_times"]
             self.app_included = state.get("app_included", {})
             self.app_exe_paths = state.get("app_exe_paths", {})
+            self.integrity_warnings = []
+
+            # Initialize security detector for recovered session
+            reset_detector()
+            self.security_detector = get_detector()
+            self.security_detector.start_session()
+
             self.timeline = []
             for t in state["timeline"]:
                 self.timeline.append(
@@ -1215,11 +1295,15 @@ class AppTracker:
             logger.warning(f"Failed to load from report: {e}")
             return False
 
-    def toggle_pause(self, is_idle=False):
+    def toggle_pause(self, is_idle=False, is_distraction=False):
         with self._lock:
             if not self.running:
                 return False
             self.paused = not self.paused
+            if not is_idle:
+                self._idle_paused = False
+            if not is_distraction:
+                self._distraction_paused = False
             now = time.time()
             if self.paused:
                 if is_idle:
@@ -1232,6 +1316,7 @@ class AppTracker:
                             0.0, self._current_block_active - deduct
                         )
                     self._total_paused_time += deduct
+                    self._current_start = None
 
                 self._flush_current_unlocked(now)
                 self._current_app = None
@@ -1309,6 +1394,26 @@ class AppTracker:
 
     def set_app_tag(self, app_name: str, tag: str):
         self.tag_manager.set_tag(app_name, tag)
+
+    def remove_app_tag(self, app_name: str) -> bool:
+        return self.tag_manager.remove_app_tag(app_name)
+
+    def get_apps_for_category(self, category: str) -> list[str]:
+        return self.tag_manager.get_apps_for_project(category)
+
+    def get_all_category_mappings(self) -> dict[str, str]:
+        return self.tag_manager.get_all_mapped_apps()
+
+    def get_discovered_apps(self) -> list[str]:
+        discovered = set()
+        if hasattr(self, "app_times"):
+            discovered.update(self.app_times.keys())
+        if hasattr(self, "app_exe_paths"):
+            discovered.update(self.app_exe_paths.keys())
+        display_map = getattr(self.tag_manager, "display_names", {})
+        discovered.update(display_map.values())
+        discovered.update(self.tag_manager.mappings.keys())
+        return sorted([a for a in discovered if a and a != "[Idle]"], key=lambda s: s.lower())
 
     # ------------------------------------------------------------------
     # Internal
@@ -1407,7 +1512,7 @@ class AppTracker:
             if is_distracting:
                 if not self.paused:
                     self._distraction_paused = True
-                    self.toggle_pause()
+                    self.toggle_pause(is_distraction=True)
                     if self.on_update:
                         try:
                             self.on_update()
@@ -1417,7 +1522,7 @@ class AppTracker:
                 if self._distraction_paused:
                     self._distraction_paused = False
                     if self.paused:
-                        self.toggle_pause()
+                        self.toggle_pause(is_distraction=True)
                     if self.on_update:
                         try:
                             self.on_update()

@@ -2,8 +2,17 @@ import os
 import hashlib
 import base64
 import logging
+import functools
 
 logger = logging.getLogger(__name__)
+
+
+def _get_portable_key(seed: str) -> str:
+    """Derives a portable machine-independent encryption key using only the user seed (for cloud/cross-pc backups)."""
+    if not seed:
+        return "default_portable_seed"
+    combined = f"TrueHourPortable:{seed}"
+    return hashlib.sha256(combined.encode("utf-8")).hexdigest()
 
 
 def _get_secure_key(seed: str) -> str:
@@ -45,6 +54,7 @@ def _get_password_key_legacy(data: str) -> str:
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 
+@functools.lru_cache(maxsize=32)
 def _derive_fernet_key(
     key_seed: str, salt: bytes = None, iterations: int = 600000
 ) -> bytes:

@@ -12,15 +12,35 @@ from tracker import AppTracker
 from dialogs.categories_dialog import CategoriesDialog
 from widgets.update_label import FadingVersionLabel
 from widgets.custom_widgets import EmailChipWidget
+import os
+import tempfile
 from debug_terminal import LogBufferCollector
 
 
 class TestUIDialogStability(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._temp_dir = tempfile.TemporaryDirectory()
+        cls._orig_localappdata = os.environ.get("LOCALAPPDATA")
+        cls._orig_appdata = os.environ.get("APPDATA")
+        os.environ["LOCALAPPDATA"] = cls._temp_dir.name
+        os.environ["APPDATA"] = cls._temp_dir.name
+
         cls.app = QApplication.instance()
         if cls.app is None:
             cls.app = QApplication(sys.argv)
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls._orig_localappdata is not None:
+            os.environ["LOCALAPPDATA"] = cls._orig_localappdata
+        else:
+            os.environ.pop("LOCALAPPDATA", None)
+        if cls._orig_appdata is not None:
+            os.environ["APPDATA"] = cls._orig_appdata
+        else:
+            os.environ.pop("APPDATA", None)
+        cls._temp_dir.cleanup()
 
     def test_log_buffer_collector_lazy_emitter(self):
         """Test that LogBufferCollector does not crash or emit improperly."""
@@ -44,24 +64,84 @@ class TestUIDialogStability(unittest.TestCase):
         signal_emitted = []
         dialog.categories_changed.connect(lambda: signal_emitted.append(True))
 
-        # Test Add Category
-        dialog.add_entry.setText("Research")
+        # Test Add Category (custom user category)
+        dialog.add_entry.setText("Client Alpha")
         dialog._add_project()
         self.app.processEvents()
 
-        self.assertIn("Research", tracker.tag_manager.projects)
+        self.assertIn("Client Alpha", tracker.tag_manager.projects)
         self.assertTrue(len(signal_emitted) > 0)
 
-        # Test Delete Category (simulating clicking delete on 'Research')
+        # Test Delete Category (simulating clicking delete on 'Client Alpha')
         signal_emitted.clear()
-        dialog._delete_project("Research")
+        dialog._delete_project("Client Alpha")
         self.app.processEvents()
 
-        self.assertNotIn("Research", tracker.tag_manager.projects)
+        self.assertNotIn("Client Alpha", tracker.tag_manager.projects)
         self.assertTrue(len(signal_emitted) > 0)
 
         # Multiple processEvents cycles to ensure singleShot deferrals execute cleanly
         for _ in range(5):
+            self.app.processEvents()
+
+        dialog.close()
+        dialog.deleteLater()
+        self.app.processEvents()
+
+    def test_categories_dialog_app_assignment_and_reassignment(self):
+        """Test listing, adding, reassigning, and removing applications from categories directly."""
+        tracker = AppTracker()
+        tracker.tag_manager.projects = ["Unassigned", "Development", "Design"]
+        tracker.tag_manager.mappings = {}
+
+        dialog = CategoriesDialog(tracker, theme_style="light")
+        dialog.show()
+        self.app.processEvents()
+
+        # 1. Add application to "Design" category
+        dialog._select_category("Design")
+        self.app.processEvents()
+        self.assertEqual(dialog._selected_category, "Design")
+
+        dialog.app_name_entry.setText("Figma")
+        dialog.target_cat_combo.setCurrentText("Design")
+        dialog._assign_entered_app()
+        self.app.processEvents()
+
+        design_apps = tracker.tag_manager.get_apps_for_project("Design")
+        self.assertIn("Figma", design_apps)
+        self.assertEqual(tracker.get_app_tag("Figma"), "Design")
+
+        # 2. Reassign "Figma" from "Design" to "Development"
+        dialog._reassign_app("Figma", old_cat="Design", new_cat="Development")
+        self.app.processEvents()
+
+        dev_apps = tracker.tag_manager.get_apps_for_project("Development")
+        self.assertIn("Figma", dev_apps)
+        self.assertEqual(tracker.get_app_tag("Figma"), "Development")
+        self.assertNotIn("Figma", tracker.tag_manager.get_apps_for_project("Design"))
+
+        # 3. Add second application
+        dialog.app_name_entry.setText("VS Code")
+        dialog.target_cat_combo.setCurrentText("Development")
+        dialog._assign_entered_app()
+        self.app.processEvents()
+
+        all_mapped = tracker.tag_manager.get_all_mapped_apps()
+        self.assertIn("Figma", all_mapped)
+        self.assertIn("VS Code", all_mapped)
+
+        # 4. Remove application
+        dialog._remove_app("Figma")
+        self.app.processEvents()
+
+        dev_apps_after = tracker.tag_manager.get_apps_for_project("Development")
+        self.assertNotIn("Figma", dev_apps_after)
+        self.assertEqual(tracker.tag_manager.get_tag("Figma"), "Unassigned")
+        all_mapped_after = tracker.tag_manager.get_all_mapped_apps()
+        self.assertIn("VS Code", all_mapped_after)
+
+        for _ in range(3):
             self.app.processEvents()
 
         dialog.close()

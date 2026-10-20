@@ -377,13 +377,16 @@ class SessionManagerDialog(QDialog):
         open_folder_btn.setToolTip("Open manual saved sessions folder")
         open_folder_btn.setObjectName("NormalButton")
         open_folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        open_folder_btn.clicked.connect(
-            lambda: open_file(
-                self.autosave_folder
-                if self.tab_widget.currentIndex() == 1
-                else self.history_folder
-            )
-        )
+        def _open_active_tab_folder():
+            idx = self.tab_widget.currentIndex()
+            if idx == 1:
+                open_file(self.autosave_folder)
+            elif idx == 3:
+                open_file(self.trash_folder)
+            else:
+                open_file(self.history_folder)
+
+        open_folder_btn.clicked.connect(_open_active_tab_folder)
         footer.addWidget(open_folder_btn)
 
         close_btn = QPushButton("Close", self)
@@ -1290,6 +1293,10 @@ class SessionManagerDialog(QDialog):
                 self._stop_preview_server()
 
                 session_files = json.loads(full_inv.get("session_files", "[]"))
+                saved_add_items = billing_data.get("additional_items", [])
+                calc_total = float(billing_data.get("total_earned", 0.0)) + sum(
+                    float(it.get("amount", 0.0)) for it in (saved_add_items or [])
+                )
 
                 def save_callback():
                     from database.schema import save_invoice
@@ -1297,7 +1304,7 @@ class SessionManagerDialog(QDialog):
                     save_invoice(
                         invoice_no=invoice_no,
                         client_name=settings_data.get("client_name", "Valued Client"),
-                        amount=billing_data.get("total_earned", 0.0),
+                        amount=calc_total,
                         currency=settings_data.get("currency_symbol", "$"),
                         status="unpaid",
                         session_files=session_files,
@@ -1307,7 +1314,7 @@ class SessionManagerDialog(QDialog):
                     self.invoice_saved_signal.emit()
 
                 html_content = generate_invoice_html(
-                    billing_data, settings_data, status="unpaid", invoice_no=invoice_no
+                    billing_data, settings_data, status="unpaid", invoice_no=invoice_no, additional_items=saved_add_items
                 )
 
                 self.preview_server = InvoiceServerThread(
@@ -1480,11 +1487,17 @@ class SessionManagerDialog(QDialog):
                 os.path.basename(path) for path in self.selected_sessions
             ]
 
+            if additional_items:
+                billing_data["additional_items"] = additional_items
+            calc_total = float(billing_data.get("total_earned", 0.0)) + sum(
+                float(it.get("amount", 0.0)) for it in (additional_items or [])
+            )
+
             # Save immediately as a draft
             save_invoice(
                 invoice_no=inv_no,
                 client_name=settings_data.get("client_name", "Valued Client"),
-                amount=billing_data.get("total_earned", 0.0),
+                amount=calc_total,
                 currency=settings_data.get("currency_symbol", "$"),
                 status="draft",
                 session_files=session_filenames,
@@ -1500,7 +1513,7 @@ class SessionManagerDialog(QDialog):
                 save_invoice(
                     invoice_no=inv_no,
                     client_name=settings_data.get("client_name", "Valued Client"),
-                    amount=billing_data.get("total_earned", 0.0),
+                    amount=calc_total,
                     currency=settings_data.get("currency_symbol", "$"),
                     status="unpaid",
                     session_files=session_filenames,

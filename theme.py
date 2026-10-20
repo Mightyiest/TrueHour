@@ -471,7 +471,7 @@ def get_svg_icon(svg_content, size=QSize(20, 20), color_hex=None) -> QIcon:
             content_str = svg_content.decode("utf-8")
         else:
             content_str = svg_content
-        for default_color in ["#0078D4", "#0F7B0F", "#FF0000"]:
+        for default_color in ["#0078D4", "#0F7B0F", "#FF0000", "#FF7F7F"]:
             content_str = content_str.replace(default_color, color_hex)
             content_str = content_str.replace(default_color.lower(), color_hex.lower())
         svg_bytes = content_str.encode("utf-8")

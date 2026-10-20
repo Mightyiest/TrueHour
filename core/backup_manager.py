@@ -8,6 +8,7 @@ from datetime import datetime
 from config import get_app_data_root
 from crypto import (
     _get_secure_key,
+    _get_portable_key,
     _get_password_key,
     _get_password_key_legacy,
     _encrypt_string,
@@ -15,6 +16,38 @@ from crypto import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _backup_sqlite_db_to_archive(db_path: str, zipf: zipfile.ZipFile, arcname: str):
+    """Safely backups a live SQLite WAL database into a zip archive using sqlite3.Connection.backup()."""
+    import sqlite3
+
+    temp_dir = tempfile.mkdtemp()
+    temp_db = os.path.join(temp_dir, "clean_backup.db")
+    try:
+        src_conn = sqlite3.connect(db_path, timeout=30.0)
+        try:
+            try:
+                src_conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+            except Exception:
+                pass
+            dest_conn = sqlite3.connect(temp_db)
+            try:
+                src_conn.backup(dest_conn)
+            finally:
+                dest_conn.close()
+        finally:
+            src_conn.close()
+
+        zipf.write(temp_db, arcname=arcname)
+    except Exception as e:
+        logger.warning(
+            f"SQLite online backup failed for {db_path}, falling back to direct write: {e}"
+        )
+        zipf.write(db_path, arcname=arcname)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
 
 BANK_FIELDS = [
     "bank_holder",
@@ -74,10 +107,11 @@ def _sanitize_settings_for_backup(
     salt_bytes: bytes = None,
     anonymous_user_id: str = "",
 ) -> dict:
-    """Helper to strip plaintext bank details or re-encrypt with portable password key."""
+    """Helper to strip plaintext bank details or re-encrypt with portable password/cloud key."""
     data = dict(settings_data)
     anon_id = anonymous_user_id or data.get("anonymous_user_id", "")
     local_key = _get_secure_key(anon_id)
+    portable_key = _get_portable_key(anon_id) if anon_id else local_key
 
     if password:
         pwd_key = _get_password_key(password, salt=salt_bytes)
@@ -85,18 +119,25 @@ def _sanitize_settings_for_backup(
             plain_fld = fld.replace("_enc", "")
             decrypted = _decrypt_string(data.get(fld, ""), local_key)
             if not decrypted:
+                decrypted = _decrypt_string(data.get(fld, ""), portable_key)
+            if not decrypted:
                 decrypted = data.get(plain_fld, "")
             data[fld] = _encrypt_string(decrypted, pwd_key, salt=salt_bytes)
             data.pop(plain_fld, None)
     else:
-        for fld_name in BANK_FIELDS:
-            enc_fld = fld_name + "_enc"
-            plain_val = data.get(fld_name, "")
+        for fld in BANK_ENC_FIELDS:
+            plain_fld = fld.replace("_enc", "")
+            plain_val = data.get(plain_fld, "")
             if plain_val:
-                data[enc_fld] = _encrypt_string(plain_val, local_key)
-                del data[fld_name]
-            elif enc_fld in data and fld_name in data:
-                del data[fld_name]
+                data[fld] = _encrypt_string(plain_val, portable_key)
+                data.pop(plain_fld, None)
+            elif data.get(fld):
+                decrypted = _decrypt_string(data.get(fld, ""), local_key)
+                if not decrypted:
+                    decrypted = _decrypt_string(data.get(fld, ""), portable_key)
+                if decrypted:
+                    data[fld] = _encrypt_string(decrypted, portable_key)
+                data.pop(plain_fld, None)
 
     return data
 
@@ -112,6 +153,7 @@ def _restore_settings_from_backup(
     data = dict(settings_data)
     anon_id = data.get("anonymous_user_id", "")
     target_local_key = _get_secure_key(anon_id)
+    portable_key = _get_portable_key(anon_id) if anon_id else target_local_key
 
     if is_encrypted and password:
         pwd_key = _derive_password_key(password, key_derivation, salt=salt_bytes)
@@ -125,13 +167,18 @@ def _restore_settings_from_backup(
         for fld in BANK_ENC_FIELDS:
             plain_fld = fld.replace("_enc", "")
             plain_val = data.get(plain_fld, "")
-            if plain_val:
-                data[fld] = _encrypt_string(plain_val, target_local_key)
-            elif data.get(fld):
-                decrypted_val = _decrypt_string(data.get(fld, ""), target_local_key)
-                if decrypted_val:
-                    data[plain_fld] = decrypted_val
-                    data[fld] = _encrypt_string(decrypted_val, target_local_key)
+            enc_val = data.get(fld, "")
+            decrypted_val = ""
+            if enc_val:
+                decrypted_val = _decrypt_string(enc_val, portable_key)
+                if not decrypted_val:
+                    decrypted_val = _decrypt_string(enc_val, target_local_key)
+            elif plain_val:
+                decrypted_val = plain_val
+
+            if decrypted_val:
+                data[fld] = _encrypt_string(decrypted_val, target_local_key)
+                data[plain_fld] = decrypted_val
 
     return data
 
@@ -270,6 +317,8 @@ def backup_settings(
                                 zipf.writestr("app_settings.json", json.dumps(raw_data, indent=4))
                             except Exception as inner:
                                 logger.error(f"Could not write fallback settings: {inner}")
+                    elif rel_path == "truehour.db":
+                        _backup_sqlite_db_to_archive(full_path, zipf, arcname=rel_path)
                     else:
                         zipf.write(full_path, arcname=rel_path)
         return True
@@ -380,6 +429,8 @@ def backup_workspace(
                                     zipf.writestr(archive_entry, json.dumps(raw_data, indent=4))
                                 except Exception:
                                     pass
+                        elif rel_in_prof == "truehour.db":
+                            _backup_sqlite_db_to_archive(full_path, zipf, arcname=archive_entry)
                         else:
                             zipf.write(full_path, arcname=archive_entry)
 
@@ -517,6 +568,14 @@ def import_settings(
                         continue
                     src_file = os.path.join(root, file)
                     dst_file = os.path.join(target_dir, file)
+                    if file == "truehour.db":
+                        for ext in ("-wal", "-shm"):
+                            stale_wal = dst_file + ext
+                            if os.path.exists(stale_wal):
+                                try:
+                                    os.remove(stale_wal)
+                                except Exception:
+                                    pass
                     try:
                         shutil.copy2(src_file, dst_file)
                     except Exception as copy_err:
@@ -701,6 +760,14 @@ def import_workspace(
 
                         src_file = os.path.join(root, file)
                         dst_file = os.path.join(target_dir, file)
+                        if file == "truehour.db":
+                            for ext in ("-wal", "-shm"):
+                                stale_wal = dst_file + ext
+                                if os.path.exists(stale_wal):
+                                    try:
+                                        os.remove(stale_wal)
+                                    except Exception:
+                                        pass
                         try:
                             shutil.copy2(src_file, dst_file)
                         except Exception as copy_err:

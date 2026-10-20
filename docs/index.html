@@ -2439,6 +2439,11 @@ chmod +x build.sh
                                 <span class="changelog-date">2026.10.10</span>
                             </div>
                             <ul class="changelog-changes">
+                                <li><strong>Google Drive 200-Revision Auto-Rotation</strong>: Automatic revision unpinning and fallback recovery for Google Drive <code>keptRevisionsLimitExceeded</code> (HttpError 403) errors, keeping pinned backups below quota.</li>
+                                <li><strong>SQLite WAL Online Backup Integrity</strong>: Switched database archiving to <code>sqlite3.Connection.backup()</code> ensuring committed WAL frames are flushed into clean standalone archives, with automatic stale <code>-wal</code>/<code>-shm</code> cleanup on restore.</li>
+                                <li><strong>Zero-Leak Portable Cloud Encryption</strong>: Re-keyed cloud backup banking data with portable PBKDF2 derivation based on account ID, preventing hardware SID locking across PCs while keeping plaintext off disk.</li>
+                                <li><strong>PyQt6 Worker Thread Lifecycle Hardening</strong>: Safeguarded <code>SettingsDialog</code>, <code>CloudRevisionsDialog</code>, and <code>LoadingDialog</code> against destroyed <code>QThread</code> crashes on close, accept, and reject.</li>
+                                <li><strong>Secure Time Anti-Tamper Hardening</strong>: Verified forward clock jumps (>5s) against network NTP time before adjusting sleep durations and wrapped cryptographic chain validation in re-entrant thread locks.</li>
                                 <li><strong>UI Memory Access Violation Fix</strong>: Resolved Windows STATUS_ACCESS_VIOLATION (0xC0000005) crash in Qt6Core.dll (<code>QObject::isWidgetType()</code>) during dialog widget teardown and mouse event dispatching.</li>
                                 <li><strong>Consolidated Cloud Backup Architecture</strong>: Unified single-archive multi-profile Google Drive sync with timestamp verification and anti-overwrite safety gates.</li>
                                 <li><strong>Nested Modal Window Hierarchy</strong>: Properly parented secondary dialogs to their active parent modals, preventing competing modal loops and focus locks.</li>

@@ -5,11 +5,19 @@ All notable changes to TrueHour will be documented in this file.
 ## [4.2.0-beta.1] - 2026-10-10
 
 ### Added
+- **Google Drive 200-Revision Auto-Rotation & Pruning**: Automated revision unpinning and fallback recovery for Google Drive `keptRevisionsLimitExceeded` (HttpError 403) errors, keeping pinned revisions below quota without dropping cloud backups.
+- **SQLite WAL Online Backup Architecture**: Migrated database backup creation to `sqlite3.Connection.backup()` ensuring committed WAL frames are flushed into clean, standalone database files, and automated cleanup of stale `-wal` and `-shm` files during profile restorations.
+- **Zero-Leak Portable Cloud Encryption**: Re-keyed cloud backup banking data with portable PBKDF2 derivation based on account ID, preventing hardware SID locking across PCs while keeping plaintext off disk.
 - **Multi-Profile Unified Cloud Backup Architecture**: Consolidated multi-profile `.truehour` archive sync to Google Drive, ensuring all profiles and tracking histories are backed up together atomically.
 - **Drive Anti-Overwrite Safety Gate**: Implemented cloud timestamp and integrity verification gates to safeguard existing cloud backups from being prematurely overwritten.
-- **Automated UI Dialog Stability Test Suite**: Added dedicated regression test coverage (`tests/test_ui_dialog_stability.py`) validating nested modal operations, category additions/deletions, widget unparenting safety, and label crossfades.
+- **Automated Audit & UI Dialog Stability Test Suites**: Added 30 dedicated regression tests in `tests/test_audit_fixes.py` and `tests/test_ui_dialog_stability.py` validating 40 codebase audit findings (142 tests total, 100% green).
 
 ### Fixed
+- **PyQt6 Background Worker Thread Lifecycle**: Protected `SettingsDialog`, `CloudRevisionsDialog`, and `LoadingDialog` against destroyed `QThread` segmentation faults by disconnecting and stopping workers on dialog close, accept, and reject.
+- **Forward Clock Jump Bypass in Tamper Detection**: Verified forward system clock jumps (>5s) against network NTP time before adjusting sleep durations and wrapped cryptographic chain validation in re-entrant thread locks.
+- **Settings Load Encoding & Destructive Reset Prevention**: Added explicit UTF-8 encoding in `_load_app_settings()`, preserved corrupt files to `.corrupt.bak`, and performed atomic writes via `.tmp` and `os.replace()`.
+- **UI Category Reassignment on Scroll**: Implemented `NoWheelComboBox` in categories dialog to block accidental category mutation during mouse-wheel scrolling.
+- **Manual Line Items on Paid Receipts**: Included `additional_items` in invoice database amounts and rendered itemized fees in paid HTML receipts.
 - **UI Crash & Memory Access Violation (0xC0000005)**: Resolved Windows `STATUS_ACCESS_VIOLATION` in `Qt6Core.dll` (`QObject::isWidgetType()`) caused by unsafe `setParent(None)` calls on widgets while active mouse release signals were still dispatching.
 - **Nested Modal Hierarchy & Window Modality**: Correctly parented `CategoriesDialog` and `AboutDialog` to `SettingsDialog` when launched from settings, eliminating competing modal event loops under the main window root.
 - **Deferred Layout Rebuilding**: Deferred category, app list, and QR thumbnail rebuilds using `QTimer.singleShot(0, ...)` so Qt event loops unwind cleanly before widgets are destroyed and recreated.

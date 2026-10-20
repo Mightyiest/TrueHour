@@ -301,6 +301,7 @@ class ReportDialog(QDialog):
             table.setRowCount(len(apps_data))
             table.verticalHeader().setVisible(False)
             table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
 
             for i, app in enumerate(apps_data):
                 table.setItem(i, 0, QTableWidgetItem(app["name"]))
@@ -358,6 +359,7 @@ class ReportDialog(QDialog):
             )
             tl_table.verticalHeader().setVisible(False)
             tl_table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            tl_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
 
             btn_container = QWidget(tl_card)
             btn_layout = QHBoxLayout(btn_container)

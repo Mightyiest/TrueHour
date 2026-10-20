@@ -58,7 +58,11 @@ PROJECT_COLORS = {
 
 
 def get_project_color(project_name: str) -> str:
-    return PROJECT_COLORS.get(project_name, "#64748B")
+    if project_name in PROJECT_COLORS:
+        return PROJECT_COLORS[project_name]
+    palette = list(PROJECT_COLORS.values())[:-1]
+    idx = sum(ord(c) for c in project_name) % len(palette)
+    return palette[idx]
 
 
 class TimelineEntry(TypedDict):
@@ -563,13 +567,11 @@ def aggregate_history_data(
                     continue
 
                 key = (date_str, start_str)
-                total_secs = data.get("total_seconds", 0)
-                if key in unique_sessions:
+                if key in finalized_keys:
+                    total_secs = data.get("total_seconds", 0)
                     existing_total = unique_sessions[key].get("total_seconds", 0)
                     if total_secs > existing_total:
                         unique_sessions[key] = data
-                else:
-                    unique_sessions[key] = data
             except Exception:
                 continue
 
@@ -901,15 +903,18 @@ def merge_session_files(
             if act not in merged_new_activity:
                 merged_new_activity.append(act)
 
+        s_date = data.get("date", "")
         for entry in data.get("timeline", []):
-            merged_timeline.append(entry)
+            merged_timeline.append((s_date, entry))
 
-    def _get_timeline_start(t):
+    def _get_timeline_start(item):
+        s_date, t = item
         if isinstance(t, dict):
-            return t.get("start", "")
+            return f"{s_date} {t.get('start', '')}"
         return ""
 
     merged_timeline.sort(key=_get_timeline_start)
+    merged_timeline = [t for _, t in merged_timeline]
 
     apps_list = []
     project_times = {}
@@ -1059,8 +1064,8 @@ def get_cached_template(template_path: str, default_content: str) -> str:
             needs_write = True
 
     if needs_write:
-        os.makedirs(os.path.dirname(template_path), exist_ok=True)
         try:
+            os.makedirs(os.path.dirname(template_path), exist_ok=True)
             with open(template_path, "w", encoding="utf-8") as f:
                 f.write(default_content.strip())
         except Exception:
@@ -1522,7 +1527,9 @@ default_receipt_template = """<!DOCTYPE html>
 </html>"""
 
 
-def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
+def generate_receipt_html(
+    billing_data, settings_data, invoice_no=None, additional_items=None
+) -> str:
     """
     Generates a stunning, premium, modern A4 HTML payment receipt with simplified details.
     Loads templates/receipt.html from disk, auto-creating it if missing.
@@ -1664,10 +1671,11 @@ def generate_receipt_html(billing_data, settings_data, invoice_no=None) -> str:
     html = html.replace("{{HOURS_COUNTED}}", f"{hours_counted:.2f}")
     html = html.replace("{{HOURLY_RATE}}", f"{curr_sym}{hourly_rate:.2f}/hr")
 
-    total_earned_display = billing_data.get("total_earned_display")
-    if not total_earned_display:
-        total_earned = billing_data.get("total_earned", 0.0)
-        total_earned_display = f"{curr_sym}{total_earned:,.2f}"
+    effective_items = additional_items or billing_data.get("additional_items", [])
+    total_earned = float(billing_data.get("total_earned", 0.0))
+    for it in (effective_items or []):
+        total_earned += float(it.get("amount", 0.0))
+    total_earned_display = f"{curr_sym}{total_earned:,.2f}"
     html = html.replace("{{TOTAL_AMOUNT_PAID}}", _esc(total_earned_display))
 
     return html
@@ -1682,7 +1690,9 @@ def generate_invoice_html(
     Loads templates/invoice.html from disk, auto-creating it if missing.
     """
     if status == "paid":
-        return generate_receipt_html(billing_data, settings_data, invoice_no=invoice_no)
+        return generate_receipt_html(
+            billing_data, settings_data, invoice_no=invoice_no, additional_items=additional_items
+        )
     import base64
     import sys
     from html import escape as _esc
@@ -2818,7 +2828,7 @@ def generate_invoice_html(
         )
         items_html += f"""
                 <tr>
-                    <td style="font-weight: 600;"><span class="tag-pill" style="{pill_style}">{pb["project"]}</span></td>
+                    <td style="font-weight: 600;"><span class="tag-pill" style="{pill_style}">{_esc(pb["project"])}</span></td>
                     <td>{pb["formatted"]}</td>
                     <td>{cat_hours:.2f}</td>
                     <td>{curr_sym}{hourly_rate:.2f}/hr</td>
@@ -3451,18 +3461,20 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
 
     <script>
         function switchTheme(themeName) {
-            document.body.className = 'theme-' + themeName;
+            const classes = Array.from(document.body.classList).filter(c => !c.startsWith('theme-'));
+            classes.push('theme-' + themeName);
+            document.body.className = classes.join(' ');
             document.querySelectorAll('.theme-pill-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.getAttribute('data-theme') === themeName);
             });
             try {
-                localStorage.setItem('truehour-theme', themeName);
+                localStorage.setItem('truehour-report-color-theme', themeName);
             } catch(e) {}
         }
 
         window.addEventListener('DOMContentLoaded', () => {
             try {
-                const savedTheme = localStorage.getItem('truehour-theme') || 'indigo';
+                const savedTheme = localStorage.getItem('truehour-report-color-theme') || 'indigo';
                 switchTheme(savedTheme);
             } catch(e) {}
         });
@@ -3475,7 +3487,9 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
     from config import get_app_data_dir
     import json
 
-    settings_path = os.path.join(get_app_data_dir(), "settings.json")
+    settings_path = os.path.join(get_app_data_dir(), "app_settings.json")
+    if not os.path.exists(settings_path):
+        settings_path = os.path.join(get_app_data_dir(), "settings.json")
     dark_mode = False
     theme_style = "light"
     if os.path.exists(settings_path):
@@ -3577,7 +3591,7 @@ def generate_session_report_html(report, hourly_rate=0.0, currency_symbol="$") -
         projects_visual += f"""
         <div class="project-row">
             <div class="project-info">
-                <span class="project-name">{pb["project"]}</span>
+                <span class="project-name">{_esc(pb["project"])}</span>
                 <span class="project-stats">{pb["formatted"]} ({pct:.1f}%)</span>
             </div>
             <div class="project-bar-bg">

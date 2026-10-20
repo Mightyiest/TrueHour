@@ -30,68 +30,65 @@ def db_session():
 
 
 def init_db():
-    conn = get_connection()
-    cursor = conn.cursor()
+    with db_session() as conn:
+        cursor = conn.cursor()
 
-    # Create Daily Summary Table
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS daily_summary (
-        date TEXT PRIMARY KEY,
-        total_seconds INTEGER NOT NULL DEFAULT 0,
-        session_count INTEGER NOT NULL DEFAULT 0,
-        active_projects INTEGER NOT NULL DEFAULT 0,
-        longest_session INTEGER NOT NULL DEFAULT 0,
-        updated_at TEXT
-    );
-    """)
+        # Create Daily Summary Table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS daily_summary (
+            date TEXT PRIMARY KEY,
+            total_seconds INTEGER NOT NULL DEFAULT 0,
+            session_count INTEGER NOT NULL DEFAULT 0,
+            active_projects INTEGER NOT NULL DEFAULT 0,
+            longest_session INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT
+        );
+        """)
 
-    # Create Report Job Table
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS report_jobs (
-        id TEXT PRIMARY KEY,
-        status TEXT,
-        progress INTEGER,
-        report_type TEXT,
-        start_date TEXT,
-        end_date TEXT,
-        output_path TEXT,
-        error_message TEXT,
-        created_at TEXT,
-        completed_at TEXT
-    );
-    """)
+        # Create Report Job Table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS report_jobs (
+            id TEXT PRIMARY KEY,
+            status TEXT,
+            progress INTEGER,
+            report_type TEXT,
+            start_date TEXT,
+            end_date TEXT,
+            output_path TEXT,
+            error_message TEXT,
+            created_at TEXT,
+            completed_at TEXT
+        );
+        """)
 
-    # Create Schema Version Metadata Table
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS schema_meta (
-        key TEXT PRIMARY KEY,
-        value TEXT
-    );
-    """)
+        # Create Schema Version Metadata Table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS schema_meta (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );
+        """)
 
-    # Insert initial schema version
-    cursor.execute(
-        "INSERT OR IGNORE INTO schema_meta (key, value) VALUES ('version', '1');"
-    )
+        # Insert initial schema version
+        cursor.execute(
+            "INSERT OR IGNORE INTO schema_meta (key, value) VALUES ('version', '1');"
+        )
 
-    # Create Invoices Table
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS invoices (
-        invoice_no TEXT PRIMARY KEY,
-        client_name TEXT,
-        amount REAL,
-        currency TEXT,
-        status TEXT DEFAULT 'unpaid',
-        session_files TEXT,
-        billing_data TEXT,
-        settings_data TEXT,
-        created_at TEXT,
-        updated_at TEXT
-    );
-    """)
-
-    conn.commit()
-    conn.close()
+        # Create Invoices Table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS invoices (
+            invoice_no TEXT PRIMARY KEY,
+            client_name TEXT,
+            amount REAL,
+            currency TEXT,
+            status TEXT DEFAULT 'unpaid',
+            session_files TEXT,
+            billing_data TEXT,
+            settings_data TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        );
+        """)
 
 
 def save_invoice(
@@ -103,18 +100,29 @@ def save_invoice(
     session_files,
     billing_data,
     settings_data,
+    created_at=None,
 ):
     import json
     from datetime import datetime
 
     now = datetime.now().isoformat()
+    created_at_val = created_at or now
     with db_session() as conn:
         conn.execute(
             """
-        INSERT OR REPLACE INTO invoices (
+        INSERT INTO invoices (
             invoice_no, client_name, amount, currency, status,
             session_files, billing_data, settings_data, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(invoice_no) DO UPDATE SET
+            client_name=excluded.client_name,
+            amount=excluded.amount,
+            currency=excluded.currency,
+            status=excluded.status,
+            session_files=excluded.session_files,
+            billing_data=excluded.billing_data,
+            settings_data=excluded.settings_data,
+            updated_at=excluded.updated_at;
         """,
             (
                 invoice_no,
@@ -125,7 +133,7 @@ def save_invoice(
                 json.dumps(session_files),
                 json.dumps(billing_data),
                 json.dumps(settings_data),
-                now,
+                created_at_val,
                 now,
             ),
         )

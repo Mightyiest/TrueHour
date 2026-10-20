@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QHBoxLayout,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from theme import get_qss_style, get_dark_palette, get_light_palette
 
 
@@ -63,6 +63,9 @@ class LoadingDialog(QDialog):
         self.worker = worker
         self.compiled_report = None
         self.error_message = None
+        self._start_timer = QTimer(self)
+        self._start_timer.setSingleShot(True)
+        self._start_timer.timeout.connect(self._start_worker)
         if self.worker:
             self.worker.status_changed.connect(self.update_status)
             self.worker.finished.connect(self._on_worker_finished)
@@ -122,7 +125,6 @@ class LoadingDialog(QDialog):
             layout.addLayout(btn_layout)
 
     def _on_cancel(self):
-        self.was_cancelled = True
         self.reject()
 
     def update_status(self, percent, text=None):
@@ -142,10 +144,35 @@ class LoadingDialog(QDialog):
 
     def showEvent(self, event):
         super().showEvent(event)
-        if self.worker:
-            from PyQt6.QtCore import QTimer
+        if self.worker and not self.worker.isRunning():
+            self._start_timer.start(300)
 
-            QTimer.singleShot(300, self.worker.start)
+    def _start_worker(self):
+        if not self.was_cancelled and self.worker and not self.worker.isRunning():
+            self.worker.start()
+
+    def reject(self):
+        self.was_cancelled = True
+        if hasattr(self, "_start_timer") and self._start_timer.isActive():
+            self._start_timer.stop()
+        if self.worker:
+            try:
+                self.worker.status_changed.disconnect(self.update_status)
+            except Exception:
+                pass
+            try:
+                self.worker.finished.disconnect(self._on_worker_finished)
+            except Exception:
+                pass
+            try:
+                self.worker.error.disconnect(self._on_worker_error)
+            except Exception:
+                pass
+        super().reject()
+
+    def closeEvent(self, event):
+        self.reject()
+        super().closeEvent(event)
 
     def _on_worker_finished(self, report):
         self.compiled_report = report

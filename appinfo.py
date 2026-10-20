@@ -118,15 +118,27 @@ def get_foreground_app_info():
             import psutil
 
             proc = psutil.Process(pid)
-            exe_path = proc.exe()
-            base = proc.name()
-            if base.lower().endswith(".exe"):
-                base = base[:-4]
-            friendly = resolve_name(exe_path, base)
-            return friendly, exe_path
+            try:
+                base = proc.name()
+                if base.lower().endswith(".exe"):
+                    base = base[:-4]
+            except Exception:
+                base = ""
+
+            try:
+                exe_path = proc.exe()
+            except (psutil.AccessDenied, psutil.NoSuchProcess, Exception):
+                exe_path = ""
+
+            if exe_path:
+                friendly = resolve_name(exe_path, base)
+                return friendly, exe_path
+            elif base:
+                friendly = resolve_name("", base)
+                return friendly, ""
+            return "[Protected System App]", ""
         except (psutil.AccessDenied, psutil.NoSuchProcess):
-            title = win32gui.GetWindowText(hwnd)
-            return title if title else "[Protected System App]", ""
+            return "[Protected System App]", ""
     except Exception as e:
         logger.warning(f"Error getting foreground app info: {e}")
         return "[Idle]", ""

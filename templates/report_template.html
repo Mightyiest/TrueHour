@@ -582,18 +582,20 @@
 
     <script>
         function switchTheme(themeName) {
-            document.body.className = 'theme-' + themeName;
+            const classes = Array.from(document.body.classList).filter(c => !c.startsWith('theme-'));
+            classes.push('theme-' + themeName);
+            document.body.className = classes.join(' ');
             document.querySelectorAll('.theme-pill-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.getAttribute('data-theme') === themeName);
             });
             try {
-                localStorage.setItem('truehour-theme', themeName);
+                localStorage.setItem('truehour-report-color-theme', themeName);
             } catch(e) {}
         }
 
         window.addEventListener('DOMContentLoaded', () => {
             try {
-                const savedTheme = localStorage.getItem('truehour-theme') || 'indigo';
+                const savedTheme = localStorage.getItem('truehour-report-color-theme') || 'indigo';
                 switchTheme(savedTheme);
             } catch(e) {}
         });

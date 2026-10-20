@@ -348,6 +348,7 @@ class EmailChipWidget(QWidget):
 
     def get_emails(self):
         """Return the list of entered emails."""
+        self._on_commit()
         return list(self._emails)
 
     def set_emails(self, email_list):
@@ -382,9 +383,12 @@ class FlowLayout(QLayout):
         self._items = []
 
     def __del__(self):
-        item = self.takeAt(0)
-        while item:
+        try:
             item = self.takeAt(0)
+            while item:
+                item = self.takeAt(0)
+        except Exception:
+            pass
 
     def addItem(self, item):
         self._items.append(item)
@@ -597,6 +601,8 @@ class InvoicePrivacyOptionsDialog(QDialog):
         btn_layout.addWidget(cancel_btn)
         btn_layout.addWidget(gen_btn)
         layout.addLayout(btn_layout)
+
+        self._apply_theme()
 
     def get_additional_payment(self):
         txt_amount = (

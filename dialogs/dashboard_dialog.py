@@ -38,7 +38,8 @@ class TrueHourDashboard(QDialog):
         is_dark = theme_style in ["modern-dark", "classic-dark"]
         from theme import get_dark_palette, get_light_palette
 
-        self.setStyleSheet(self.main_app.styleSheet())
+        if self.main_app and hasattr(self.main_app, "styleSheet"):
+            self.setStyleSheet(self.main_app.styleSheet())
         self.setPalette(
             get_dark_palette(theme_style) if is_dark else get_light_palette()
         )
@@ -591,8 +592,21 @@ class TrueHourDashboard(QDialog):
         # Enforce a stable 800x680 size for all tabs to prevent jarring jumps and setGeometry warnings
         self.setMinimumSize(800, 680)
         self.resize(800, 680)
-        if self.main_app:
-            self.main_app._center_window(self, 800, 680)
+
+    def closeEvent(self, event):
+        if hasattr(self, "live_timer") and self.live_timer.isActive():
+            self.live_timer.stop()
+        super().closeEvent(event)
+
+    def reject(self):
+        if hasattr(self, "live_timer") and self.live_timer.isActive():
+            self.live_timer.stop()
+        super().reject()
+
+    def accept(self):
+        if hasattr(self, "live_timer") and self.live_timer.isActive():
+            self.live_timer.stop()
+        super().accept()
 
     def on_tab_changed(self, index):
         if index == 0:

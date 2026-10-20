@@ -6,7 +6,7 @@ Native Windows executable icon extraction and PIL image conversion.
 import io
 import logging
 import os
-from PyQt6.QtCore import QFileInfo, QSize
+from PyQt6.QtCore import QFileInfo, QSize, Qt
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import QFileIconProvider
 
@@ -41,7 +41,16 @@ def get_native_icon_pixmap(exe_path: str, size: int = 16):
         file_info = QFileInfo(exe_path)
         icon = _ICON_PROVIDER.icon(file_info)
         if icon and not icon.isNull():
-            return icon.pixmap(QSize(size, size))
+            target_size = max(16, size)
+            # Request high-res base then scale smoothly to prevent 32px Windows crop
+            raw_pix = icon.pixmap(QSize(max(32, target_size * 2), max(32, target_size * 2)))
+            if not raw_pix.isNull():
+                return raw_pix.scaled(
+                    target_size,
+                    target_size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
     except Exception as e:
         logger.debug("Failed to get native icon for %s: %s", exe_path, e)
     return None

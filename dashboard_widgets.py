@@ -268,16 +268,19 @@ class BarChartWidget(QWidget):
 
         num_bars = len(self.data)
         bar_outer_width = chart_w / num_bars
-        bar_width = max(6.0, bar_outer_width * 0.6)
+        bar_width = max(8.0, bar_outer_width * 0.5)
 
         max_val = max(d["value"] for d in self.data)
         if max_val <= 0:
             max_val = 1.0
+        y_max = math.ceil(max_val) if max_val > 1 else max_val
+        if y_max <= 0:
+            y_max = 1.0
 
         new_hover = -1
         for idx, d in enumerate(self.data):
             val = d["value"]
-            bar_h = (val / max_val) * chart_h
+            bar_h = (val / y_max) * chart_h
             bx = (
                 padding_left
                 + (idx * bar_outer_width)
@@ -285,8 +288,8 @@ class BarChartWidget(QWidget):
             )
             by = h - padding_bottom - bar_h
 
-            # Build bounding box for mouse collision detection
-            bar_rect = QRectF(bx - 3, by - 5, bar_width + 6, bar_h + 10)
+            # Build bounding box for mouse collision detection matching paintEvent
+            bar_rect = QRectF(bx - 2, by - 2, bar_width + 4, bar_h + 4)
             if bar_rect.contains(self.mouse_pos):
                 new_hover = idx
                 break

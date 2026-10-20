@@ -77,8 +77,9 @@ def calculate_project_breakdown(start_date_str: str, end_date_str: str):
                     project_times[tag] = project_times.get(tag, 0) + secs
 
     breakdown = []
+    counted_seconds = sum(project_times.values())
     for proj, secs in project_times.items():
-        pct = (secs / total_seconds * 100.0) if total_seconds > 0 else 0
+        pct = (secs / counted_seconds * 100.0) if counted_seconds > 0 else 0
         breakdown.append({"project": proj, "seconds": secs, "percent": round(pct, 1)})
     breakdown.sort(key=lambda x: x["seconds"], reverse=True)
     return breakdown

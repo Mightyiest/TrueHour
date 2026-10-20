@@ -59,8 +59,12 @@ class LogBufferCollector:
 
     @property
     def emitter(self):
-        if self._emitter is None and QApplication.instance() is not None:
-            self._emitter = LogSignalEmitter()
+        app = QApplication.instance()
+        if self._emitter is None and app is not None:
+            from PyQt6.QtCore import QThread
+
+            if QThread.currentThread() == app.thread():
+                self._emitter = LogSignalEmitter()
         return self._emitter
 
     def write_log(self, text):
@@ -363,7 +367,8 @@ class DebugTerminalWindow(QDialog):
             scrollbar.setValue(scrollbar.maximum())
 
     def colorize_text(self, text):
-        escaped = html.escape(text).replace("\n", "<br>")
+        clean_text = text[:-1] if text.endswith("\n") else text
+        escaped = html.escape(clean_text).replace("\n", "<br>")
         lower_text = text.lower()
 
         # Telemetry Action coloring (premium bright cyan)
