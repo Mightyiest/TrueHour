@@ -1,268 +1,124 @@
-# True Hours v4.0.0-beta.1
+# TrueHour v5.0.0 (Native Rust Edition)
 
-> **A lightweight, privacy-first desktop time tracker with a modern Fluent Design UI, supporting Windows & macOS.**
+> **A lightweight, 100% local-only desktop focus & time tracker for Windows, built natively in Rust with `egui` / `eframe` — zero WebView2, zero Chromium, zero telemetry.**
 
-True Hours automatically monitors your active window to track productivity, calculate earnings based on hourly rates, and generate detailed session reports. It features crash recovery, auto-exclusion of system apps, customizable external HTML templates, offline app icon extraction, and flexible export options (TXT, HTML).
+TrueHour monitors your active foreground application to track productive work time, calculate earnings from hourly rates, assign project categories, and generate verified session reports and printable HTML invoices.
 
 ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-0078D4.svg)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078D4?logo=windows)
-![Python](https://img.shields.io/badge/python-3.8+-3776AB?logo=python)
+![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows)
+![Rust](https://img.shields.io/badge/rust-eframe%200.37%20%7C%20glow-DEA584?logo=rust)
+![Local Only](https://img.shields.io/badge/mode-100%25%20Local--Only-10B981)
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
 | | Feature | Description |
 |---|---|---|
-| ☁️ | **Google Drive Sync** | Single-archive (`.truehour`) cloud backup & 1-click restore via OAuth 2.0 PKCE. |
-| 🕒 | **Time Tracking** | Detects the foreground app and logs usage with second-level precision. Features retroactive idle deduction. |
-| 📊 | **Analytics Dashboard** | Interactive PyQt6 donut & bar charts with live and historical category breakdowns. |
-| 📄 | **HTML Templates** | Editable invoice and session report templates in `templates/` — easy to customize externally. |
-| 🩺 | **Self-Healing Templates** | Missing template files are auto-regenerated at runtime, preventing crashes. |
-| 🧾 | **Invoice Builder** | Dynamic invoicing with multi-email chip inputs, bank transfer details, QR codes, and A4 PDF printing. |
-| 💰 | **Earnings Calculator** | Set an hourly rate and watch earnings accumulate live during active sessions. |
-| 🛡️ | **Smart Exclusions** | Auto-ignores system processes, manually exclude apps, and automatically ignores TrueHour itself via PID matching. |
-| 🔒 | **Anti-Tamper Security** | Monotonic clock protection, NTP validation, SHA-256 hash chaining, and 128-bit local web server token authentication. |
-| 💾 | **Crash Recovery** | Unexpected closures are auto-saved to an `autosave` folder for later recovery. |
-| 📤 | **Export Options** | Export to TXT, HTML Invoice, or HTML Session Report. |
-| 🎨 | **Modern UI** | Clean, light-themed interface inspired by Windows 11 Fluent Design, built with PyQt6. |
----
-
-## 📸 Screenshots
-<div align="center">
-  <strong>True Hours Interface</strong><br>
-  <em>Main Tracker, Session Report, and Dashboard</em><br><br>
-<img width="2560" height="1440" alt="rue Hours Full Window Interface" src="https://github.com/user-attachments/assets/0f0a8ea7-d378-477d-a657-f4dd9186c6fb" />
-
-  
-  <br><br><br>
-
-  <strong>Generated Invoice</strong><br>
-  <em>Professional HTML invoice output</em><br><br>
-
-<img width="2558" height="1265" alt="True Hours HTML Invoice" src="https://github.com/user-attachments/assets/e2c67753-2e22-45a4-ae67-4033d66de6ad" />
-</div>
-
-
-
+| ⚡ | **Pure Native GUI** | Built with `egui 0.37` + `eframe 0.37` (`glow` OpenGL). Launches fast, uses ~85 MB RAM, and spawns **zero** WebView2 / Chromium child processes. |
+| 🕒 | **Precision Time Tracking** | Polls the active Windows foreground process, tracks counted vs. total session time, and supports retroactive idle deduction. |
+| 🚫 | **Distraction Auto-Pause** | Automatically pauses tracking on distracting apps (configurable checklist or right-click app row context menu) and resumes when you return to work. |
+| 🏷️ | **Project Categories** | Color-coded category pills, live category reassignment, custom categories, and persistent app mappings. |
+| 📊 | **Analytics Dashboard** | Built-in Trends & History insights, weekly focus goal tracking, and activity heatmap. |
+| 🧾 | **Session Manager & Invoices** | Multi-tab manager (`Sessions`, `Recoveries`, `Trash`, `Invoices`), session merging, invoice status lifecycle (`DRAFT` / `UNPAID` / `PAID`), QR codes, and browser preview. |
+| 📄 | **HTML Templates** | Editable A4 HTML invoice and session report templates in `templates/` with automatic runtime self-healing if missing. |
+| 🔒 | **Anti-Tamper SHA-256 Ledger** | Monotonic clock checks, NTP drift verification, and SHA-256 hash-chained session ledger. |
+| 🔐 | **Encrypted Local Backups** | Export/import `.truehour` workspace or single-profile archives with optional password encryption (PBKDF2-HMAC-SHA256 + Fernet). |
+| 🎨 | **Three Built-In Themes** | Switch live between **Modern Dark**, **Classic Dark**, and **Light** themes with matching system tray integration. |
+| 🛡️ | **Offline & Privacy-First** | Zero telemetry, zero cloud sign-in, single-instance lock, and automatic self-exclusion by PID. |
 
 ---
 
-## 🚀 Installation & Usage
+## 🚀 Building & Running
 
-### Option 1: Run from Source (Recommended for Developers)
+### Option 1: Build on GitHub Actions (Saves Local Disk Space)
 
-1.  **Clone the Repository:**
-    ```bash
-    git clone https://github.com/yourusername/TrueHours.git
-    cd TrueHours
-    ```
+You do not need to keep Rust or `target/` build caches on your PC:
 
-2.  **Install Dependencies:**
-    *   **Windows:**
-        ```bash
-        pip install PyQt6 pywin32 psutil Pillow
-        ```
-    *   **macOS:**
-        ```bash
-        pip install PyQt6 pyobjc-framework-AppKit psutil Pillow
-        ```
+1. Push changes to `v5.0-rust` (or `main`/`master`), **or** open the **Actions** tab on GitHub and run **Build TrueHour (Windows Native)** manually (`workflow_dispatch`).
+2. Download the **`truehour-windows-x64`** artifact (`truehour.exe`, ~13 MB) from the completed workflow run.
 
-3.  **Run the Application:**
-    *   **Windows:** Use the batch file `run.bat` or run:
-        ```bash
-        python app.py
-        ```
-    *   **macOS:** Run the shell launcher script `./run.sh` (or manually run `python3 app.py`):
-        ```bash
-        chmod +x run.sh
-        ./run.sh
-        ```
+Workflow definition: [`.github/workflows/build.yml`](.github/workflows/build.yml).
 
-### Option 2: Build Standalone Executable (.exe or .app)
+### Option 2: Build Locally from Source (Windows)
 
-If you want to package a standalone binary that runs without requiring Python to be installed:
+Prerequisites: [Rust toolchain](https://rustup.rs/) (`stable`) with MSVC build tools.
 
-1.  **Install PyInstaller:**
-    ```bash
-    pip install pyinstaller
-    ```
+```powershell
+cd truehour-rs
+cargo test --no-fail-fast
+cargo build --release
+```
 
-2.  **Build Binary:**
-    *   **Windows:**
-        Double-click `build.bat` or run:
-        ```bash
-        pyinstaller --noconsole --onefile --windowed --name="TrueHours" --icon="icon.ico" app.py
-        ```
-    *   **macOS:**
-        Run the build script `./build.sh` (or manually run `pyinstaller`):
-        ```bash
-        chmod +x build.sh
-        ./build.sh
-        ```
-        *(This automatically installs dependencies, runs PyInstaller, cleans up temp files, and places a standard double-clickable `TrueHours.app` bundle in your root directory!)*
+The standalone binary is produced at:
+`truehour-rs/target/release/truehour.exe`
 
----
+To reclaim local disk space after copying `truehour.exe` elsewhere:
 
-## 📂 Project Structure
-
-```text
-TrueHours/
-├── icon.ico            # Application Icon
-├── app.py              # Main UI Entry Point (PyQt6)
-├── tracker.py          # Core Logic: Polling loop, state management, crash recovery
-├── report.py           # Data formatting, export utilities (TXT/HTML)
-├── appinfo.py          # Windows API wrappers: Get foreground window, extract icons/names
-├── config.py           # Configuration helpers: Data directory management
-├── secure_time.py      # Anti-tamper security: Monotonic clocks, hash chaining, NTP sync
-├── run.bat             # Windows launcher script
-├── run.sh              # macOS/Linux launcher script
-├── build.bat           # Automated Windows PyInstaller build script
-├── build.sh            # Automated macOS PyInstaller build script
-├── requirements.txt    # Python dependencies
-├── README.md           # This file
-├── SECURITY_FEATURES.md # Detailed documentation of anti-tamper protections
-├── templates/          # A4 HTML templates (invoices, session reports)
-...
+```powershell
+cd truehour-rs
+cargo clean
 ```
 
 ---
 
-## ⚙️ Configuration & Customization
+## 📂 Project Structure (`v5.0-rust` Branch)
 
-True Hours stores user data in the local app data directory:
-`%LOCALAPPDATA%\TrueHour` (or `~\TrueHour` if env var is missing).
+```text
+TrueHour/
+├── .github/workflows/
+│   └── build.yml               # Windows CI build + truehour.exe artifact upload
+├── truehour-rs/                # Native Rust application crate
+│   ├── Cargo.toml
+│   ├── build.rs                # Windows icon & version resource embedding
+│   ├── icons/                  # App icon assets
+│   ├── src/
+│   │   ├── main.rs             # Windows GUI entry point
+│   │   ├── lib.rs              # AppCore orchestration, settings, lifecycle
+│   │   ├── tracker.rs          # Foreground polling, idle & distraction auto-pause
+│   │   ├── appinfo.rs          # Win32 process/title/icon resolution
+│   │   ├── report.rs           # Session JSON persistence, merging, TXT/HTML export
+│   │   ├── invoice.rs          # HTML invoice generation & formatting
+│   │   ├── db.rs               # SQLite summaries & invoice records
+│   │   ├── backup.rs           # .truehour ZIP workspace/profile backup & restore
+│   │   ├── crypto.rs           # PBKDF2 + Fernet encryption parity
+│   │   ├── secure_time.rs      # SHA-256 hash chain & NTP drift validation
+│   │   ├── http_preview.rs     # Localhost-only invoice preview server
+│   │   ├── tray.rs             # Native Windows system tray menu
+│   │   └── gui/                # Pure egui/eframe native windows, modals & widgets
+│   └── tests/
+│       └── integration_parity.rs
+├── templates/                  # Editable A4 HTML invoice & report templates
+├── README.md
+└── LICENSE.md
+```
 
-### 1. Auto-Excluded Apps
-True Hours comes with a default list of system apps to ignore (e.g., `explorer.exe`, `svchost.exe`). You can customize this list. Additionally, TrueHour automatically ignores its own window using real-time PID detection, ensuring your tracking sessions aren't interrupted when you open the app to check your progress.
-
-1.  Open **Settings** in the app.
-2.  Click **"Edit Auto-Exclusions"**.
-3.  This opens `auto_excluded_apps.txt`.
-4.  Add or remove `.exe` names (one per line). Lines starting with `#` are comments.
-5.  Click **"Reload"** in Settings to apply changes immediately without restarting.
-
-### 2. Name Overrides
-If an app displays a confusing technical name (e.g., `chrome.exe` instead of `Google Chrome`), you can force a friendly name.
-
-1.  Open **Settings**.
-2.  Click **"Edit Name Overrides"**.
-3.  Format: `exename=Friendly Name`
-    ```text
-    chrome=Google Chrome
-    code=VS Code
-    ```
-
-### 3. Billing Settings
-Set your currency and hourly rate in the **Settings** menu.
-*   **Currency Symbol:** Choose from USD, EUR, GBP, JPY, etc.
-*   **Hourly Rate:** Enter your rate (e.g., `50.00`).
-*   *Note:* Earnings are calculated based on **Counted Work Time** only (excluded apps do not earn money).
-
-### 4. Custom HTML Templates (A4 Layouts)
-True Hours allows you to fully customize how client invoices and session reports look when printed to PDF or exported.
-1.  Open the `templates/` folder in the True Hours root directory.
-2.  Open **`invoice.html`** or **`report_template.html`** in a code/text editor (e.g., VS Code).
-3.  Modify the styling (CSS), fonts, layout structures, and text as you like.
-4.  Keep placeholders in place (e.g., `{{BUSINESS_NAME}}`, `{{ITEMS}}`, `{{TIMELINE_ITEMS}}`) so the application can dynamically populate your tracking details.
-5.  *Self-Healing:* If you ever make a mistake or break a file, simply delete the file or the `templates/` directory, and True Hours will instantly recreate a fresh default copy at runtime.
+*(Legacy Python v4.2 source files remain in the repository root for reference and migration parity; `truehour-rs` does not require Python at runtime.)*
 
 ---
 
-## 📊 Understanding the Data
+## ⚙️ Data & Configuration
 
-### Session States
-*   **Total Session Time:** The entire duration from Start to Stop/Pause.
-*   **Counted Work Time:** Time spent in apps that are **not** excluded. This is the basis for earnings calculations.
-*   **Excluded Apps:** Apps you have manually or automatically marked as "non-work." They appear in the report but are marked `[EXCLUDED]` and do not contribute to earnings.
+TrueHour stores profiles, settings, SQLite summaries, sessions, invoices, QR codes, and templates locally under:
 
-### File Storage
-*   **`sessions/`**: Contains manually saved session reports (`.json`).
-*   **`autosave/`**: Contains automatic backups every 10 seconds (configurable) and crash recoveries.
-*   *Files prefixed with `auto_`: Regular backups.
-*   *Files prefixed with `recovery_`: Sessions recovered after a crash.
+`%LOCALAPPDATA%\TrueHour`
 
----
-
-## 🛠️ Developer Guide
-
-### Key Modules
-
-#### `tracker.py`
-The heart of the application.
-*   **`AppTracker` Class:** Manages the polling thread.
-*   **`_poll_loop()`:** Runs every 1 second (default). Checks `get_foreground_app_info()`.
-*   **Crash Recovery:** Uses `active_session.json` to store state. If the app restarts and finds this file, it offers to recover the session.
-
-#### `appinfo.py`
-Handles Windows-specific interactions.
-*   **`get_foreground_app_info()`:** Uses `win32gui` and `psutil` to find the active window's PID and executable path.
-*   **`resolve_name()`:** Tries to get the "File Description" from the EXE version info for a friendly name. Falls back to overrides or filename.
-*   **`get_icon_image()`:** Extracts the small icon from the EXE using `win32gui.ExtractIconEx` and converts it to a PIL Image for PyQt6.
-
-#### `report.py`
-Handles data serialization.
-*   **`build_report_data()`:** Aggregates raw tracker data into a structured dictionary.
-*   **`export_txt()`:** Generates a clean text file summary of the session.
-*   **`save_to_autosave()`:** Atomic write to prevent corruption during crashes.
-
-### Adding New Features
-
-1.  **New Export Format:** Add a function in `report.py` (e.g., `export_pdf`) and call it from `app.py`'s `_export` method.
-2.  **Dark Mode:** Currently, the app forces Light Mode via `ctypes` in `app.py`. To support Dark Mode, you would need to dynamically switch the `BG_*` color constants and remove the `SetPreferredAppMode(3)` call.
+- **Profiles:** Switch, create, rename, or delete isolated workspaces in **Settings → General & Controls**.
+- **Auto-Exclusions & Name Overrides:** Edit `auto_excluded_apps.txt` or `name_overrides.txt` directly from Settings and click **Reload**.
+- **Templates:** Customize `templates/invoice.html` or `templates/report_template.html` — missing files are regenerated automatically at runtime.
 
 ---
 
 ## ❓ FAQ
 
-**Q: Why is my timer not updating?**
+**Q: Does TrueHour v5.0 use WebView2 or Chromium?**  
+A: **No.** It is a pure native Rust binary rendered with `egui`/`eframe` (`glow`). No WebView2 or browser processes are spawned.
 
-A: Ensure the app has permission to run in the background. Some "Game Modes" or aggressive power savers may pause Python scripts.
+**Q: Does it send any data online?**  
+A: **No.** TrueHour v5.0 runs in 100% Local-Only Mode with zero telemetry, zero analytics, and no cloud account sync.
 
-**Q: How do I stop tracking specific games or social media?**
-
-A: Click the **"+ Exclude App"** button in the main UI while the app is running, or add the `.exe` name to `auto_excluded_apps.txt`.
-
-**Q: Where are my saved sessions?**
-
-A: Click the **📂 (Folder)** icon in the top right header to open the Session Manager. You can also open the folder directly via Settings.
-
-**Q: Does this send data online?**
-
-A: **No.** TrueHour is a 100% offline-first application with **zero telemetry tracking**. No analytics, usage events, window titles, keystrokes, or personal data are ever sent online. All tracking data remains exclusively on your local machine.
-
-**Q: Was AI Used in this Project?**
-
-A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
----
-
-## 📅 Changelog
-
-### v3.3.3-beta.2 (2026.07.04)
-- **Lazy-Loaded Module Imports**: Relocated heavy package imports (such as cryptography, Pillow, and psutil) from module-level declarations to dynamic on-demand imports. This optimizes memory allocation and accelerates application initialization.
-- **Asynchronous Web Server Deferral**: Delayed the instantiation and startup of the goals WebServerManager by 4 seconds using a single-shot timer. This prevents blocking during the main window rendering phase and prevents premature loading of http.server standard libraries.
-- **PyInstaller Exclusions**: Added explicit exclusions to PyInstaller configuration files for unused testing and developer packages (pytest, unittest, tkinter, pydoc, setuptools, pip, distutils), decreasing portable binary file sizes.
-- **Executable PATH Checks in Build Scripts**: Integrated where checks for the pyinstaller executable in build scripts to prevent command-not-found printouts and gracefully fallback to python -O -m PyInstaller bytecode-optimized compilation.
-- **One-Directory Distribution Option**: Introduced build scripts specifically targeting `--onedir` output to eliminate Windows extraction overheads for users seeking instant startup behavior.
-
-### v3.3.2 (2026.06.22)
-- **Three-Theme UI & Stylesheet Caching**: Upgraded the interface to support three selectable themes ("Light", "Modern Dark", "Classic Dark") via a dropdown selector in the Settings dialog, with caching of QSS stylesheets and optimized theme application.
-- **Encrypted Profile Backups**: Added password-protected encrypted backup support for settings and banking details, utilizing PBKDF2HMAC (100,000 iterations) for secure password key derivation while maintaining compatibility for legacy backups.
-- **Asynchronous Startup Optimization**: Deferred heavy startup tasks, including database initialization and auto-exclusions loading, and added non-blocking incremental icon loading to eliminate UI freezes on application launch.
-- **Unit Test Coverage & Refactoring**: Converted cryptography tests to standard `unittest.TestCase` and added tests specifically verifying PBKDF2 and SHA-256 legacy fallback validation.
-
-### v3.3.1 (2026.06.18)
-- **App-Specific Distraction Auto-Pause**: Automatically pauses tracking when switching to a designated distracting application (e.g. Chrome, games, Spotify) and auto-resumes when returning to a productive task.
-- **App List Context Menu**: Right-click any application in the live tracking list to quickly mark or unmark it as distracting.
-- **Manage Distraction Apps**: Added a dedicated checklist dialog in Settings to manage, search, and manually add custom application executables.
-- **Dynamic Build Naming**: Updated the unofficial build script to query both version and build number from `version.py` and programmatically construct the output filename at compile time.
-
-### v3.3.0 (2026.06.16)
-- **Priority Counted Time View**: Swapped the primary display elements: the big main UI clock now displays the productive **Counted Work Time** (`00:00:00`), while the bottom footer displays the overall **Total Session Time** (`Xh XXm XXs`).
-- **Retroactive Idle Deduction**: Integrated smart idle auto-pause math. The moment the idle threshold (e.g. 2 minutes) is reached, the inactive period is retroactively deducted from both the active foreground application's tracked time and the overall session duration.
-- **Process-Level Self-Exclusion**: Implemented native self-exclusion. TrueHour now detects its own Process ID (PID) on both Windows and macOS and automatically marks itself as ignored, allowing you to open the tracker to check stats without interrupting your active tracking.
+**Q: Why is `target/` so large after building locally?**  
+A: Rust/Cargo stores intermediate compiler artifacts in `truehour-rs/target/`. Copy `truehour-rs/target/release/truehour.exe` to a safe folder and run `cargo clean` (or build on GitHub Actions instead).
 
 ---
 
@@ -270,30 +126,12 @@ A: **Yes** Gemini <3 , Claude <3 , Deepseek <3 , QWEN <3 Thank you so much!!!!!!
 
 This project is licensed under the **PolyForm Noncommercial License 1.0.0**.
 
-You are free to:
-*   **Use, modify, and distribute** the software for personal, research, academic, or other private non-commercial requirements.
-
-Under the following terms:
-*   **NonCommercial** — You may not make any commercial use of the software. Commercial use is any use of the software by a business or for business purposes, or as part of a commercial service, or in any way that is intended for or directed toward commercial advantage or monetary compensation.
-*   **Commercial Permission** — Custom commercial licensing or custom permission is available for businesses, sales, or partnerships by contacting the licensor.
-
-See the [LICENSE](LICENSE.md) file for the full legal text.
+See [LICENSE.md](LICENSE.md) for the full legal text.
 
 ---
 
 ## 🙏 Acknowledgments
 
-*   Built with **Python** and **PyQt6**.
-*   Icon extraction powered by **pywin32** and **Pillow**.
-*   Process monitoring via **psutil**.
-*   Vectors and icons by <a href="https://dribbble.com/saeedworks?ref=svgrepo.com" target="_blank">Saeedworks</a> in CC Attribution License via <a href="https://www.svgrepo.com/" target="_blank">SVG Repo</a>. We thank him very much for his amazing work!
-
-### Special Thanks
-
-We would like to express our heartfelt gratitude to the following AI assistants and teams who contributed to this project:
-
-*   **Alibaba QWEN Coder Agentic** - For exceptional coding assistance and guidance.
-*   **Google Antigravity Team** - For their innovative support and insights.
-*   **Claude AI** - For valuable contributions and problem-solving expertise.
-
-Thank you all for making True Hours possible! ❤️
+- Built in **Rust** with **egui / eframe**, **rusqlite**, and **windows-rs**.
+- Vectors and icons by <a href="https://dribbble.com/saeedworks?ref=svgrepo.com" target="_blank">Saeedworks</a> (CC Attribution License via <a href="https://www.svgrepo.com/" target="_blank">SVG Repo</a>).
+- AI coding assistance from Claude, Gemini, Qwen, and DeepSeek.

@@ -1,0 +1,42 @@
+name: Build TrueHour (Windows Native)
+
+on:
+  push:
+    branches: [main, master, v5.0-rust]
+  pull_request:
+    branches: [main, master, v5.0-rust]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: truehour-rs
+    env:
+      RUSTFLAGS: "-D warnings"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: truehour-rs
+
+      - name: Run unit & integration tests
+        run: cargo test --no-fail-fast
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Upload truehour.exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: truehour-windows-x64
+          path: truehour-rs/target/release/truehour.exe
+          retention-days: 30

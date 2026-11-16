@@ -1,0 +1,57 @@
+[package]
+name = "truehour"
+version = "5.0.0"
+description = "TrueHour Focus & Time Tracker (Native Rust GUI)"
+authors = ["TrueHour"]
+edition = "2021"
+
+[lib]
+name = "truehour_lib"
+crate-type = ["rlib"]
+
+[dependencies]
+eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow", "clipboard", "links"] }
+egui = { version = "0.37", default-features = false, features = ["default_fonts"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+rusqlite = { version = "0.42", default-features = false, features = ["bundled", "backup"] }
+fernet = { version = "0.2.2", default-features = false, features = ["rustcrypto"] }
+sha2 = "0.10"
+hmac = "0.12"
+hex = "0.4"
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+flate2 = "1.1"
+crc32fast = "1.5"
+getrandom = "0.2"
+tempfile = "3"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_Networking_WinHttp",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_LibraryLoader",
+    "Win32_System_ProcessStatus",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = 3
+strip = "none"
